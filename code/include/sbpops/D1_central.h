@@ -35,7 +35,7 @@ public:
   /**
   * Computes v_x with inverse grid spacing hi for a grid function vector v, of size n.
   **/
-  inline void apply(const double *v, const double hi, const int n, double *u) const;
+  inline void apply(const double *v, const double hi, const int n, double *v_x) const;
 };
 
 //=============================================================================
@@ -77,16 +77,16 @@ inline double D1_central<iw,nc,closure_width>::apply_right(const double *v, cons
 };
 
 template <int iw, int nc, int cw>
-inline void D1_central<iw,nc,cw>::apply(const double *v, const double hi, const int n, double *u) const
+inline void D1_central<iw,nc,cw>::apply(const double *v, const double hi, const int n, double *v_x) const
 {
   for (int i = 0; i < nc; i++){
-    u[i] = apply_left(v,hi,i);
+    v_x[i] = apply_left(v,hi,i);
   }
   for (int i = nc; i < n-nc; i++){
-    u[i] = apply_interior(v,hi,i);
+    v_x[i] = apply_interior(v,hi,i);
   }
   for (int i = n-nc; i < n; i++){
-    u[i] = apply_right(v,hi,n,i);
+    v_x[i] = apply_right(v,hi,n,i);
   }
 };
 
