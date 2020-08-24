@@ -1,16 +1,40 @@
+/**
+* Central first derivative SBP operator. The class holds the stencil weights for the interior
+* stencil and the closure stencils and contains method for applying the operator to a grid function
+* vector. The stencils of the operator are all declared at compile time, which (hopefully) should
+* allow the compiler to perform extensive optimization on the apply methods.
+**/
 // TBD: Having 3 template parameters allow for general blocks, but very often the following
 // holds for a pth order stencil: interior_width = p + 1, n_closures = p. Could therefore potentially
 // remove one parameter.
 template <int interior_width, int n_closures, int closure_width>
 class D1_central{
 private:
+  // Stencils defining the operator. The stencils are declared at compile time
   const double interior_stencil[interior_width];
   const double closure_stencils[n_closures][closure_width];
 public:
+  // Constructor. See implementations for specific stencils
+  // TBD: Would it be pass the stencils as input arguments? Would also be nice to just pass a
+  // paramater defining the order which returns a template-specified operator. Not sure if this
+  // can be done in a constructor. If not one should consider writing factory function.
   constexpr D1_central();
+  /**
+  * Computes v_x[i] for an index i in the set of the left closure points, with inverse grid spacing hi.
+  **/
   inline double apply_left(const double *v, const double hi, const int i) const;
+  /**
+  * Computes v_x[i] for an index i in the set of the interior points, with inverse grid spacing hi.
+  **/
   inline double apply_interior(const double *v, const double hi, const int i) const;
+  /**
+  * Computes v_x[i] for an index i in the set of the right closure points, with inverse grid spacing hi,
+  * and grid function vector size n.
+  **/
   inline double apply_right(const double *v, const double hi, const int n, const int i) const;
+  /**
+  * Computes v_x with inverse grid spacing hi for a grid function vector v, of size n.
+  **/
   inline void apply(const double *v, const double hi, const int n, double *u) const;
 };
 
@@ -18,6 +42,7 @@ public:
 // Implementations
 //=============================================================================
 
+// TODO: Consider adding bounds checking (at least checking in debug mode).
 template <int iw, int nc, int closure_width>
 inline double D1_central<iw,nc,closure_width>::apply_left(const double *v, const double hi, const int i) const
 {
