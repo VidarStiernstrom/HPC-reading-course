@@ -9,7 +9,7 @@ DEBUG_MODULES	=
 COPTFLAGS		= -O3 -march=native -mtune=native
 CPPFLAGS		= -DVERSION=${PETSC_VERSION_NUM}
 CXXFLAGS		= $(DEBUG_MODULES) $(COPTFLAGS) $(IFLAGS)
-CLINKER			= g++
+CLINKER			= mpicc
 
 
 include ${PETSC_DIR}/lib/petsc/conf/variables
