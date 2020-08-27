@@ -5,9 +5,6 @@ namespace sbp {
   * vector. The stencils of the operator are all declared at compile time, which (hopefully) should
   * allow the compiler to perform extensive optimization on the apply methods.
   **/
-  // TBD: Having 3 template parameters allow for general blocks, but very often the following
-  // holds for a pth order stencil: interior_width = p + 1, n_closures = p. Could therefore potentially
-  // remove one parameter.
   template <int interior_width, int n_closures, int closure_width>
   class D1_central{
   private:
@@ -16,10 +13,12 @@ namespace sbp {
     const double closure_stencils[n_closures][closure_width];
   public:
     // Constructor. See implementations for specific stencils
-    // TBD: Would it be pass the stencils as input arguments? Would also be nice to just pass a
-    // paramater defining the order which returns a template-specified operator. Not sure if this
-    // can be done in a constructor. If not one should consider writing factory function.
     constexpr D1_central();
+    // TODO: Figure out how to pass static arrays holding the stencils at construction.
+    // Then could have a single templated constructor initializing the members from the arguments
+    // and the specific operators (of a given order) would be nicely defined in 
+    // make_diff_ops.h.
+    // constexpr D1_central(const double (*i_s)[interior_width], const double (**c_s)[n_closures][closure_width]);
     /**
     * Computes v_x[i] for an index i in the set of the left closure points, with inverse grid spacing hi.
     **/
