@@ -9,7 +9,7 @@ static char help[] ="Computes the derivative of a 1D quadratic function.";
 #include "petscsys.h" 
 #include <petscdmda.h>
 #include "petscvec.h"
-#include "sbpops/D1_central.h"
+#include "sbpops/make_diff_op.h"
 
 extern PetscErrorCode initial_condition(DM da, Vec v_global);
 extern PetscErrorCode analytic_solution(DM da, Vec v_analytic);
@@ -59,55 +59,61 @@ int main(int argc,char **argv)
   initial_condition(da, v_glob);
   DMGlobalToLocalBegin(da,v_glob,INSERT_VALUES,v_loc);
   DMGlobalToLocalEnd(da,v_glob,INSERT_VALUES,v_loc);
-
-  const int iw = 5;
-  const int nc = 4;
-  const int cw = 6;
-  constexpr sbp::D1_central<iw,nc,cw> d1_4; //4th order central stencil
-  DMDAVecGetArray(da,v_loc,&array_loc);
-  DMDAVecGetArray(da,v_tmp,&array_tmp);
     
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Apply the first derivative D1_central to the initial condition in v_glob,
     storing the result in the vector v_tmp
   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  // Assume that no communication is to be made over the closures, i.e that
-  // a processor at least has number of nodes equal to the closure width
-  // E.g., on 3 processors then minimal number of global nodes is 6*3 = 18
-  // TODO: The index ranges and applies performed by a process is given by
-  // the problem size and number of processors, as well as the stencil widths of the derivative
-  // We should consider (1) writing an D1_central::apply_distributed(DM, ...) which does this nicely
-  // (2) create a new class/struct which bundles together the index ranges and the applies for a processor
-  // in a nice way.
-  i_end = i_start+nx;
-  if (i_start < nc){
-    for (PetscInt i = i_start; i < nc; i++) 
-    {
-      array_tmp[i] = d1_4.apply_left(array_loc,hi,i);
-    }
-    for (PetscInt i = nc; i < i_end; i++)
-    {
-      array_tmp[i] = d1_4.apply_interior(array_loc,hi,i);
-    }
-  }
-  if ((nc < i_start) && (i_end < Nx-nc))
+  constexpr auto D1 = sbp::make_D1_central_4th_order();
+  DMDAVecGetArray(da,v_tmp,&array_tmp); // stores computed result
+  if (size == 1)
   {
-    for (PetscInt i = i_start; i < i_end; i++)
+    DMDAVecGetArray(da,v_glob,&array_loc);
+    D1.apply(array_loc,hi,Nx,array_tmp);
+  }
+  else {
+    // Assume that no communication is to be made over the closures, i.e that
+    // a processor at least has number of nodes equal to the closure width
+    // E.g., on 3 processors then minimal number of global nodes is 6*3 = 18
+    // TODO: The index ranges and applies performed by a process is given by
+    // the problem size and number of processors, as well as the stencil widths of the derivative
+    // We should consider (1) writing an D1_central::apply_distributed(DM, ...) which does this nicely
+    // (2) create a new class/struct which bundles together the index ranges and the applies for a processor
+    // in a nice way.
+    const int nc = 4;// This should be handled by the distributed apply.
+    DMDAVecGetArray(da,v_loc,&array_loc);
+    i_end = i_start+nx;
+    if (i_start < nc){
+      for (PetscInt i = i_start; i < nc; i++) 
+      {
+        array_tmp[i] = D1.apply_left(array_loc,hi,i);
+      }
+      for (PetscInt i = nc; i < i_end; i++)
+      {
+        array_tmp[i] = D1.apply_interior(array_loc,hi,i);
+      }
+    }
+    if ((nc < i_start) && (i_end < Nx-nc))
     {
-      array_tmp[i] = d1_4.apply_interior(array_loc,hi,i);
+      for (PetscInt i = i_start; i < i_end; i++)
+      {
+        array_tmp[i] = D1.apply_interior(array_loc,hi,i);
+      }
+    }
+    if ((i_start < Nx-nc) && (Nx-nc < i_end))
+    {
+      for (PetscInt i = i_start; i < Nx-nc; i++)
+      {
+        array_tmp[i] = D1.apply_interior(array_loc,hi,i);
+      }
+      for (PetscInt i = Nx-nc; i < Nx; i++)
+      {
+        array_tmp[i] = D1.apply_right(array_loc,hi,Nx,i);
+      }
     }
   }
-  if ((i_start < Nx-nc) && (Nx-nc < i_end))
-  {
-    for (PetscInt i = i_start; i < Nx-nc; i++)
-    {
-      array_tmp[i] = d1_4.apply_interior(array_loc,hi,i);
-    }
-    for (PetscInt i = Nx-nc; i < Nx; i++)
-    {
-      array_tmp[i] = d1_4.apply_right(array_loc,hi,Nx,i);
-    }
-  }
+
+  
   DMDAVecRestoreArray(da,v_loc,array_loc);
   DMDAVecRestoreArray(da,v_tmp,array_tmp);
   
