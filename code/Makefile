@@ -6,7 +6,7 @@ all: $(BIN_PATH)main
 
 IFLAGS			= -I$(INCLUDE_PATH)
 DEBUG_MODULES	=
-COPTFLAGS		= -O3 -march=native -mtune=native
+COPTFLAGS		= -std=c++17 -O3 -march=native -mtune=native
 CPPFLAGS		= -DVERSION=${PETSC_VERSION_NUM}
 CXXFLAGS		= $(DEBUG_MODULES) $(COPTFLAGS) $(IFLAGS)
 CLINKER			= mpicc
