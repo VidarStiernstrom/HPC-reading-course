@@ -1,3 +1,7 @@
+#include <petscsys.h>
+#include <petscdmda.h>
+#include <petscvec.h>
+#include <string>
 namespace sbp {
   /**
   * Central first derivative SBP operator. The class holds the stencil weights for the interior
@@ -5,12 +9,12 @@ namespace sbp {
   * vector. The stencils of the operator are all declared at compile time, which (hopefully) should
   * allow the compiler to perform extensive optimization on the apply methods.
   **/
-  template <int interior_width, int n_closures, int closure_width>
+  template <int interior_width, int n_boundary_points, int closure_width>
   class D1_central{
   private:
     // Stencils defining the operator. The stencils are declared at compile time
     const double interior_stencil[interior_width];
-    const double closure_stencils[n_closures][closure_width];
+    const double closure_stencils[n_boundary_points][closure_width];
   public:
     // Constructor. See implementations for specific stencils
     constexpr D1_central();
@@ -18,7 +22,7 @@ namespace sbp {
     // Then could have a single templated constructor initializing the members from the arguments
     // and the specific operators (of a given order) would be nicely defined in 
     // make_diff_ops.h.
-    // constexpr D1_central(const double (*i_s)[interior_width], const double (**c_s)[n_closures][closure_width]);
+    // constexpr D1_central(const double (*i_s)[interior_width], const double (**c_s)[n_boundary_points][closure_width]);
     /**
     * Computes v_x[i] for an index i in the set of the left closure points, with inverse grid spacing hi.
     **/
@@ -36,6 +40,20 @@ namespace sbp {
     * Computes v_x with inverse grid spacing hi for a grid function vector v, of size n.
     **/
     inline void apply(const double *v, const double hi, const int n, double *v_x) const;
+
+    /**
+    * Computes v_x with inverse grid spacing hi for a grid function vector v, of size N using distributed concepts
+    * from the PETSc library.
+    * 
+    * Input:  da  - Distibuted array handler
+    *         v   - Vec to differentiate. Should be a local vector associated with the DM and all ghost nodes
+    *               must have been communicated prior to the call of apply_distrubuted. If running on 1
+    *               process, then v can also be a global vector associated with the DM.
+    *         hi  - inverse grid spacing
+    *         N   - Global size of v
+    *         v_x - Vec holding the results. Should be a global vector associated with the DM.
+    **/
+    PetscErrorCode apply_distributed(const DM& da, const Vec& v, const double hi, const int N, Vec& v_x) const;
   };
 
   //=============================================================================
@@ -43,8 +61,8 @@ namespace sbp {
   //=============================================================================
 
   // TODO: Consider adding bounds checking (at least checking in debug mode).
-  template <int iw, int nc, int closure_width>
-  inline double D1_central<iw,nc,closure_width>::apply_left(const double *v, const double hi, const int i) const
+  template <int iw, int nbp, int closure_width>
+  inline double D1_central<iw,nbp,closure_width>::apply_left(const double *v, const double hi, const int i) const
   {
     double u = 0;
     for (int j = 0; j<closure_width; j++)
@@ -54,8 +72,8 @@ namespace sbp {
     return hi*u;
   };
 
-  template <int interior_width, int nc, int cw>
-  inline double D1_central<interior_width, nc, cw>::apply_interior(const double *v, const double hi, const int i) const
+  template <int interior_width, int nbp, int cw>
+  inline double D1_central<interior_width, nbp, cw>::apply_interior(const double *v, const double hi, const int i) const
   {
     double u = 0;
     for (int j = 0; j<interior_width; j++)
@@ -65,8 +83,8 @@ namespace sbp {
     return hi*u;
   };
 
-  template <int iw, int nc, int closure_width>
-  inline double D1_central<iw,nc,closure_width>::apply_right(const double *v, const double hi, const int n, const int i) const
+  template <int iw, int nbp, int closure_width>
+  inline double D1_central<iw,nbp,closure_width>::apply_right(const double *v, const double hi, const int n, const int i) const
   {
     double u = 0;
     for (int j = 0; j < closure_width; j++)
@@ -76,19 +94,85 @@ namespace sbp {
     return hi*u;
   };
 
-  template <int iw, int nc, int cw>
-  inline void D1_central<iw,nc,cw>::apply(const double *v, const double hi, const int n, double *v_x) const
+  template <int iw, int n_boundary_points, int cw>
+  inline void D1_central<iw,n_boundary_points,cw>::apply(const double *v, const double hi, const int n, double *v_x) const
   {
-    for (int i = 0; i < nc; i++){
+    for (int i = 0; i < n_boundary_points; i++){
       v_x[i] = apply_left(v,hi,i);
     }
-    for (int i = nc; i < n-nc; i++){
+    for (int i = n_boundary_points; i < n-n_boundary_points; i++){
       v_x[i] = apply_interior(v,hi,i);
     }
-    for (int i = n-nc; i < n; i++){
+    for (int i = n-n_boundary_points; i < n; i++){
       v_x[i] = apply_right(v,hi,n,i);
     }
   };
+
+  template <int iw, int n_boundary_points, int closure_width>
+  PetscErrorCode D1_central<iw,n_boundary_points,closure_width>::apply_distributed(const DM& da, const Vec& v, const double hi, const int N, Vec& v_x) const
+  { 
+    PetscErrorCode ierr = 0;
+    PetscScalar *array_src, *array_dst;
+    PetscInt i_start, i_end, n;
+    DMDAGetCorners(da,&i_start,0,0,&n,0,0);
+
+    // Perform bounds check.
+    // No communication is to be made over the closures, i.e a processor at least has number of nodes equal
+    // to the closure width closure_width.
+    if (n < closure_width)
+    {
+      ierr = PETSC_ERR_MIN_VALUE;
+      std::string err_msg("Number of nodes per process must be greater or equal than " + std::to_string(closure_width) + ".");
+      SETERRQ(PETSC_COMM_SELF,PETSC_ERR_MIN_VALUE,err_msg.c_str());
+      return ierr;
+    }
+    // Extract underlying arrays and perform differentation.
+    DMDAVecGetArray(da,v_x,&array_dst);
+    DMDAVecGetArray(da,v,&array_src);
+    if (n == N) // Single process. Perform standard apply
+    {
+      apply(array_src,hi,N,array_dst);
+    }
+    else // Multiple processes
+    { 
+      // TODO: The index ranges and applies performed by a process is given by
+      // the problem size and number of processors, as well as the stencil widths of the derivative
+      // We should consider creating a new class/struct which bundles together the index ranges and the applies for a processor
+      // in a nice way.
+      i_end = i_start+n;
+      if (i_start < n_boundary_points){
+        for (PetscInt i = i_start; i < n_boundary_points; i++) 
+        {
+          array_dst[i] = apply_left(array_src,hi,i);
+        }
+        for (PetscInt i = n_boundary_points; i < i_end; i++)
+        {
+          array_dst[i] = apply_interior(array_src,hi,i);
+        }
+      }
+      if ((n_boundary_points < i_start) && (i_end < N-n_boundary_points))
+      {
+        for (PetscInt i = i_start; i < i_end; i++)
+        {
+          array_dst[i] = apply_interior(array_src,hi,i);
+        }
+      }
+      if ((i_start < N-n_boundary_points) && (N-n_boundary_points < i_end))
+      {
+        for (PetscInt i = i_start; i < N-n_boundary_points; i++)
+        {
+          array_dst[i] = apply_interior(array_src,hi,i);
+        }
+        for (PetscInt i = N-n_boundary_points; i < N; i++)
+        {
+          array_dst[i] = apply_right(array_src,hi,N,i);
+        }
+      }
+    }
+    DMDAVecRestoreArray(da,v,array_src);
+    DMDAVecRestoreArray(da,v_x,array_dst);
+    return 0;
+  }
 
   //=============================================================================
   // Operator definitions. TOOD: Make factory functions?
