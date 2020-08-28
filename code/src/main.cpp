@@ -10,6 +10,7 @@ static char help[] ="Computes the derivative of a 1D quadratic function.";
 #include <petscdmda.h>
 #include "petscvec.h"
 #include "sbpops/make_diff_op.h"
+#include "diffops/advection.h"
 
 extern PetscErrorCode initial_condition(DM da, Vec v_global);
 extern PetscErrorCode analytic_solution(DM da, Vec v_analytic);
@@ -34,7 +35,7 @@ int main(int argc,char **argv)
   Nx = 101;
   PetscScalar xl = 0;
   PetscScalar xr = 1;
-  PetscPrintf(PETSC_COMM_WORLD,"Differentiating the quadratic function x^2 on the domain [%.2f, %.2f] with N = %d grid points, using %d processes.\n",xl,xr,Nx,size);
+  PetscPrintf(PETSC_COMM_WORLD,"Differentiating the quadratic function 2x^2 on the domain [%.2f, %.2f] with N = %d grid points, using %d processes.\n",xl,xr,Nx,size);
   PetscScalar hi = (Nx-1)/(xr-xl);
   order = 4;
   stencil_radius = (order+1)/2;
@@ -64,7 +65,8 @@ int main(int argc,char **argv)
     storing the result in the vector v_tmp
   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   constexpr auto D1 = sbp::make_D1_central_4th_order();
-  D1.apply_distributed(da,v_loc,hi,Nx,v_tmp);
+  auto velocity_field = [](const int i){ return 2.; };
+  sbp::advection_variable_distributed(D1,velocity_field,da,v_loc,hi,Nx,v_tmp);
   
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Compute the error
@@ -109,7 +111,7 @@ PetscErrorCode analytic_solution(DM da, Vec v_analytic)
   Vec coords;
   ierr = DMGetCoordinates(da,&coords);
   ierr = VecCopy(coords,v_analytic); //Coords is a borrowed reference. Should not be destroyed.
-  ierr = VecScale(v_analytic,2.);
+  ierr = VecScale(v_analytic,4.);
   CHKERRQ(ierr);
   return 0;
 };
