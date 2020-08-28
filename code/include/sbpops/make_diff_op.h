@@ -1,3 +1,5 @@
+#pragma once
+
 #include "sbpops/D1_central.h"
 
 namespace sbp {
