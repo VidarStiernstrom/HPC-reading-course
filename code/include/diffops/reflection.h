@@ -4,6 +4,17 @@
 #include<petscvec.h>
 
 namespace sbp{
+
+  /**
+  * Approximate RHS of reflection problem, [u;v]_t = [v_x;u_x], between indices i_start <= i < i_end.
+  * Inputs: D1        - SBP D1 operator
+  *         array_src - 2D array containing multi-component input data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
+  *         array_src - 2D array containing multi-component output data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
+  *         i_start   - Starting index to compute
+  *         i_end     - Final index to compute, index < i_end
+  *         N         - Global number of points excluding ghost points
+  *         hi        - Inverse step length
+  **/
   template <class SbpDerivative>
   inline PetscErrorCode reflection_apply(const SbpDerivative& D1, PetscScalar **array_src, PetscScalar **array_dst, PetscInt i_start, PetscInt i_end, PetscInt N, PetscScalar hi);
 
