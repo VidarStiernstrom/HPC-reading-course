@@ -1,0 +1,45 @@
+#pragma once
+
+#include<petscdmda.h>
+#include<petscvec.h>
+
+namespace sbp{
+  template <class SbpDerivative>
+  inline PetscErrorCode reflection_apply(const SbpDerivative& D1, PetscScalar **array_src, PetscScalar **array_dst, PetscInt i_start, PetscInt i_end, PetscInt N, PetscScalar hi);
+
+  //=============================================================================
+  // Implementations
+  //=============================================================================
+  template <class SbpDerivative>
+  inline PetscErrorCode reflection_apply(const SbpDerivative& D1, PetscScalar **array_src, PetscScalar **array_dst, PetscInt i_start, PetscInt i_end, PetscInt N, PetscScalar hi)
+  {
+    PetscInt i;
+    const auto [iw, n_closures, closure_width] = D1.get_ranges();
+
+    if (i_start == 0) {
+      for (i = 0; i < n_closures; i++) 
+      { 
+        array_dst[i][1] = D1.apply_left(array_src,hi,i,0);
+        array_dst[i][0] = D1.apply_left(array_src,hi,i,1);
+      }
+      i_start = n_closures;
+    }
+
+    if (i_end == N) {
+      for (i = N-n_closures; i < N; i++)
+      {
+          array_dst[i][1] = D1.apply_right(array_src,hi,N,i,0);
+          array_dst[i][0] = D1.apply_right(array_src,hi,N,i,1);
+      }
+      i_end = N-n_closures;
+    }
+
+    for (i = i_start; i < i_end; i++)
+    {
+      array_dst[i][1] = D1.apply_interior(array_src,hi,i,0);
+      array_dst[i][0] = D1.apply_interior(array_src,hi,i,1);
+    }
+
+    return 0;
+  }
+} //namespace sbp
