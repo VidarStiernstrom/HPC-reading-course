@@ -11,6 +11,7 @@ typedef struct {
   PetscInt M, istart, iend;
   PetscScalar h, hi, xl, xr, Tend;
   const sbp::D1_central<3,1,2> D1;
+  std::function<PetscScalar(PetscInt)> velocity_field;
 } AppCtx;
 
 PetscErrorCode apply_RHS_mat(Mat, Vec, Vec);
@@ -50,6 +51,7 @@ int main(int argc,char **argv)  {
   appctx.hi = 1.0/appctx.h;
   appctx.Tend = Tend;
   dt = CFL*appctx.h;
+  appctx.velocity_field = [](PetscInt i){return 1.;};
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Set up distributed array (DMDA) to manage parallel grid and vectors
@@ -185,7 +187,7 @@ PetscErrorCode apply_RHS_mat(Mat D, Vec x, Vec y) {
   DMDAVecGetArrayDOF(appctx->da,xlocal,&xarr);
   DMDAVecGetArrayDOF(appctx->da,y,&yarr);
 
-  sbp::advection_apply(appctx->D1, xarr, yarr, appctx->istart, appctx->iend, appctx->M, appctx->hi);
+  sbp::advection_apply(appctx->D1, appctx->velocity_field, xarr, yarr, appctx->istart, appctx->iend, appctx->M, appctx->hi);
 
   DMDAVecRestoreArrayDOF(appctx->da,xlocal, &xarr);
   DMRestoreLocalVector(appctx->da,&xlocal);
