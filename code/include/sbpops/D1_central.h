@@ -33,18 +33,18 @@ namespace sbp {
     /**
     * Computes v_x[i][vcomp] for an index i and component vcomp in the set of the left closure points, with inverse grid spacing hi.
     **/
-    inline double apply_left(double **v, const double hi, const int i, const int vcomp) const;
+    inline double apply_left(const double *const *const v, const double hi, const int i, const int vcomp) const;
 
     /**
     * Computes v_x[i][vcomp] for an index i and component vcomp in the set of the interior points, with inverse grid spacing hi.
     **/
-    inline double apply_interior(double **v, const double hi, const int i, const int vcomp) const;
+    inline double apply_interior(const double *const *const v, const double hi, const int i, const int vcomp) const;
 
     /**
     * Computes v_x[i][vcomp] for an index i and component vcomp in the set of the right closure points, with inverse grid spacing hi,
     * and grid function vector size n.
     **/
-    inline double apply_right(double **v, const double hi, const int n, const int i, const int vcomp) const;
+    inline double apply_right(const double *const *const v, const double hi, const int n, const int i, const int vcomp) const;
 
   };
 
@@ -59,7 +59,7 @@ namespace sbp {
 
   // TODO: Consider adding bounds checking (at least checking in debug mode).
   template <int iw, int nc, int closure_width>
-  inline double D1_central<iw,nc,closure_width>::apply_left( double **v, const double hi, const int i, const int vcomp) const
+  inline double D1_central<iw,nc,closure_width>::apply_left(const double *const *const v, const double hi, const int i, const int vcomp) const
   {
     double u = 0;
     for (int j = 0; j<closure_width; j++)
@@ -70,7 +70,7 @@ namespace sbp {
   };
 
   template <int interior_width, int nc, int cw>
-  inline double D1_central<interior_width, nc, cw>::apply_interior( double **v, const double hi, const int i, const int vcomp) const
+  inline double D1_central<interior_width, nc, cw>::apply_interior(const double *const *const v, const double hi, const int i, const int vcomp) const
   {
     double u = 0;
     for (int j = 0; j<interior_width; j++)
@@ -81,7 +81,7 @@ namespace sbp {
   };
 
   template <int iw, int nc, int closure_width>
-  inline double D1_central<iw,nc,closure_width>::apply_right( double **v, const double hi, const int n, const int i, const int vcomp) const
+  inline double D1_central<iw,nc,closure_width>::apply_right(const double *const *const v, const double hi, const int n, const int i, const int vcomp) const
   {
     double u = 0;
     for (int j = 0; j < closure_width; j++)
