@@ -1,10 +1,5 @@
 
-static char help[] ="Solves the 1D advection equation.";
-
-/*
-   Example program computing the derivative of a 1D quadratic function anc computing the l2-error
-   in parallel.
-*/
+static char help[] ="Solves the 1D advection equation u_t + au_x = 0 using the PETSc time stepping contexts.";
 
 #include "petscsys.h" 
 #include <petscdmda.h>
