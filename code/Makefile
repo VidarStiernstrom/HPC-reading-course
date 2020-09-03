@@ -2,10 +2,10 @@ SRC_PATH = src/
 BIN_PATH = bin/
 INCLUDE_PATH = include/
 
-all: $(BIN_PATH)sim_adv_ts
+all: $(BIN_PATH)sim_ref $(BIN_PATH)sim_adv $(BIN_PATH)sim_adv_ts
 
 IFLAGS			= -I$(INCLUDE_PATH)
-DEBUG_MODULES	=
+DEBUG_MODULES	= -Wall
 COPTFLAGS		= -std=c++17 -O3 -march=native -mtune=native
 CPPFLAGS		= -DVERSION=${PETSC_VERSION_NUM}
 CXXFLAGS		= $(DEBUG_MODULES) $(COPTFLAGS) $(IFLAGS)
@@ -20,7 +20,19 @@ $(BIN_PATH)sim_adv_ts: $(SRC_PATH)sim_adv_ts.o
 	mkdir -p $(BIN_PATH)
 	-${CLINKER} $^ -o $@ ${PETSC_SYS_LIB}
 	mv $(SRC_PATH)*.o $(BIN_PATH)
+
+$(BIN_PATH)sim_adv: $(SRC_PATH)sim_adv.o
+	mkdir -p $(BIN_PATH)
+	-${CLINKER} $^ -o $@ ${PETSC_SYS_LIB}
+	mv $(SRC_PATH)*.o $(BIN_PATH)
 	
+$(BIN_PATH)sim_ref: $(SRC_PATH)sim_ref.o
+	mkdir -p $(BIN_PATH)
+	-${CLINKER} $^ -o $@ ${PETSC_SYS_LIB}
+	mv $(SRC_PATH)*.o $(BIN_PATH)
+
 #.PHONY : clean
 clean::
+	-rm -f $(BIN_PATH)*.o $(BIN_PATH)sim_adv
 	-rm -f $(BIN_PATH)*.o $(BIN_PATH)sim_adv_ts
+	-rm -f $(BIN_PATH)*.o $(BIN_PATH)sim_ref
