@@ -1,7 +1,6 @@
 #pragma once
 
-#include<petscdmda.h>
-#include<petscvec.h>
+#include<petscsystypes.h>
 
 namespace sbp{
 
@@ -16,13 +15,13 @@ namespace sbp{
   *         hi        - Inverse step length
   **/
   template <class SbpDerivative, typename Lambda>
-  inline PetscErrorCode advection_apply(const SbpDerivative& D1, Lambda&& velocity_field, PetscScalar **array_src, PetscScalar **array_dst, PetscInt i_start, PetscInt i_end, PetscInt N, PetscScalar hi);
+  inline PetscErrorCode advection_apply(const SbpDerivative& D1, Lambda&& velocity_field, const PetscScalar *const *const array_src, PetscScalar **array_dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi);
 
   //=============================================================================
   // Implementations
   //=============================================================================
   template <class SbpDerivative, typename Lambda>
-  inline PetscErrorCode advection_apply(const SbpDerivative& D1, Lambda&& velocity_field, PetscScalar **array_src, PetscScalar **array_dst, PetscInt i_start, PetscInt i_end, PetscInt N, PetscScalar hi)
+  inline PetscErrorCode advection_apply(const SbpDerivative& D1, Lambda&& velocity_field, const PetscScalar *const *const array_src, PetscScalar **array_dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
   {
     PetscInt i;
     const auto [iw, n_closures, closure_width] = D1.get_ranges();
