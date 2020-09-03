@@ -2,7 +2,7 @@ SRC_PATH = src/
 BIN_PATH = bin/
 INCLUDE_PATH = include/
 
-all: $(BIN_PATH)sim_adv
+all: $(BIN_PATH)sim_adv_ts
 
 IFLAGS			= -I$(INCLUDE_PATH)
 DEBUG_MODULES	=
@@ -16,11 +16,11 @@ include ${PETSC_DIR}/lib/petsc/conf/variables
 include ${PETSC_DIR}/lib/petsc/conf/rules
 include ${PETSC_DIR}/lib/petsc/conf/test
 
-$(BIN_PATH)sim_adv: $(SRC_PATH)sim_adv.o
+$(BIN_PATH)sim_adv_ts: $(SRC_PATH)sim_adv_ts.o
 	mkdir -p $(BIN_PATH)
 	-${CLINKER} $^ -o $@ ${PETSC_SYS_LIB}
 	mv $(SRC_PATH)*.o $(BIN_PATH)
 	
 #.PHONY : clean
 clean::
-	-rm -f $(BIN_PATH)*.o $(BIN_PATH)sim_adv
+	-rm -f $(BIN_PATH)*.o $(BIN_PATH)sim_adv_ts
