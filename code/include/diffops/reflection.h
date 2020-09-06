@@ -16,12 +16,6 @@ namespace sbp{
   *         hi        - Inverse step length
   **/
   template <class SbpDerivative>
-  inline PetscErrorCode reflection_apply(const SbpDerivative& D1, PetscScalar **array_src, PetscScalar **array_dst, PetscInt i_start, PetscInt i_end, PetscInt N, PetscScalar hi);
-
-  //=============================================================================
-  // Implementations
-  //=============================================================================
-  template <class SbpDerivative>
   inline PetscErrorCode reflection_apply(const SbpDerivative& D1, PetscScalar **array_src, PetscScalar **array_dst, PetscInt i_start, PetscInt i_end, PetscInt N, PetscScalar hi)
   {
     PetscInt i;
@@ -52,5 +46,5 @@ namespace sbp{
     }
 
     return 0;
-  }
+  };
 } //namespace sbp

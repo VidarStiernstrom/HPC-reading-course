@@ -15,12 +15,6 @@ namespace sbp{
   *         hi        - Inverse step length
   **/
   template <class SbpDerivative, typename Lambda>
-  inline PetscErrorCode advection_apply(const SbpDerivative& D1, Lambda&& velocity_field, const PetscScalar *const *const array_src, PetscScalar **array_dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi);
-
-  //=============================================================================
-  // Implementations
-  //=============================================================================
-  template <class SbpDerivative, typename Lambda>
   inline PetscErrorCode advection_apply(const SbpDerivative& D1, Lambda&& velocity_field, const PetscScalar *const *const array_src, PetscScalar **array_dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
   {
     PetscInt i;
@@ -48,5 +42,5 @@ namespace sbp{
     }
 
     return 0;
-  }
+  };
 } //namespace sbp

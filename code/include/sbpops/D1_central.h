@@ -1,6 +1,7 @@
 #pragma once
 
-#include <string>
+#include<petscsystypes.h>
+
 namespace sbp {
   /**
   * Central first derivative SBP operator. The class holds the stencil weights for the interior
@@ -8,12 +9,12 @@ namespace sbp {
   * vector. The stencils of the operator are all declared at compile time, which (hopefully) should
   * allow the compiler to perform extensive optimization on the apply methods.
   **/
-  template <int interior_width, int n_closures, int closure_width>
+  template <PetscInt interior_width, PetscInt n_closures, PetscInt closure_width>
   class D1_central{
   private:
     // Stencils defining the operator. The stencils are declared at compile time
-    const double interior_stencil[interior_width];
-    const double closure_stencils[n_closures][closure_width];
+    const PetscScalar interior_stencil[interior_width];
+    const PetscScalar closure_stencils[n_closures][closure_width];
 
   public:
     constexpr D1_central(); //See implementations for specific stencils
@@ -21,76 +22,83 @@ namespace sbp {
     // Then could have a single templated constructor initializing the members from the arguments
     // and the specific operators (of a given order) would be nicely defined in 
     // make_diff_ops.h.
-    // constexpr D1_central(const double (*i_s)[interior_width], const double (**c_s)[n_closures][closure_width]);
+    // constexpr D1_central(const PetscScalar (*i_s)[interior_width], const PetscScalar (**c_s)[n_closures][closure_width]);
 
     /**
     * Convenience function returning the ranges (interior_width,n_closures,closure_width)
     **/
-    inline constexpr std::tuple<int,int,int> get_ranges() const;
+    inline constexpr std::tuple<PetscInt,PetscInt,PetscInt> get_ranges() const
+    {
+      return std::make_tuple(interior_width,n_closures,closure_width);
+    };
+
+    //TODO: The pointer to pointer layout may prevent compiler optimization for e.g vectorization since it is not clear whether
+    //      the memory is contiguous or not. We should switch to a flat array layout, once we get something running for systems in 2D.
+    
+    //=============================================================================
+    // 1D functions
+    //=============================================================================
 
     /**
-    * Computes v_x[i][vcomp] for an index i and component vcomp in the set of the left closure points, with inverse grid spacing hi.
+    * Computes the derivative in x-direction of a multicomponent 1D grid function v[i][comp] for an index i within the set of left closure points.
+    * Input:  v     - Multicomponent 1D grid function v (typically obtained via DMDAVecGetArrayDOF)
+    *         hi    - inverse grid spacing
+    *         i     - Grid index in x-direction. Index must be within the set of left closure points
+    *         comp  - grid function component.
+    *
+    * Output: derivative v_x[i][comp]
     **/
-    inline double apply_left(const double *const *const v, const double hi, const int i, const int vcomp) const;
+    inline PetscScalar apply_left(const PetscScalar *const *const v, const PetscScalar hi, const PetscInt i, const PetscInt comp) const
+    {
+      PetscScalar u = 0;
+      for (PetscInt is = 0; is<closure_width; is++)
+      {
+        u += closure_stencils[i][is]*v[is][comp];
+      }
+      return hi*u;
+    };
 
     /**
-    * Computes v_x[i][vcomp] for an index i and component vcomp in the set of the interior points, with inverse grid spacing hi.
+    * Computes the derivative in x-direction of a multicomponent 1D grid function v[i][comp] for an index i within the set of interior points.
+    * Input:  v     - Multicomponent 1D grid function v (typically obtained via DMDAVecGetArrayDOF)
+    *         hi    - inverse grid spacing
+    *         i     - Grid index in x-direction. Index must be within the set of interior points
+    *         comp  - grid function component.
+    *
+    * Output: derivative v_x[i][comp]
     **/
-    inline double apply_interior(const double *const *const v, const double hi, const int i, const int vcomp) const;
+    inline PetscScalar apply_interior(const PetscScalar *const *const v, const PetscScalar hi, const PetscInt i, const PetscInt comp) const
+    {
+      PetscScalar u = 0;
+      for (PetscInt is = 0; is<interior_width; is++)
+      {
+        u += interior_stencil[is]*v[(i-(interior_width-1)/2+is)][comp];
+      }
+      return hi*u;
+    };
 
     /**
-    * Computes v_x[i][vcomp] for an index i and component vcomp in the set of the right closure points, with inverse grid spacing hi,
-    * and grid function vector size n.
+    * Computes the derivative in x-direction of a multicomponent 1D grid function v[i][comp] for an index i within the set of right closure points.
+    * Input:  v     - Multicomponent 1D grid function v (typically obtained via DMDAVecGetArrayDOF)
+    *         hi    - inverse grid spacing
+    *         i     - Grid index in x-direction. Index must be within the set of right closure points.
+    *         comp  - grid function component.
+    *
+    * Output: derivative v_x[i][comp]
     **/
-    inline double apply_right(const double *const *const v, const double hi, const int n, const int i, const int vcomp) const;
-
+    inline PetscScalar apply_right(const PetscScalar *const *const v, const PetscScalar hi, const PetscInt N, const PetscInt i, const PetscInt comp) const
+    {
+      PetscScalar u = 0;
+      for (PetscInt is = 0; is < closure_width; is++)
+      {
+        u -= closure_stencils[N-i-1][closure_width-is-1]*v[(N-closure_width+is)][comp];
+      }
+      return hi*u;
+    };
   };
 
   //=============================================================================
-  // Implementations
-  //=============================================================================
-
-  template <int interior_width, int n_closures, int closure_width>
-  inline constexpr std::tuple<int,int,int> D1_central<interior_width,n_closures,closure_width>::get_ranges() const {
-    return std::make_tuple(interior_width,n_closures,closure_width);
-  }
-
-  // TODO: Consider adding bounds checking (at least checking in debug mode).
-  template <int iw, int nc, int closure_width>
-  inline double D1_central<iw,nc,closure_width>::apply_left(const double *const *const v, const double hi, const int i, const int vcomp) const
-  {
-    double u = 0;
-    for (int j = 0; j<closure_width; j++)
-    {
-      u += closure_stencils[i][j]*v[j][vcomp];
-    }
-    return hi*u;
-  };
-
-  template <int interior_width, int nc, int cw>
-  inline double D1_central<interior_width, nc, cw>::apply_interior(const double *const *const v, const double hi, const int i, const int vcomp) const
-  {
-    double u = 0;
-    for (int j = 0; j<interior_width; j++)
-    {
-      u += interior_stencil[j]*v[i-(interior_width-1)/2+j][vcomp];
-    }
-    return hi*u;
-  };
-
-  template <int iw, int nc, int closure_width>
-  inline double D1_central<iw,nc,closure_width>::apply_right(const double *const *const v, const double hi, const int n, const int i, const int vcomp) const
-  {
-    double u = 0;
-    for (int j = 0; j < closure_width; j++)
-    {
-      u -= closure_stencils[n-i-1][closure_width-j-1]*v[n-closure_width+j][vcomp];
-    }
-    return hi*u;
-  };
-
-  //=============================================================================
-  // Operator definitions. TOOD: Make factory functions?
+  // Operator definitions
   //=============================================================================
 
   /** 
