@@ -1,6 +1,7 @@
 #pragma once
 
 #include<petscsystypes.h>
+#include <tuple>
 
 namespace sbp {
   /**
@@ -94,6 +95,112 @@ namespace sbp {
         u -= closure_stencils[N-i-1][closure_width-is-1]*v[(N-closure_width+is)][comp];
       }
       return hi*u;
+    };
+
+    //=============================================================================
+    // 2D functions
+    //=============================================================================
+
+    /**
+    * Computes the derivative in x-direction of a multicomponent 2D grid function v[j][i][comp] for an index i within the set of left closure points.
+    * Input:
+    *
+    * Output:
+    * Derivative v_x[j][i][comp]
+    **/
+    inline PetscScalar apply_2D_x_left(const PetscScalar *const *const *const v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    {
+      PetscScalar u = 0;
+      for (PetscInt is = 0; is<closure_width; is++)
+      {
+        u += closure_stencils[i][is]*v[j][is][comp];
+      }
+      return hix*u;
+    };
+
+    /**
+    * Computes the derivative in y-direction of a multicomponent 2D grid function v[j][i][comp] for an index j within the set of left closure points.
+    * Input:
+    *
+    * Output:
+    * Derivative v_y[j][i][comp]
+    **/
+    inline PetscScalar apply_2D_y_left(const PetscScalar *const *const *const v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    {
+      PetscScalar u = 0;
+      for (PetscInt is = 0; is<closure_width; is++)
+      {
+        u += closure_stencils[j][is]*v[is][i][comp];
+      }
+      return hiy*u;
+    };
+
+    /**
+    * Computes the derivative in x-direction of a multicomponent 2D grid function v[j][i][comp] for an index i within the set of interior points.
+    * Input:
+    *
+    * Output:
+    * Derivative v_x[j][i][comp]
+    **/
+    inline PetscScalar apply_2D_x_interior(const PetscScalar *const *const *const v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    {
+      PetscScalar u = 0;
+      for (PetscInt is = 0; is<interior_width; is++)
+      {
+        u += interior_stencil[is]*v[j][i-(interior_width-1)/2+is][comp];
+      }
+      return hix*u;
+    };
+
+    /**
+    * Computes the derivative in y-direction of a multicomponent 2D grid function v[j][i][comp] for an index j within the set of interior points.
+    * Input:
+    *
+    * Output:
+    * Derivative v_y[j][i][comp]
+    **/
+    inline PetscScalar apply_2D_y_interior(const PetscScalar *const *const *const v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    {
+      PetscScalar u = 0;
+      for (PetscInt is = 0; is<interior_width; is++)
+      {
+        u += interior_stencil[is]*v[j-(interior_width-1)/2+is][i][comp];
+      }
+      return hiy*u;
+    };
+
+    /**
+    * Computes the derivative in y-direction of a multicomponent 2D grid function v[j][i][comp] for an index i within the set of right closure points.
+    * Input:
+    *
+    * Output:
+    * Derivative v_y[j][i][comp]
+    **/
+    inline PetscScalar apply_2D_x_right(const PetscScalar *const *const *const v, const PetscScalar hix, const PetscInt Nx, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    {
+      PetscScalar u = 0;
+      for (PetscInt is = 0; is < closure_width; is++)
+      {
+        u -= closure_stencils[Nx-i-1][closure_width-is-1]*v[j][Nx-closure_width+is][comp];
+      }
+      return hix*u;
+    };
+
+    /**
+    * Computes the derivative in y-direction of a multicomponent 2D grid function v[j][i][comp] for an index j within the set of right closure points.
+    * Input:
+    *
+    * Output:
+    * Derivative v_y[j][i][comp]
+    **/
+    inline PetscScalar apply_2D_y_right(const PetscScalar *const *const *const v, const PetscScalar hiy, const PetscInt Ny, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    {
+      PetscScalar u = 0;
+      for (PetscInt is = 0; is < closure_width; is++)
+      {
+        u -= closure_stencils[Ny-j-1][closure_width-is-1]*v[Ny-closure_width+is][i][comp];
+      }
+      return hiy*u;
     };
   };
 
