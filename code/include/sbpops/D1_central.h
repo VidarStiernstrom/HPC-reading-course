@@ -101,12 +101,16 @@ namespace sbp {
     // 2D functions
     //=============================================================================
 
+
     /**
     * Computes the derivative in x-direction of a multicomponent 2D grid function v[j][i][comp] for an index i within the set of left closure points.
-    * Input:
+    * Input:  v     - Multicomponent 2D grid function v (typically obtained via DMDAVecGetArrayDOF)
+    *         hix    - inverse grid spacing
+    *         i     - Grid index in x-direction. Index must be within the set of left closure points
+    *         j     - Grid index in y-direction.
+    *         comp  - grid function component.
     *
-    * Output:
-    * Derivative v_x[j][i][comp]
+    * Output: derivative v_x[j][i][comp]
     **/
     inline PetscScalar apply_2D_x_left(const PetscScalar *const *const *const v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
@@ -120,10 +124,13 @@ namespace sbp {
 
     /**
     * Computes the derivative in y-direction of a multicomponent 2D grid function v[j][i][comp] for an index j within the set of left closure points.
-    * Input:
+    * Input:  v     - Multicomponent 2D grid function v (typically obtained via DMDAVecGetArrayDOF)
+    *         hiy    - inverse grid spacing
+    *         i     - Grid index in x-direction.
+    *         j     - Grid index in y-direction. Index must be within the set of left closure points
+    *         comp  - grid function component.
     *
-    * Output:
-    * Derivative v_y[j][i][comp]
+    * Output: derivative v_x[j][i][comp]
     **/
     inline PetscScalar apply_2D_y_left(const PetscScalar *const *const *const v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
@@ -137,10 +144,13 @@ namespace sbp {
 
     /**
     * Computes the derivative in x-direction of a multicomponent 2D grid function v[j][i][comp] for an index i within the set of interior points.
-    * Input:
+    * Input:  v     - Multicomponent 2D grid function v (typically obtained via DMDAVecGetArrayDOF)
+    *         hix    - inverse grid spacing in x-direction
+    *         i     - Grid index in x-direction. Must be within the set of interior points.
+    *         j     - Grid index in y-direction.
+    *         comp  - grid function component.
     *
-    * Output:
-    * Derivative v_x[j][i][comp]
+    * Output: derivative v_x[j][i][comp]
     **/
     inline PetscScalar apply_2D_x_interior(const PetscScalar *const *const *const v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
@@ -154,10 +164,13 @@ namespace sbp {
 
     /**
     * Computes the derivative in y-direction of a multicomponent 2D grid function v[j][i][comp] for an index j within the set of interior points.
-    * Input:
+    * Input:  v     - Multicomponent 2D grid function v (typically obtained via DMDAVecGetArrayDOF)
+    *         hiy    - inverse grid spacing in y-direction
+    *         i     - Grid index in x-direction.
+    *         j     - Grid index in y-direction. Must be within the set of interior points.
+    *         comp  - grid function component.
     *
-    * Output:
-    * Derivative v_y[j][i][comp]
+    * Output: derivative v_x[j][i][comp]
     **/
     inline PetscScalar apply_2D_y_interior(const PetscScalar *const *const *const v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
@@ -170,11 +183,15 @@ namespace sbp {
     };
 
     /**
-    * Computes the derivative in y-direction of a multicomponent 2D grid function v[j][i][comp] for an index i within the set of right closure points.
-    * Input:
+    * Computes the derivative in x-direction of a multicomponent 2D grid function v[j][i][comp] for an index i within the set of right closure points.
+    * Input:  v     - Multicomponent 2D grid function v (typically obtained via DMDAVecGetArrayDOF)
+    *         hix   - inverse grid spacing
+    *         Nx    - Points in x-direction
+    *         i     - Grid index in x-direction. Index must be within the set of right closure points.
+    *         j     - Grid index in x-direction.
+    *         comp  - grid function component.
     *
-    * Output:
-    * Derivative v_y[j][i][comp]
+    * Output: derivative v_x[j][i][comp]
     **/
     inline PetscScalar apply_2D_x_right(const PetscScalar *const *const *const v, const PetscScalar hix, const PetscInt Nx, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
@@ -187,11 +204,15 @@ namespace sbp {
     };
 
     /**
-    * Computes the derivative in y-direction of a multicomponent 2D grid function v[j][i][comp] for an index j within the set of right closure points.
-    * Input:
+    * Computes the derivative in x-direction of a multicomponent 2D grid function v[j][i][comp] for an index j within the set of right closure points.
+    * Input:  v     - Multicomponent 2D grid function v (typically obtained via DMDAVecGetArrayDOF)
+    *         hiy   - inverse grid spacing
+    *         Ny    - Points in y-direction
+    *         i     - Grid index in x-direction.
+    *         j     - Grid index in y-direction. Index must be within the set of right closure points.
+    *         comp  - grid function component.
     *
-    * Output:
-    * Derivative v_y[j][i][comp]
+    * Output: derivative v_x[j][i][comp]
     **/
     inline PetscScalar apply_2D_y_right(const PetscScalar *const *const *const v, const PetscScalar hiy, const PetscInt Ny, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
