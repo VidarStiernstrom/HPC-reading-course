@@ -7,7 +7,7 @@ namespace sbp{
   /**
   * Approximate RHS of advection problem, u_t = -au_x, between indices i_start <= i < i_end.
   * Inputs: D1        - SBP D1 operator
-  *         a         -  velocity field function a(x(i)),
+  *         a         -  velocity field function parametrized on indices, i.e a(x(i)),
   *         array_src - 2D array containing multi-component input data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
   *         array_src - 2D array containing multi-component output data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
   *         i_start   - Starting index to compute
@@ -49,15 +49,17 @@ namespace sbp{
 
 
   /**
-  * Approximate RHS of advection problem, u_t = -au_x, between indices i_start <= i < i_end.
+  * Approximate RHS of 2D advection problem, u_t = -au_x, between indices [i_start, i_end], [j_start, j_end].
   * Inputs: D1        - SBP D1 operator
-  *         a         -  
-  *         array_src - 2D array containing multi-component input data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
-  *         array_src - 2D array containing multi-component output data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
-  *         i_start   - Starting index to compute
-  *         i_end     - Final index to compute, index < i_end
-  *         Nx         - Global number of points excluding ghost points
-  *         hix        - Inverse step length
+  *         a         -  velocity field function, parametrized on indices i.e a(x(i),y(j))
+  *         array_src - 2D array containing multi-component input data. Ordered as array_src[j][i][component] (obtained using DMDAVecGetArrayDOF).
+  *         array_dst - 2D array containing multi-component output data. Ordered as array_dst[j][i][component] (obtained using DMDAVecGetArrayDOF).
+  *         i_start   - Starting index in x-direction (global indexing)
+  *         i_end     - Final index in x-direction (global indexing)
+  *         j_start   - Starting index in y-direction (global indexing)
+  *         j_end     - Final index in y-direction (global indexing)
+  *         Nx        - Global number of points excluding ghost points in x-direction
+  *         hix       - Inverse step length in x-direction
   **/
   template <class SbpDerivative, typename VelocityFunction>
   inline PetscErrorCode advection_apply_2D_x(const SbpDerivative& D1, VelocityFunction&& a,
@@ -101,4 +103,61 @@ namespace sbp{
     }
     return 0;
   };
+
+  /**
+  * Approximate RHS of 2D advection problem, u_t = -au_y, between indices [i_start, i_end], [j_start, j_end].
+  * Inputs: D1        - SBP D1 operator
+  *         a         -  velocity field function, parametrized on indices i.e a(x(i),y(j))
+  *         array_src - 2D array containing multi-component input data. Ordered as array_src[j][i][component] (obtained using DMDAVecGetArrayDOF).
+  *         array_dst - 2D array containing multi-component output data. Ordered as array_dst[j][i][component] (obtained using DMDAVecGetArrayDOF).
+  *         i_start   - Starting index in x-direction (global indexing)
+  *         i_end     - Final index in x-direction (global indexing)
+  *         j_start   - Starting index in y-direction (global indexing)
+  *         j_end     - Final index in y-direction (global indexing)
+  *         Ny        - Global number of points excluding ghost points in y-direction
+  *         hiy       - Inverse step length in y-direction
+  **/
+  template <class SbpDerivative, typename VelocityFunction>
+  inline PetscErrorCode advection_apply_2D_y(const SbpDerivative& D1, VelocityFunction&& a,
+                                             const PetscScalar *const *const *const array_src,
+                                             PetscScalar *const *const *const array_dst,
+                                             const PetscInt i_start, PetscInt j_start,
+                                             const PetscInt i_end, PetscInt j_end,
+                                             const PetscInt Ny, const PetscScalar hiy)
+  {
+    PetscInt i,j;
+    const auto [iw, n_closures, closure_width] = D1.get_ranges();
+    if (j_start == 0) 
+    {
+      for (j = 0; j < n_closures; j++)
+      { 
+        for (i = i_start; i < i_end; i++) 
+        { 
+          array_dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_y_left(array_src,hiy,i,j,0);
+        }
+      }
+      j_start = n_closures;
+    }
+
+    if (j_end == Ny) 
+    {
+      for (j = Ny-n_closures; j < Ny; j++)
+      { 
+        for (i = i_start; i < i_end; i++)
+        {
+            array_dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_y_right(array_src,hiy,Ny,i,j,0);
+        }
+      }
+      j_end = Ny-n_closures;
+    }
+    for (j = j_start; j < j_end; j++)
+      { 
+      for (i = i_start; i < i_end; i++)
+      {
+        array_dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_y_interior(array_src,hiy,i,j,0);
+      }
+    }
+    return 0;
+  };
+
 } //namespace sbp
