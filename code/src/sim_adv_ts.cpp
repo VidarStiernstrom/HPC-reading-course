@@ -1,5 +1,5 @@
 
-static char help[] ="Solves the 2D advection equation u_t + au_x = 0, using the PETSc time stepping contexts.";
+static char help[] ="Solves the 2D advection equation u_t + au_x +bu_y = 0, using the PETSc time stepping contexts.";
 
 #include <algorithm>
 #include <cmath>
@@ -13,9 +13,11 @@ static char help[] ="Solves the 2D advection equation u_t + au_x = 0, using the 
 #include "diffops/advection.h"
 
 struct AppCtx{
-  PetscInt Nx, Ny, i_start, j_start, i_end, j_end;
-  PetscScalar hix, hiy, xl, yl;
+  std::array<PetscInt,2> N, i_start, i_end;
+  std::array<PetscScalar,2> hi;
+  PetscScalar xl, yl;
   std::function<double(int, int)> a;
+  std::function<double(int, int)> b;
   const sbp::D1_central<5,4,6> D1;
 };
 
@@ -28,8 +30,8 @@ int main(int argc,char **argv)
 { 
   DM             da;
   Vec            v, v_analytic, v_error;
-  PetscInt       stencil_radius, nx, ny;
-  PetscScalar    xl, xr, yl, yr, dt, t0, Tend;
+  PetscInt       stencil_radius, i_xstart, i_xend, i_ystart, i_yend, Nx, Ny, nx, ny;
+  PetscScalar    xl, xr, yl, yr, hix, hiy, dt, t0, Tend;
   TS             ts;
   TSAdapt        adapt;
   AppCtx         appctx;
@@ -51,22 +53,23 @@ int main(int argc,char **argv)
   xr = 1;
   yl = -1;
   yr = 1;
-  appctx.Nx = 401;
-  appctx.Ny = 402;
-  appctx.hix = (appctx.Nx-1)/(xr-xl);
-  appctx.hiy = (appctx.Ny-1)/(yr-yl);
-  appctx.xl = xl;
-  appctx.yl = yl;
+  Nx = 401;
+  Ny = 402;
+  hix = (Nx-1)/(xr-xl);
+  hiy = (Ny-1)/(yr-yl);
+  
+
   // Time
   t0 = 0;
-  Tend = 0.2;
-  dt = 0.1/(std::min(appctx.hix,appctx.hiy));
+  Tend = 0.4;
+  dt = 0.1/(std::min(hix,hiy));
 
   // Velocity field a(i,j) = 1
-  appctx.a = [](const PetscInt i, const PetscInt j){ return 1.5;};
+  auto a = [](const PetscInt i, const PetscInt j){ return 1.5;};
+  auto b = [](const PetscInt i, const PetscInt j){ return -1;};
 
   // Set if data should be written.
-  write_data = PETSC_TRUE;
+  write_data = PETSC_FALSE;
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Create distributed array (DMDA) to manage parallel grid and vectors
@@ -74,12 +77,23 @@ int main(int argc,char **argv)
   auto [stencil_width, nc, cw] = appctx.D1.get_ranges();
   stencil_radius = (stencil_width-1)/2;
   DMDACreate2d(PETSC_COMM_WORLD,DM_BOUNDARY_NONE,DM_BOUNDARY_NONE,DMDA_STENCIL_STAR,
-               appctx.Nx,appctx.Ny,PETSC_DECIDE,PETSC_DECIDE,1,stencil_radius,NULL,NULL,&da);
+               Nx,Ny,PETSC_DECIDE,PETSC_DECIDE,1,stencil_radius,NULL,NULL,&da);
   DMSetFromOptions(da);
   DMSetUp(da);
-  DMDAGetCorners(da,&appctx.i_start,&appctx.j_start,NULL,&nx,&ny,NULL);
-  appctx.i_end = appctx.i_start + nx;
-  appctx.j_end = appctx.j_start + ny;
+  DMDAGetCorners(da,&i_xstart,&i_ystart,NULL,&nx,&ny,NULL);
+  i_xend = i_xstart + nx;
+  i_yend = i_ystart + ny;
+
+
+  // Populate application context.
+  appctx.N = {Nx, Ny};
+  appctx.hi = {hix, hiy};
+  appctx.xl = xl;
+  appctx.yl = yl;
+  appctx.i_start = {i_xstart,i_ystart};
+  appctx.i_end = {i_xend,i_yend};
+  appctx.a = a;
+  appctx.b = b;
 
   /*  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       Extract global vectors from DMDA; then duplicate for remaining
@@ -129,7 +143,7 @@ int main(int argc,char **argv)
   PetscReal l2_error, max_error;
   VecNorm(v_error,NORM_2,&l2_error);
   VecNorm(v_error,NORM_INFINITY,&max_error);
-  l2_error = sqrt(1./(appctx.hix*appctx.hiy))*l2_error;
+  l2_error = sqrt(1./(hix*hiy))*l2_error;
   PetscPrintf(PETSC_COMM_WORLD,"The l2-error error is: %g and the maximum error is %g\n",l2_error,max_error);
   
   // Write solution to file
@@ -157,13 +171,13 @@ PetscErrorCode analytic_solution(const DM& da, const PetscScalar t, const AppCtx
 { 
   PetscScalar x,y, **array_analytic;
   DMDAVecGetArray(da,v_analytic,&array_analytic);
-  for (PetscInt j = appctx.j_start; j < appctx.j_end; j++)
+  for (PetscInt j = appctx.i_start[1]; j < appctx.i_end[1]; j++)
   {
-    y = appctx.yl + j/appctx.hiy;
-    for (PetscInt i = appctx.i_start; i < appctx.i_end; i++)
+    y = appctx.yl + j/appctx.hi[1];
+    for (PetscInt i = appctx.i_start[0]; i < appctx.i_end[0]; i++)
     {
-      x = appctx.xl + i/appctx.hix;
-      array_analytic[j][i] = gaussian_2D(x-appctx.a(i,j)*t,y);
+      x = appctx.xl + i/appctx.hi[0];
+      array_analytic[j][i] = gaussian_2D(x-appctx.a(i,j)*t,y-appctx.b(i,j)*t);
     }
   }
   DMDAVecRestoreArray(da,v_analytic,&array_analytic);  
@@ -193,15 +207,24 @@ PetscErrorCode rhs(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
   // Extract arrays
   DMDAVecGetArrayDOFRead(da,v_local,&array_src);
   DMDAVecGetArrayDOF(da,v_dst,&array_dst);
-    
-  sbp::advection_apply_2D_x(appctx->D1, appctx->a, array_src, array_dst, appctx->i_start, appctx->j_start, appctx->i_end, appctx->j_end, appctx->Nx,appctx->hix);
+  
+  sbp::advection_apply_2D(appctx->D1, appctx->a, appctx->b, array_src, array_dst, 
+                          appctx->i_start, appctx->i_end, appctx->N, appctx->hi);
 
-  //Apply homogeneous Dirichlet BC via injection
-  if (appctx->i_start == 0)
+  //Apply homogeneous Dirichlet BC via injection on west and north boundary
+  if (appctx->i_start[0] == 0)
   {
-   for (PetscInt j = appctx->j_start; j < appctx->j_end; j++)
+   for (PetscInt j = appctx->i_start[1]; j < appctx->i_end[1]; j++)
     {
       array_dst[j][0][0] = 0;
+    }   
+  }
+
+  if (appctx->i_end[1] == appctx->N[1])
+  {
+   for (PetscInt i = appctx->i_start[0]; i < appctx->i_end[0]; i++)
+    {
+      array_dst[appctx->N[1]-1][i][0] = 0;
     }   
   }
 
