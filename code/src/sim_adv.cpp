@@ -187,7 +187,7 @@ PetscErrorCode apply_RHS_mat(Mat D, Vec x, Vec y) {
   DMDAVecGetArrayDOF(appctx->da,xlocal,&xarr);
   DMDAVecGetArrayDOF(appctx->da,y,&yarr);
 
-  sbp::advection_apply(appctx->D1, appctx->velocity_field, xarr, yarr, appctx->istart, appctx->iend, appctx->M, appctx->hi);
+  sbp::advection_apply1(appctx->D1, appctx->velocity_field, xarr, yarr, appctx->istart, appctx->iend, appctx->M, appctx->hi);
 
   DMDAVecRestoreArrayDOF(appctx->da,xlocal, &xarr);
   DMRestoreLocalVector(appctx->da,&xlocal);

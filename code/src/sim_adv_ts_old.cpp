@@ -5,44 +5,40 @@ static char help[] ="Solves the 2D advection equation u_t + au_x +bu_y = 0, usin
 #include <cmath>
 #include <string>
 // #include <filesystem>
+#include <functional>
 #include <petscsys.h>
 #include <petscdmda.h>
 #include <petscvec.h>
-#include <functional>
 #include <petscts.h>
 #include "sbpops/D1_central.h"
 #include "diffops/advection.h"
-#include <petsc/private/dmdaimpl.h> 
 
 struct AppCtx{
   std::array<PetscInt,2> N, i_start, i_end;
   std::array<PetscScalar,2> hi;
-  PetscScalar xl, yl, sw;
+  PetscScalar xl, yl;
   std::function<double(int, int)> a;
   std::function<double(int, int)> b;
-  // const sbp::D1_central<3,1,2> D1;
+  const sbp::D1_central<3,1,2> D1;
   // const sbp::D1_central<5,4,6> D1;
-  const sbp::D1_central<7,6,9> D1;
-  VecScatter scatctx;
+    // const sbp::D1_central<7,6,9> D1;
 };
 
 extern PetscErrorCode analytic_solution(const DM&, const PetscScalar, const AppCtx&, Vec&);
 extern PetscErrorCode rhs(TS,PetscReal,Vec,Vec,void *);
 extern PetscScalar gaussian_2D(PetscScalar, PetscScalar);
 extern PetscErrorCode write_vector_to_binary(const Vec&, const std::string, const std::string);
-extern PetscErrorCode build_ltol(DM da, VecScatter *ltol);
 
 int main(int argc,char **argv)
 { 
   DM             da;
-  Vec            v, v_analytic, v_error, vlocal;
-  PetscInt       stencil_radius, i_xstart, i_xend, i_ystart, i_yend, Nx, Ny, nx, ny, procx, procy;
+  Vec            v, v_analytic, v_error;
+  PetscInt       stencil_radius, i_xstart, i_xend, i_ystart, i_yend, Nx, Ny, nx, ny;
   PetscScalar    xl, xr, yl, yr, hix, hiy, dt, t0, Tend;
   TS             ts;
   TSAdapt        adapt;
   AppCtx         appctx;
-  PetscBool      write_data;
-  PetscLogDouble v1,v2,elapsed_time = 0;
+  PetscBool       write_data;
 
   PetscErrorCode ierr;
   PetscMPIInt    size, rank;
@@ -67,8 +63,8 @@ int main(int argc,char **argv)
   
   // Time
   t0 = 0;
-  dt = 0.1/(std::min(hix,hiy));
   Tend = 0.4;
+  dt = 0.1/(std::min(hix,hiy));
 
   // Velocity field a(i,j) = 1
   auto a = [](const PetscInt i, const PetscInt j){ return 1.5;};
@@ -89,9 +85,10 @@ int main(int argc,char **argv)
   DMDAGetCorners(da,&i_xstart,&i_ystart,NULL,&nx,&ny,NULL);
   i_xend = i_xstart + nx;
   i_yend = i_ystart + ny;
-
+  PetscInt procx, procy;
   DMDAGetInfo(da,NULL,NULL,NULL,NULL,&procx,&procy,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
   PetscPrintf(PETSC_COMM_WORLD,"Processor topology dimensions: [%d,%d]\n",procx,procy);
+  // printf("Local info: My rank: %d, i_xstart: %d, i_xend: %d, i_ystart: %d, i_yend: %d\n",rank,i_xstart,i_xend,i_ystart,i_yend);
 
   // Populate application context.
   appctx.N = {Nx, Ny};
@@ -102,14 +99,7 @@ int main(int argc,char **argv)
   appctx.i_end = {i_xend,i_yend};
   appctx.a = a;
   appctx.b = b;
-  appctx.sw = stencil_radius;
 
-  /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-     Extract local to local scatter context
-   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  build_ltol(da, &appctx.scatctx);
-  // DMDAGetScatter(da, NULL, &appctx.scatctx);
-  
   /*  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       Extract global vectors from DMDA; then duplicate for remaining
       vectors that are the same types
@@ -117,6 +107,7 @@ int main(int argc,char **argv)
   DMCreateGlobalVector(da,&v);
   VecDuplicate(v,&v_analytic);
   VecDuplicate(v,&v_error);
+ 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Setup time stepping context
   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
@@ -139,39 +130,17 @@ int main(int argc,char **argv)
   // Initial solution, starting time and end time.
   analytic_solution(da, 0, appctx, v);
   // if (write_data) write_vector_to_binary(v,"data/sim_adv_ts","v_init");
-
-  ierr = DMCreateLocalVector(da,&vlocal);CHKERRQ(ierr);
-  DMGlobalToLocalBegin(da,v,INSERT_VALUES,vlocal);  
-  DMGlobalToLocalEnd(da,v,INSERT_VALUES,vlocal);
-
-  TSSetSolution(ts, vlocal);
+  TSSetSolution(ts, v);
   TSSetTime(ts,t0);
   TSSetTimeStep(ts,dt);
   TSSetMaxTime(ts,Tend);
   // Set all options
   TSSetFromOptions(ts);
 
-
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Run simulation and compute the error
   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  if (rank == 0) {
-    PetscTime(&v1);
-  }
-
-  ierr = TSSolve(ts,vlocal);CHKERRQ(ierr);
-
-  PetscBarrier((PetscObject) v);
-  if (rank == 0) {
-    PetscTime(&v2);
-    elapsed_time = v2 - v1; 
-  }
-
-  PetscPrintf(PETSC_COMM_WORLD,"Elapsed time: %f seconds\n",elapsed_time);
-
-  DMLocalToGlobalBegin(da,vlocal,INSERT_VALUES,v);
-  DMLocalToGlobalEnd(da,vlocal,INSERT_VALUES,v);
-
+  ierr = TSSolve(ts,v);CHKERRQ(ierr);
   analytic_solution(da, Tend, appctx, v_analytic);
   VecSet(v_error,0);
   VecWAXPY(v_error,-1,v,v_analytic);
@@ -180,18 +149,13 @@ int main(int argc,char **argv)
   VecNorm(v_error,NORM_INFINITY,&max_error);
   l2_error = sqrt(1./(hix*hiy))*l2_error;
   PetscPrintf(PETSC_COMM_WORLD,"The l2-error error is: %g and the maximum error is %g\n",l2_error,max_error);
-
+  
   // Write solution to file
   // if (write_data)
   // {
   //   write_vector_to_binary(v,"data/sim_adv_ts","v");
   //   write_vector_to_binary(v_error,"data/sim_adv_ts","v_error");
   // }
-  if (rank == 0) {
-    FILE *f = fopen("data/timings_ts_SCM.txt", "a");
-    fprintf(f,"Size: %d, Nx: %d, Ny: %d, dt: %e, Tend: %f, elapsed time: %f, l2-error: %e, max-error: %e\n",size,Nx,Ny,dt,Tend,elapsed_time,l2_error,max_error);
-    fclose(f);
-  }
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       Free work space.  All PETSc objects should be destroyed when they
@@ -230,32 +194,30 @@ PetscScalar gaussian_2D(PetscScalar x, PetscScalar y) {
   return std::exp(-(x*x+y*y)/(rstar*rstar));
 }
 
-
 PetscErrorCode rhs(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
 {
   AppCtx *appctx = (AppCtx*) ctx;     /* user-defined application context */
   DM                da;
+  Vec               v_local;
   PetscScalar       ***array_src, ***array_dst;
 
   TSGetDM(ts,&da);
-
-  DMDAVecGetArrayDOFRead(da,v_src,&array_src);
-  DMDAVecGetArrayDOF(da,v_dst,&array_dst);
-
-  VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
+  DMGetLocalVector(da, &v_local);
+  // Scatter global vector to local vectors, communicating ghost points
+  DMGlobalToLocalBegin(da,v_src,INSERT_VALUES,v_local);
+  DMGlobalToLocalEnd(da,v_src,INSERT_VALUES,v_local);
   
-  sbp::advection_apply_2D_2_inner(appctx->D1, appctx->a, appctx->b, array_src, array_dst, 
-    appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
-
-  VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-
-  sbp::advection_apply_2D_outer(appctx->D1, appctx->a, appctx->b, array_src, array_dst, 
-    appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
+  // Extract arrays
+  DMDAVecGetArrayDOFRead(da,v_local,&array_src);
+  DMDAVecGetArrayDOF(da,v_dst,&array_dst);
+  
+  sbp::advection_apply_2D_2(appctx->D1, appctx->a, appctx->b, array_src, array_dst, 
+                          appctx->i_start, appctx->i_end, appctx->N, appctx->hi);
 
   //Apply homogeneous Dirichlet BC via injection on west and north boundary
   if (appctx->i_start[0] == 0)
   {
-    for (PetscInt j = appctx->i_start[1]; j < appctx->i_end[1]; j++)
+   for (PetscInt j = appctx->i_start[1]; j < appctx->i_end[1]; j++)
     {
       array_dst[j][0][0] = 0;
     }   
@@ -263,14 +225,15 @@ PetscErrorCode rhs(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
 
   if (appctx->i_end[1] == appctx->N[1])
   {
-    for (PetscInt i = appctx->i_start[0]; i < appctx->i_end[0]; i++)
+   for (PetscInt i = appctx->i_start[0]; i < appctx->i_end[0]; i++)
     {
       array_dst[appctx->N[1]-1][i][0] = 0;
     }   
   }
 
   // Restore arrays
-  DMDAVecRestoreArrayDOFRead(da, v_src, &array_src);
+  DMDAVecRestoreArrayDOFRead(da, v_local, &array_src);
+  DMRestoreLocalVector(da,&v_local);
   DMDAVecRestoreArrayDOF(da, v_dst, &array_dst);
   return 0;
 }
@@ -286,129 +249,3 @@ PetscErrorCode rhs(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
 //   CHKERRQ(ierr);
 //   return 0;
 // }
-
-/**
-* Build local to local scatter context containing only ghost point communications
-* Inputs: da        - DMDA object
-*         ltol      - pointer to local to local scatter context
-**/
-PetscErrorCode build_ltol(DM da, VecScatter *ltol)
-{
-  AO          ao;
-  PetscInt    stencil_radius, i_xstart, i_xend, i_ystart, i_yend, ig_xstart, ig_xend, ig_ystart, ig_yend, nx, ny, i, j, lnx, lny, no_com_vals, count, Nx, Ny;
-  IS          ix, iy;
-  Vec         vglobal, vlocal;
-  VecScatter  gtol;
-
-  DMDAGetStencilWidth(da, &stencil_radius);
-  DMDAGetCorners(da,&i_xstart,&i_ystart,NULL,&nx,&ny,NULL);
-  DMDAGetGhostCorners(da,&ig_xstart,&ig_ystart,NULL,&lnx,&lny,NULL);
-  DMDAGetInfo(da, NULL, &Nx, &Ny,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
-
-  i_xend = i_xstart + nx;
-  i_yend = i_ystart + ny;
-  ig_xend = ig_xstart + lnx;
-  ig_yend = ig_ystart + lny;
-
-  /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    Compute how many elements to receive
-  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  no_com_vals = 0;
-  if (i_ystart != 0)  // NOT BOTTOM, RECEIVE BELOW
-  {
-    no_com_vals += nx;
-  }
-  if (i_yend != Ny) // NOT TOP, RECEIVE ABOVE
-  {
-    no_com_vals += nx;
-  }
-  if (i_xstart != 0)  // NOT LEFT BOUNDARY, RECEIVE LEFT
-  {
-    no_com_vals += ny;
-  }
-  if (i_xend != Nx) // NOT RIGHT BOUNDARY, RECEIVE RIGHT
-  {
-    no_com_vals += ny;
-  }
-  no_com_vals *= stencil_radius;
-
-  /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    Define communication pattern, from global index ixx[i] to local index iyy[i]
-  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  PetscInt ixx[no_com_vals], iyy[no_com_vals];
-  count = 0;
-  for (i = i_xstart; i < i_xend; i++) { // UP
-    for (j = i_yend; j < ig_yend; j++) {
-      ixx[count] = i + Nx*j;
-      iyy[count] = (i - ig_xstart) + lnx*(j - ig_ystart);
-      count++;
-    }
-  }
-
-  for (i = i_xstart; i < i_xend; i++) { // DOWN
-    for (j = ig_ystart; j < i_ystart; j++) { 
-      ixx[count] = i + Nx*j;
-      iyy[count] = (i - ig_xstart) + lnx*(j - ig_ystart);
-      count++;
-    }
-  }
-
-  for (i = ig_xstart; i < i_xstart; i++) { // LEFT
-    for (j = i_ystart; j < i_yend; j++) {
-      ixx[count] = i + Nx*j;
-      iyy[count] = (i - ig_xstart) + lnx*(j - ig_ystart);
-      count++;
-    }
-  }
-
-  for (i = i_xend; i < ig_xend; i++) { // RIGHT
-    for (j = i_ystart; j < i_yend; j++) {
-      ixx[count] = i + Nx*j;
-      iyy[count] = (i - ig_xstart) + lnx*(j - ig_ystart);
-      count++;
-    }
-  }
-
-  // Map global indices from natural ordering to petsc application ordering
-  DMDAGetAO(da,&ao);
-  AOApplicationToPetsc(ao,no_com_vals,ixx);
-  AODestroy(&ao);
-
-  /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    Build global to local scatter context
-  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  ISCreateGeneral(PETSC_COMM_SELF,no_com_vals,ixx,PETSC_COPY_VALUES,&ix);  
-  ISCreateGeneral(PETSC_COMM_SELF,no_com_vals,iyy,PETSC_COPY_VALUES,&iy);  
-
-  DMGetGlobalVector(da, &vglobal);
-  DMGetLocalVector(da, &vlocal);
-
-  VecScatterCreate(vglobal,ix,vlocal,iy, &gtol);  
-  VecScatterSetUp(gtol);
-
-  DMRestoreGlobalVector(da, &vglobal);
-  DMRestoreLocalVector(da, &vlocal);
-
-  ISDestroy(&ix);
-  ISDestroy(&iy);
-
-  /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    Map 2D global to local scatter context to local to local (petsc source code)
-  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  VecScatterCopy(gtol,ltol);
-  VecScatterDestroy(&gtol);
-
-  PetscInt *idx,left,up,down;
-  DM_DA *dd = (DM_DA*) da->data;
-  left  = dd->xs - dd->Xs; down  = dd->ys - dd->Ys; up = down + dd->ye-dd->ys;
-  PetscMalloc1((dd->xe-dd->xs)*(up - down),&idx);
-  count = 0;
-  for (i=down; i<up; i++) {
-    for (j=0; j<dd->xe-dd->xs; j++) {
-      idx[count++] = left + i*(dd->Xe-dd->Xs) + j;
-    }
-  }
-  VecScatterRemap(*ltol,idx,NULL);
-
-  return 0;
-}

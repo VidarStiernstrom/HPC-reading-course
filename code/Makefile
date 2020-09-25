@@ -2,7 +2,7 @@ SRC_PATH = src/
 BIN_PATH = bin/
 INCLUDE_PATH = include/
 
-all: $(BIN_PATH)sim_ref $(BIN_PATH)sim_adv $(BIN_PATH)sim_adv_ts
+all: $(BIN_PATH)sim_ref $(BIN_PATH)sim_adv $(BIN_PATH)sim_adv_ts $(BIN_PATH)sim_adv_ts_old
 
 IFLAGS			= -I$(INCLUDE_PATH)
 DEBUG_MODULES	= -Wall
@@ -17,6 +17,11 @@ include ${PETSC_DIR}/lib/petsc/conf/rules
 include ${PETSC_DIR}/lib/petsc/conf/test
 
 $(BIN_PATH)sim_adv_ts: $(SRC_PATH)sim_adv_ts.o
+	mkdir -p $(BIN_PATH)
+	-${CLINKER} $^ -o $@ ${PETSC_SYS_LIB}
+	mv $(SRC_PATH)*.o $(BIN_PATH)
+
+$(BIN_PATH)sim_adv_ts_old: $(SRC_PATH)sim_adv_ts_old.o
 	mkdir -p $(BIN_PATH)
 	-${CLINKER} $^ -o $@ ${PETSC_SYS_LIB}
 	mv $(SRC_PATH)*.o $(BIN_PATH)
