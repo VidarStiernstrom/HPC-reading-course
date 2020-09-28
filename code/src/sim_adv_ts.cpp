@@ -12,22 +12,13 @@ static char help[] ="Solves the 2D advection equation u_t + au_x +bu_y = 0, usin
 #include <petscts.h>
 #include "sbpops/D1_central.h"
 #include "diffops/advection.h"
+#include "timestepping.h"
 #include <petsc/private/dmdaimpl.h> 
-
-struct AppCtx{
-  std::array<PetscInt,2> N, i_start, i_end;
-  std::array<PetscScalar,2> hi;
-  PetscScalar xl, yl, sw;
-  std::function<double(int, int)> a;
-  std::function<double(int, int)> b;
-  // const sbp::D1_central<3,1,2> D1;
-  // const sbp::D1_central<5,4,6> D1;
-  const sbp::D1_central<7,6,9> D1;
-  VecScatter scatctx;
-};
+#include "appctx.h"
 
 extern PetscErrorCode analytic_solution(const DM&, const PetscScalar, const AppCtx&, Vec&);
-extern PetscErrorCode rhs(TS,PetscReal,Vec,Vec,void *);
+extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
+extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, AppCtx *);
 extern PetscScalar gaussian_2D(PetscScalar, PetscScalar);
 extern PetscErrorCode write_vector_to_binary(const Vec&, const std::string, const std::string);
 extern PetscErrorCode build_ltol(DM da, VecScatter *ltol);
@@ -38,10 +29,9 @@ int main(int argc,char **argv)
   Vec            v, v_analytic, v_error, vlocal;
   PetscInt       stencil_radius, i_xstart, i_xend, i_ystart, i_yend, Nx, Ny, nx, ny, procx, procy;
   PetscScalar    xl, xr, yl, yr, hix, hiy, dt, t0, Tend;
-  TS             ts;
-  TSAdapt        adapt;
+
   AppCtx         appctx;
-  PetscBool      write_data;
+  PetscBool      write_data, use_custom_ts;
   PetscLogDouble v1,v2,elapsed_time = 0;
 
   PetscErrorCode ierr;
@@ -54,7 +44,6 @@ int main(int argc,char **argv)
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Problem setup
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  
   // Space
   xl = -1;
   xr = 1;
@@ -76,6 +65,9 @@ int main(int argc,char **argv)
 
   // Set if data should be written.
   write_data = PETSC_FALSE;
+
+  // Set which time stepping to use
+  use_custom_ts = PETSC_TRUE;
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Create distributed array (DMDA) to manage parallel grid and vectors
@@ -104,9 +96,7 @@ int main(int argc,char **argv)
   appctx.b = b;
   appctx.sw = stencil_radius;
 
-  /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-     Extract local to local scatter context
-   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+  // Extract local to local scatter context
   build_ltol(da, &appctx.scatctx);
   // DMDAGetScatter(da, NULL, &appctx.scatctx);
   
@@ -117,25 +107,7 @@ int main(int argc,char **argv)
   DMCreateGlobalVector(da,&v);
   VecDuplicate(v,&v_analytic);
   VecDuplicate(v,&v_error);
-  /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    Setup time stepping context
-  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  TSCreate(PETSC_COMM_WORLD, &ts);
   
-  // Problem type and RHS function
-  TSSetProblemType(ts, TS_LINEAR);
-  TSSetRHSFunction(ts, NULL, rhs, &appctx);
-  
-  // Integrator
-  TSSetType(ts,TSRK);
-  TSRKSetType(ts,TSRK4);
-  TSGetAdapt(ts, &adapt);
-  TSAdaptSetType(adapt,TSADAPTNONE);
-  TSSetExactFinalTime(ts,TS_EXACTFINALTIME_MATCHSTEP);
-
-  // DM context
-  TSSetDM(ts,da);
-
   // Initial solution, starting time and end time.
   analytic_solution(da, 0, appctx, v);
   // if (write_data) write_vector_to_binary(v,"data/sim_adv_ts","v_init");
@@ -144,23 +116,20 @@ int main(int argc,char **argv)
   DMGlobalToLocalBegin(da,v,INSERT_VALUES,vlocal);  
   DMGlobalToLocalEnd(da,v,INSERT_VALUES,vlocal);
 
-  TSSetSolution(ts, vlocal);
-  TSSetTime(ts,t0);
-  TSSetTimeStep(ts,dt);
-  TSSetMaxTime(ts,Tend);
-  // Set all options
-  TSSetFromOptions(ts);
-
-
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Run simulation and compute the error
   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+  PetscBarrier((PetscObject) v);
   if (rank == 0) {
     PetscTime(&v1);
   }
 
-  ierr = TSSolve(ts,vlocal);CHKERRQ(ierr);
-
+  if (use_custom_ts) {
+    RK4_custom(da, appctx, Tend, dt, vlocal, rhs);  
+  } else {
+    RK4_petsc(da, appctx, Tend, dt, vlocal, rhs_TS);  
+  }
+  
   PetscBarrier((PetscObject) v);
   if (rank == 0) {
     PetscTime(&v2);
@@ -200,7 +169,6 @@ int main(int argc,char **argv)
   VecDestroy(&v);
   VecDestroy(&v_analytic);
   VecDestroy(&v_error);
-  TSDestroy(&ts);
   DMDestroy(&da);
   
   ierr = PetscFinalize();
@@ -230,14 +198,9 @@ PetscScalar gaussian_2D(PetscScalar x, PetscScalar y) {
   return std::exp(-(x*x+y*y)/(rstar*rstar));
 }
 
-
-PetscErrorCode rhs(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
+PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
 {
-  AppCtx *appctx = (AppCtx*) ctx;     /* user-defined application context */
-  DM                da;
   PetscScalar       ***array_src, ***array_dst;
-
-  TSGetDM(ts,&da);
 
   DMDAVecGetArrayDOFRead(da,v_src,&array_src);
   DMDAVecGetArrayDOF(da,v_dst,&array_dst);
@@ -272,6 +235,16 @@ PetscErrorCode rhs(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
   // Restore arrays
   DMDAVecRestoreArrayDOFRead(da, v_src, &array_src);
   DMDAVecRestoreArrayDOF(da, v_dst, &array_dst);
+  return 0;
+}
+
+PetscErrorCode rhs_TS(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx) // Function to utilize PETSc TS.
+{
+  AppCtx *appctx = (AppCtx*) ctx;
+  DM                da;
+
+  TSGetDM(ts,&da);
+  rhs(da, t, v_src, v_dst, appctx);
   return 0;
 }
 
