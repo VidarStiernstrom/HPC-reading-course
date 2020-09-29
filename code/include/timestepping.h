@@ -155,13 +155,13 @@ PetscErrorCode RK4_custom(const DM da, AppCtx appctx, const PetscScalar Tend, Pe
 
 PetscErrorCode get_local_inner_ids(DM da, AppCtx appctx, PetscInt *ln_tot, PetscInt **linner_ids)
 {
-  PetscInt i, j, k, idx, nx, ny, nz, lnx, lny, sw;
+  PetscInt i, j, k, l, idx, nx, ny, nz, lnx, lny, sw, dof;
   int dim;
 
   DMDAGetStencilWidth(da, &sw);
   DMDAGetCorners(da,NULL,NULL,NULL,&nx,&ny,&nz);
   DMDAGetGhostCorners(da,NULL,NULL,NULL,&lnx,&lny,NULL);
-  DMDAGetInfo(da,&dim,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+  DMDAGetInfo(da,&dim,NULL,NULL,NULL,NULL,NULL,NULL,&dof,NULL,NULL,NULL,NULL,NULL);
 
   PetscInt li_start[3] = {0,0,0}, li_end[3] = {1,1,1};
 
@@ -172,13 +172,13 @@ PetscErrorCode get_local_inner_ids(DM da, AppCtx appctx, PetscInt *ln_tot, Petsc
   {
     if (appctx.i_start[0] == 0) {                 // Left x
       li_start[0] = 0;
-      li_end[0] = nx;
+      li_end[0] = nx*dof;
     } else if (appctx.i_end[0] == appctx.N[0]) {  // Right x
-      li_start[0] = sw;
-      li_end[0] = sw + nx;
+      li_start[0] = sw*dof;
+      li_end[0] = (sw + nx)*dof;
     } else {                                      // Center x
-      li_start[0] = sw;
-      li_end[0] = sw + nx;
+      li_start[0] = sw*dof;
+      li_end[0] = (sw + nx)*dof;
     }
   }
 
@@ -186,13 +186,13 @@ PetscErrorCode get_local_inner_ids(DM da, AppCtx appctx, PetscInt *ln_tot, Petsc
   {
     if (appctx.i_start[1] == 0) {                 // Left y
       li_start[1] = 0;
-      li_end[1] = ny;
+      li_end[1] = ny*dof;
     } else if (appctx.i_end[1] == appctx.N[1]) {  // Right y
-      li_start[1] = sw;
-      li_end[1] = sw + ny;
+      li_start[1] = sw*dof;
+      li_end[1] = (sw + ny)*dof;
     } else {                                      // Center y
-      li_start[1] = sw;
-      li_end[1] = sw + ny;
+      li_start[1] = sw*dof;
+      li_end[1] = (sw + ny)*dof;
     }      
   }
 
@@ -200,31 +200,34 @@ PetscErrorCode get_local_inner_ids(DM da, AppCtx appctx, PetscInt *ln_tot, Petsc
   {
     if (appctx.i_start[2] == 0) {                 // Left z
       li_start[2] = 0;
-      li_end[2] = nz;
+      li_end[2] = nz*dof;
     } else if (appctx.i_end[2] == appctx.N[2]) {  // Right z
-      li_start[2] = sw;
-      li_end[2] = sw + nz;
+      li_start[2] = sw*dof;
+      li_end[2] = (sw + nz)*dof;
     } else {                                      // Center z
-      li_start[2] = sw;
-      li_end[2] = sw + nz;
+      li_start[2] = sw*dof;
+      li_end[2] = (sw + nz)*dof;
     }  
   }
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Loop through inner points and save array indices.
   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  *ln_tot = nx*ny*nz;
+  *ln_tot = nx*ny*nz*dof;
   *linner_ids = (PetscInt *) malloc(*ln_tot*sizeof(PetscInt));
   PetscInt count = 0;
-  for (k = li_start[2]; k < li_end[2]; k++) {
-    for (j = li_start[1]; j < li_end[1]; j++) {
-      for (i = li_start[0]; i < li_end[0]; i++) {
-        idx = i + lnx*(j + lny*k);
-        (*linner_ids)[count] = idx;
-        count++;
-      }  
-    }
+  for (l = 0; l < dof; l++) {
+    for (k = li_start[2]; k < li_end[2]; k++) {
+      for (j = li_start[1]; j < li_end[1]; j++) {
+        for (i = li_start[0]; i < li_end[0]; i++) {
+          idx = l + i + lnx*(j + lny*k);
+          (*linner_ids)[count] = idx;
+          count++;
+        }  
+      }
+    }  
   }
+
 
   return 0;
 }

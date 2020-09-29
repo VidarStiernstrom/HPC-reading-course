@@ -2,7 +2,7 @@ SRC_PATH = src/
 BIN_PATH = bin/
 INCLUDE_PATH = include/
 
-all: $(BIN_PATH)sim_ref $(BIN_PATH)sim_adv $(BIN_PATH)sim_adv_ts $(BIN_PATH)sim_adv_ts_old
+all: $(BIN_PATH)adv_1D $(BIN_PATH)adv_2D $(BIN_PATH)ref_1D $(BIN_PATH)sim_adv_ts_old
 
 IFLAGS			= -I$(INCLUDE_PATH)
 DEBUG_MODULES	= -Wall
@@ -16,7 +16,17 @@ include ${PETSC_DIR}/lib/petsc/conf/variables
 include ${PETSC_DIR}/lib/petsc/conf/rules
 include ${PETSC_DIR}/lib/petsc/conf/test
 
-$(BIN_PATH)sim_adv_ts: $(SRC_PATH)sim_adv_ts.o
+$(BIN_PATH)adv_2D: $(SRC_PATH)adv_2D.o
+	mkdir -p $(BIN_PATH)
+	-${CLINKER} $^ -o $@ ${PETSC_SYS_LIB}
+	mv $(SRC_PATH)*.o $(BIN_PATH)
+
+$(BIN_PATH)adv_1D: $(SRC_PATH)adv_1D.o
+	mkdir -p $(BIN_PATH)
+	-${CLINKER} $^ -o $@ ${PETSC_SYS_LIB}
+	mv $(SRC_PATH)*.o $(BIN_PATH)
+	
+$(BIN_PATH)ref_1D: $(SRC_PATH)ref_1D.o
 	mkdir -p $(BIN_PATH)
 	-${CLINKER} $^ -o $@ ${PETSC_SYS_LIB}
 	mv $(SRC_PATH)*.o $(BIN_PATH)
@@ -26,18 +36,9 @@ $(BIN_PATH)sim_adv_ts_old: $(SRC_PATH)sim_adv_ts_old.o
 	-${CLINKER} $^ -o $@ ${PETSC_SYS_LIB}
 	mv $(SRC_PATH)*.o $(BIN_PATH)
 
-$(BIN_PATH)sim_adv: $(SRC_PATH)sim_adv.o
-	mkdir -p $(BIN_PATH)
-	-${CLINKER} $^ -o $@ ${PETSC_SYS_LIB}
-	mv $(SRC_PATH)*.o $(BIN_PATH)
-	
-$(BIN_PATH)sim_ref: $(SRC_PATH)sim_ref.o
-	mkdir -p $(BIN_PATH)
-	-${CLINKER} $^ -o $@ ${PETSC_SYS_LIB}
-	mv $(SRC_PATH)*.o $(BIN_PATH)
-
 #.PHONY : clean
 clean::
-	-rm -f $(BIN_PATH)*.o $(BIN_PATH)sim_adv
+	-rm -f $(BIN_PATH)*.o $(BIN_PATH)adv_1D
+	-rm -f $(BIN_PATH)*.o $(BIN_PATH)adv_2D
+	-rm -f $(BIN_PATH)*.o $(BIN_PATH)ref_1D
 	-rm -f $(BIN_PATH)*.o $(BIN_PATH)sim_adv_ts
-	-rm -f $(BIN_PATH)*.o $(BIN_PATH)sim_ref
