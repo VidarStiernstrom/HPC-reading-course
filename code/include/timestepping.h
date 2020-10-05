@@ -217,9 +217,9 @@ PetscErrorCode get_local_inner_ids(DM da, AppCtx appctx, PetscInt *ln_tot, Petsc
   *linner_ids = (PetscInt *) malloc(*ln_tot*sizeof(PetscInt));
   PetscInt count = 0;
   for (l = 0; l < dof; l++) {
-    for (k = li_start[2]; k < li_end[2]; k++) {
-      for (j = li_start[1]; j < li_end[1]; j++) {
-        for (i = li_start[0]; i < li_end[0]; i++) {
+    for (k = li_start[2]; k < li_end[2]; k+=dof) {
+      for (j = li_start[1]; j < li_end[1]; j+=dof) {
+        for (i = li_start[0]; i < li_end[0]; i+=dof) {
           idx = l + i + lnx*(j + lny*k);
           (*linner_ids)[count] = idx;
           count++;
@@ -227,7 +227,6 @@ PetscErrorCode get_local_inner_ids(DM da, AppCtx appctx, PetscInt *ln_tot, Petsc
       }
     }  
   }
-
 
   return 0;
 }
