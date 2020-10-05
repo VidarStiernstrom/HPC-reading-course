@@ -2,7 +2,7 @@ SRC_PATH = src/
 BIN_PATH = bin/
 INCLUDE_PATH = include/
 
-all: $(BIN_PATH)adv_1D $(BIN_PATH)adv_2D $(BIN_PATH)ref_1D $(BIN_PATH)sim_adv_ts_old
+all: $(BIN_PATH)adv_1D $(BIN_PATH)adv_2D $(BIN_PATH)ref_1D $(BIN_PATH)ref_2D $(BIN_PATH)sim_adv_ts_old
 
 IFLAGS			= -I$(INCLUDE_PATH)
 DEBUG_MODULES	= -Wall
@@ -31,6 +31,11 @@ $(BIN_PATH)ref_1D: $(SRC_PATH)ref_1D.o
 	-${CLINKER} $^ -o $@ ${PETSC_SYS_LIB}
 	mv $(SRC_PATH)*.o $(BIN_PATH)
 
+$(BIN_PATH)ref_2D: $(SRC_PATH)ref_2D.o
+	mkdir -p $(BIN_PATH)
+	-${CLINKER} $^ -o $@ ${PETSC_SYS_LIB}
+	mv $(SRC_PATH)*.o $(BIN_PATH)
+
 $(BIN_PATH)sim_adv_ts_old: $(SRC_PATH)sim_adv_ts_old.o
 	mkdir -p $(BIN_PATH)
 	-${CLINKER} $^ -o $@ ${PETSC_SYS_LIB}
@@ -41,4 +46,5 @@ clean::
 	-rm -f $(BIN_PATH)*.o $(BIN_PATH)adv_1D
 	-rm -f $(BIN_PATH)*.o $(BIN_PATH)adv_2D
 	-rm -f $(BIN_PATH)*.o $(BIN_PATH)ref_1D
+	-rm -f $(BIN_PATH)*.o $(BIN_PATH)ref_2D
 	-rm -f $(BIN_PATH)*.o $(BIN_PATH)sim_adv_ts
