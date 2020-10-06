@@ -7,7 +7,7 @@
 		std::array<PetscScalar,1> hi;
 		PetscScalar xl, sw;
 		std::function<double(int)> a;
-		const sbp::D1_central<3,1,2> D1;
+		const sbp::D1_central<sbp::Stencils_2nd,3,1,2> D1;
 		VecScatter scatctx;
 		};
 	#elif defined PROBLEM_TYPE_1D_O4
@@ -16,7 +16,7 @@
 		std::array<PetscScalar,1> hi;
 		PetscScalar xl, sw;
 		std::function<double(int)> a;
-		const sbp::D1_central<5,4,6> D1;
+		const sbp::D1_central<sbp::Stencils_4th,5,4,6> D1;
 		VecScatter scatctx;
 		};
 	#elif defined PROBLEM_TYPE_1D_O6
@@ -25,7 +25,7 @@
 		std::array<PetscScalar,1> hi;
 		PetscScalar xl, sw;
 		std::function<double(int)> a;
-		const sbp::D1_central<7,6,9> D1;
+		const sbp::D1_central<sbp::Stencils_6th,7,6,9> D1;
 		VecScatter scatctx;
 		};
 	#elif defined PROBLEM_TYPE_2D_O2
@@ -35,7 +35,7 @@
 		PetscScalar xl, yl, sw;
 		std::function<double(int, int)> a;
 		std::function<double(int, int)> b;
-		const sbp::D1_central<3,1,2> D1;
+		const sbp::D1_central<sbp::Stencils_2nd,3,1,2> D1;
 		VecScatter scatctx;
 		};
 	#elif defined PROBLEM_TYPE_2D_O4
@@ -45,7 +45,7 @@
 		PetscScalar xl, yl, sw;
 		std::function<double(int, int)> a;
 		std::function<double(int, int)> b;
-		const sbp::D1_central<5,4,6> D1;
+		const sbp::D1_central<sbp::Stencils_4th,5,4,6> D1;
 		VecScatter scatctx;
 		};
 	#elif defined PROBLEM_TYPE_2D_O6
@@ -55,7 +55,7 @@
 		PetscScalar xl, yl, sw;
 		std::function<double(int, int)> a;
 		std::function<double(int, int)> b;
-		const sbp::D1_central<7,6,9> D1;
+		const sbp::D1_central<sbp::Stencils_6th,7,6,9> D1;
 		VecScatter scatctx;
 		};
 	#endif	

@@ -19,7 +19,7 @@ struct AppCtx{
   PetscScalar xl, yl;
   std::function<double(int, int)> a;
   std::function<double(int, int)> b;
-  const sbp::D1_central<3,1,2> D1;
+  const sbp::D1_central<sbp::Stencils_2nd,3,1,2> D1;
   // const sbp::D1_central<5,4,6> D1;
     // const sbp::D1_central<7,6,9> D1;
 };
