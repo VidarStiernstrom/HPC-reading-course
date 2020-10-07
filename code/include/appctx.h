@@ -21,6 +21,7 @@
 		};
 	#elif defined PROBLEM_TYPE_1D_O6
 		struct AppCtx{
+		PetscInt id, n_procs;
 		std::array<PetscInt,1> N, i_start, i_end;
 		std::array<PetscScalar,1> hi;
 		PetscScalar xl, sw;

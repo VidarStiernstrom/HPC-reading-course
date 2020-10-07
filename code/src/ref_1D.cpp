@@ -16,6 +16,7 @@ static char help[] = "Solves 1D reflection problem.\n";
 #include "timestepping.h"
 #include <petsc/private/dmdaimpl.h> 
 #include "appctx.h"
+#include "grids/grid_function.h"
 
 extern PetscScalar theta1(PetscScalar x, PetscScalar t);
 extern PetscScalar theta2(PetscScalar x, PetscScalar t);
@@ -80,6 +81,8 @@ int main(int argc,char **argv)
   i_xend = i_xstart + n;
 
   // Populate application context.
+  appctx.id = rank;
+  appctx.n_procs = size;
   appctx.N = {N};
   appctx.hi = {hi};
   appctx.xl = xl;
@@ -236,27 +239,30 @@ PetscScalar theta2(PetscScalar x, PetscScalar t)
 
 PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
 {
-  PetscScalar       **array_src, **array_dst;
+  PetscScalar       *array_src, *array_dst;
 
-  DMDAVecGetArrayDOFRead(da,v_src,&array_src);
-  DMDAVecGetArrayDOF(da,v_dst,&array_dst);
+  VecGetArray(v_src,&array_src);
+  VecGetArray(v_dst,&array_dst);
 
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-
-  sbp::reflection_apply2(appctx->D1, array_src, array_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0]);
+  auto [stencil_width, nc, cw] = appctx->D1.get_ranges();
+  auto s = (stencil_width-1)/2;
+  auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, grid::partitioned_layout_1d(grid::extents_1d(appctx->N[0],2),s,appctx->n_procs,appctx->id));
+  auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, grid::partitioned_layout_1d(grid::extents_1d(appctx->N[0],2),s,appctx->n_procs,appctx->id));
+  sbp::reflection_apply1(appctx->D1, gf_src, gf_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0]);
 
 // Apply BC
   if (appctx->i_start[0] == 0) {
-    array_dst[0][0] = 0.0;  
+    gf_dst(0,0) = 0.0;  
   }
   if (appctx->i_end[0] == appctx->N[0]) {
-    array_dst[appctx->N[0]-1][0] = 0.0;
+    gf_dst(appctx->N[0]-1,0) = 0.0;
   }
 
   // Restore arrays
-  DMDAVecRestoreArrayDOFRead(da, v_src, &array_src);
-  DMDAVecRestoreArrayDOF(da, v_dst, &array_dst);
+  VecRestoreArray(v_src, &array_src);
+  VecRestoreArray(v_dst, &array_dst);
   return 0;
 }
 

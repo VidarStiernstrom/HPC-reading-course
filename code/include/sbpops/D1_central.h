@@ -1,9 +1,11 @@
 #pragma once
 
 #include<petscsystypes.h>
+#include "grids/grid_function.h"
 #include <tuple>
 
 namespace sbp {
+  
   /**
   * Central first derivative SBP operator. The class holds the stencil weights for the interior
   * stencil and the closure stencils and contains method for applying the operator to a grid function
@@ -38,12 +40,12 @@ namespace sbp {
     *
     * Output: derivative v_x[i][comp]
     **/
-    inline PetscScalar apply_left(const PetscScalar *const *const v, const PetscScalar hi, const PetscInt i, const PetscInt comp) const
+    inline PetscScalar apply_left(const grid::grid_function_1d<PetscScalar> v, const PetscScalar hi, const PetscInt i, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<closure_width; is++)
       {
-        u += static_cast<const Stencils&>(*this).closure_stencils[i][is]*v[is][comp];
+        u += static_cast<const Stencils&>(*this).closure_stencils[i][is]*v(is, comp);
       }
       return hi*u;
     };
@@ -57,12 +59,12 @@ namespace sbp {
     *
     * Output: derivative v_x[i][comp]
     **/
-    inline PetscScalar apply_interior(const PetscScalar *const *const v, const PetscScalar hi, const PetscInt i, const PetscInt comp) const
+    inline PetscScalar apply_interior(const grid::grid_function_1d<PetscScalar> v, const PetscScalar hi, const PetscInt i, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<interior_width; is++)
       {
-        u += static_cast<const Stencils&>(*this).interior_stencil[is]*v[(i-(interior_width-1)/2+is)][comp];
+        u += static_cast<const Stencils&>(*this).interior_stencil[is]*v(i-(interior_width-1)/2+is, comp);
       }
       return hi*u;
     };
@@ -76,12 +78,12 @@ namespace sbp {
     *
     * Output: derivative v_x[i][comp]
     **/
-    inline PetscScalar apply_right(const PetscScalar *const *const v, const PetscScalar hi, const PetscInt N, const PetscInt i, const PetscInt comp) const
+    inline PetscScalar apply_right(const grid::grid_function_1d<PetscScalar> v, const PetscScalar hi, const PetscInt N, const PetscInt i, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is < closure_width; is++)
       {
-        u -= static_cast<const Stencils&>(*this).closure_stencils[N-i-1][closure_width-is-1]*v[(N-closure_width+is)][comp];
+        u -= static_cast<const Stencils&>(*this).closure_stencils[N-i-1][closure_width-is-1]*v(N-closure_width+is, comp);
       }
       return hi*u;
     };

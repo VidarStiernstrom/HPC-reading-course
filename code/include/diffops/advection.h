@@ -1,7 +1,8 @@
 #pragma once
 
-#include<petscsystypes.h>
+#include <petscsystypes.h>
 #include <array>
+#include "grids/grid_function.h"
 
 
 namespace sbp{
@@ -18,7 +19,7 @@ namespace sbp{
   *         hi        - Inverse step length
   **/
   template <class SbpDerivative, typename VelocityFunction>
-  inline PetscErrorCode advection_apply1(const SbpDerivative& D1, VelocityFunction&& a, const PetscScalar *const *const array_src, PetscScalar **array_dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
+  inline PetscErrorCode advection_apply1(const SbpDerivative& D1, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
   {
     PetscInt i;
     const auto [iw, n_closures, closure_width] = D1.get_ranges();
@@ -27,7 +28,7 @@ namespace sbp{
     {
       for (i = 0; i < n_closures; i++) 
       { 
-        array_dst[i][0] = -std::forward<VelocityFunction>(a)(i)*D1.apply_left(array_src,hi,i,0);
+        dst(i,0) = -std::forward<VelocityFunction>(a)(i)*D1.apply_left(src,hi,i,0);
       }
       i_start = n_closures;
     }
@@ -36,14 +37,14 @@ namespace sbp{
     {
       for (i = N-n_closures; i < N; i++)
       {
-          array_dst[i][0] = -std::forward<VelocityFunction>(a)(i)*D1.apply_right(array_src,hi,N,i,0);
+          dst(i,0) = -std::forward<VelocityFunction>(a)(i)*D1.apply_right(src,hi,N,i,0);
       }
       i_end = N-n_closures;
     }
 
     for (i = i_start; i < i_end; i++)
     {
-      array_dst[i][0] = -std::forward<VelocityFunction>(a)(i)*D1.apply_interior(array_src,hi,i,0);
+      dst(i,0) = -std::forward<VelocityFunction>(a)(i)*D1.apply_interior(src,hi,i,0);
     }
 
     return 0;

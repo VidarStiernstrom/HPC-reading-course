@@ -16,6 +16,8 @@ static char help[] = "Solves advection 1D problem u_t + u_x = 0.\n";
 #include "timestepping.h"
 #include <petsc/private/dmdaimpl.h> 
 #include "appctx.h"
+#include "grids/grid_function.h"
+#include "grids/layout.h"
 
 extern PetscErrorCode analytic_solution(const DM&, const PetscScalar, const AppCtx&, Vec&);
 extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
@@ -75,8 +77,9 @@ int main(int argc,char **argv)
   DMSetUp(da);
   DMDAGetCorners(da,&i_xstart,NULL,NULL,&n,NULL,NULL);
   i_xend = i_xstart + n;
-
   // Populate application context.
+  appctx.id = rank;
+  appctx.n_procs = size;
   appctx.N = {N};
   appctx.hi = {hi};
   appctx.xl = xl;
@@ -186,25 +189,29 @@ PetscScalar gaussian(PetscScalar x) {
 
 PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
 {
-  PetscScalar       **array_src, **array_dst;
+  PetscScalar       *array_src, *array_dst;
 
-  DMDAVecGetArrayDOFRead(da,v_src,&array_src);
-  DMDAVecGetArrayDOF(da,v_dst,&array_dst);
+  VecGetArray(v_src,&array_src);
+  VecGetArray(v_dst,&array_dst);
+  auto [stencil_width, nc, cw] = appctx->D1.get_ranges();
+  auto s = (stencil_width-1)/2;
+  auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, grid::partitioned_layout_1d(grid::extents_1d(appctx->N[0],1),s,appctx->n_procs,appctx->id));
+  auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, grid::partitioned_layout_1d(grid::extents_1d(appctx->N[0],1),s,appctx->n_procs,appctx->id));
 
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
 
-  sbp::advection_apply1(appctx->D1, appctx->a, array_src, array_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0]);
+  sbp::advection_apply1(appctx->D1, appctx->a, gf_src, gf_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0]);
 
   //Apply homogeneous Dirichlet BC via injection on west and north boundary
   if (appctx->i_start[0] == 0)
   {
-    array_dst[0][0] = 0.0;   
+    gf_dst(0,0) = 0.0;   
   }
 
   // Restore arrays
-  DMDAVecRestoreArrayDOFRead(da, v_src, &array_src);
-  DMDAVecRestoreArrayDOF(da, v_dst, &array_dst);
+  VecRestoreArray(v_src, &array_src);
+  VecRestoreArray(v_dst, &array_dst);
   return 0;
 }
 
