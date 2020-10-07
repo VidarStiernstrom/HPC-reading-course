@@ -49,6 +49,11 @@ namespace grid{
       }
 
       // The offset by the number of grid points in preceeding processes.
+      // TODO: Assumes that the first n processes store the additional grid points,
+      // in case the number of grid points are not even divided among the processes.
+      // I'm fairly sure that this is the partitioning that PETSc also uses, but an
+      // alternativ is to compute the offset externally by e.g the number of points 
+      // owned by each process prior to process_id.
       constexpr index_type
       proc_offset() const noexcept {
         int id = 0;
