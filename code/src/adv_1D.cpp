@@ -78,8 +78,6 @@ int main(int argc,char **argv)
   DMDAGetCorners(da,&i_xstart,NULL,NULL,&n,NULL,NULL);
   i_xend = i_xstart + n;
   // Populate application context.
-  appctx.id = rank;
-  appctx.n_procs = size;
   appctx.N = {N};
   appctx.hi = {hi};
   appctx.xl = xl;
@@ -87,6 +85,7 @@ int main(int argc,char **argv)
   appctx.i_end = {i_xend};
   appctx.a = a;
   appctx.sw = stencil_radius;
+  appctx.layout = grid::partitioned_layout_1d(grid::extents_1d(N,1),stencil_radius,size,rank);
 
   // Extract local to local scatter context
   build_ltol_1D(da, &appctx.scatctx);
@@ -193,10 +192,9 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
 
   VecGetArray(v_src,&array_src);
   VecGetArray(v_dst,&array_dst);
-  auto [stencil_width, nc, cw] = appctx->D1.get_ranges();
-  auto s = (stencil_width-1)/2;
-  auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, grid::partitioned_layout_1d(grid::extents_1d(appctx->N[0],1),s,appctx->n_procs,appctx->id));
-  auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, grid::partitioned_layout_1d(grid::extents_1d(appctx->N[0],1),s,appctx->n_procs,appctx->id));
+
+  auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, appctx->layout);
+  auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, appctx->layout);
 
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);

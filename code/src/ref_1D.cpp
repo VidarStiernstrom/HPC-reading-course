@@ -81,8 +81,6 @@ int main(int argc,char **argv)
   i_xend = i_xstart + n;
 
   // Populate application context.
-  appctx.id = rank;
-  appctx.n_procs = size;
   appctx.N = {N};
   appctx.hi = {hi};
   appctx.xl = xl;
@@ -90,6 +88,7 @@ int main(int argc,char **argv)
   appctx.i_end = {i_xend};
   appctx.a = a;
   appctx.sw = stencil_radius;
+  appctx.layout = grid::partitioned_layout_1d(grid::extents_1d(N,2),stencil_radius,size,rank);
 
   // Extract local to local scatter context
   build_ltol_1D(da, &appctx.scatctx);
@@ -246,10 +245,9 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
 
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  auto [stencil_width, nc, cw] = appctx->D1.get_ranges();
-  auto s = (stencil_width-1)/2;
-  auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, grid::partitioned_layout_1d(grid::extents_1d(appctx->N[0],2),s,appctx->n_procs,appctx->id));
-  auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, grid::partitioned_layout_1d(grid::extents_1d(appctx->N[0],2),s,appctx->n_procs,appctx->id));
+  auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, appctx->layout);
+  auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, appctx->layout);\
+
   sbp::reflection_apply1(appctx->D1, gf_src, gf_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0]);
 
 // Apply BC
