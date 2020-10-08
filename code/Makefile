@@ -3,7 +3,7 @@ BIN_PATH = bin/
 OBJ_PATH = obj/
 INCLUDE_PATH = include/
 
-IFLAGS			= -I$(INCLUDE_PATH) -I${PETSC_DIR}/include
+IFLAGS			= -I$(INCLUDE_PATH) -I${PETSC_DIR}include
 DEBUG_MODULES	= -Wall
 COPTFLAGS		= -std=c++17 -O3 -march=native -mtune=native
 CPPFLAGS		= -DVERSION=${PETSC_VERSION_NUM}
