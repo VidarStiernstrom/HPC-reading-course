@@ -1,5 +1,6 @@
 #pragma once
 #include </Users/vidar/dev/git/mdspan/include/experimental/mdspan>
+#include <cassert>
 
 namespace stdex = std::experimental;
 
@@ -16,17 +17,12 @@ namespace grid{
       using index_type = typename Extents::index_type;
 
       // constructor
-      mapping(Extents const& exts, index_type s_sz, index_type com_sz, index_type id) noexcept
+      mapping(Extents const& exts, index_type offset) noexcept
         : extents(exts),
-          stencil_size(s_sz),
-          communicator_size(com_sz),
-          process_id(id)
+          g2l_offset(offset)
       {
         assert(exts.extent(0) > 0);
         assert(exts.extent(1) > 0);
-        assert(s_sz > 0);
-        assert(com_sz > 0);
-        assert(id >= 0);
       }
 
       mapping() noexcept = default;
@@ -39,36 +35,10 @@ namespace grid{
       //------------------------------------------------------------
       // Helper members (not part of the layout concept)
 
-      // All processes should offset by the ghost region stencil size, except from
-      // the first process.
-      // Note! The ghost region stencil size is not equivalent the stencil size of the
-      // finite difference stencils (although they are related).
-      constexpr index_type
-      stencil_offset() const noexcept {
-        return -stencil_size * index_type(process_id != 0);
-      }
-
-      // The offset by the number of grid points in preceeding processes.
-      // TODO: Assumes that the first n processes store the additional grid points,
-      // in case the number of grid points are not even divided among the processes.
-      // I'm fairly sure that this is the partitioning that PETSc also uses, but an
-      // alternativ is to compute the offset externally by e.g the number of points 
-      // owned by each process prior to process_id.
-      constexpr index_type
-      proc_offset() const noexcept {
-        int id = 0;
-        int offset = 0;
-        for (id = 0; id < process_id; id++)
-        {
-          offset += (extents.extent(0) / communicator_size) + index_type(id < (extents.extent(0) % communicator_size));
-        }
-        return offset;
-      }
-
        // Computes the offset going from global to local indexing
       constexpr index_type
       global_to_local_offset() const noexcept {
-        return -(extents.extent(1)*(proc_offset()+stencil_offset()));
+        return g2l_offset;
       }
 
       // Flattens a 2D index (i,comp) to a 1D index.
@@ -99,10 +69,7 @@ namespace grid{
      private:
 
       Extents extents;
-      index_type stencil_size;
-      index_type communicator_size;
-      index_type process_id;
-
+      index_type g2l_offset;
     };
   };
 

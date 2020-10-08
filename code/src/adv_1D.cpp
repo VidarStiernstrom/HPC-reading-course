@@ -17,7 +17,7 @@ static char help[] = "Solves advection 1D problem u_t + u_x = 0.\n";
 #include <petsc/private/dmdaimpl.h> 
 #include "appctx.h"
 #include "grids/grid_function.h"
-#include "grids/layout.h"
+#include "grids/create_layout.h"
 
 extern PetscErrorCode analytic_solution(const DM&, const PetscScalar, const AppCtx&, Vec&);
 extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
@@ -85,7 +85,7 @@ int main(int argc,char **argv)
   appctx.i_end = {i_xend};
   appctx.a = a;
   appctx.sw = stencil_radius;
-  appctx.layout = grid::partitioned_layout_1d(grid::extents_1d(N,1),stencil_radius,size,rank);
+  appctx.layout = grid::create_layout_1d(da,rank,size);
 
   // Extract local to local scatter context
   build_ltol_1D(da, &appctx.scatctx);

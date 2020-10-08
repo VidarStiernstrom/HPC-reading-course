@@ -16,6 +16,7 @@ static char help[] = "Solves 1D reflection problem.\n";
 #include "timestepping.h"
 #include <petsc/private/dmdaimpl.h> 
 #include "appctx.h"
+#include "grids/create_layout.h"
 #include "grids/grid_function.h"
 
 extern PetscScalar theta1(PetscScalar x, PetscScalar t);
@@ -88,7 +89,9 @@ int main(int argc,char **argv)
   appctx.i_end = {i_xend};
   appctx.a = a;
   appctx.sw = stencil_radius;
-  appctx.layout = grid::partitioned_layout_1d(grid::extents_1d(N,2),stencil_radius,size,rank);
+  appctx.layout = grid::create_layout_1d(da,rank,size);
+
+
 
   // Extract local to local scatter context
   build_ltol_1D(da, &appctx.scatctx);
