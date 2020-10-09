@@ -1,5 +1,5 @@
 #pragma once 
-#include </Users/vidar/dev/git/mdspan/include/experimental/mdspan>
+#include <experimental/mdspan>
 #include "grids/layout.h"
 
 namespace stdex = std::experimental;

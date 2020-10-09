@@ -1,5 +1,4 @@
 #pragma once
-#include </Users/vidar/dev/git/mdspan/include/experimental/mdspan>
 #include <petscdmda.h>
 #include "grids/layout.h"
 

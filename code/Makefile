@@ -2,8 +2,16 @@ SRC_PATH = src/
 BIN_PATH = bin/
 OBJ_PATH = obj/
 INCLUDE_PATH = include/
+EXTERNAL_PATH = external/
 
-IFLAGS			= -I$(INCLUDE_PATH) -I${PETSC_DIR}include
+# External include paths
+MDSPAN_INCLUDE = $(EXTERNAL_PATH)mdspan/include
+PETSC_INCLUDE = ${PETSC_DIR}include
+EXTERNAL_INCLUDE = $(MDSPAN_INCLUDE) ${PETSC_INCLUDE}
+
+INCLUDES = $(INCLUDE_PATH) $(EXTERNAL_INCLUDE)
+
+IFLAGS			= $(foreach d, $(INCLUDES), -I$d)
 DEBUG_MODULES	= -Wall
 COPTFLAGS		= -std=c++17 -O3 -march=native -mtune=native
 CPPFLAGS		= -DVERSION=${PETSC_VERSION_NUM}
