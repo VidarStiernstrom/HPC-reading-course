@@ -6,8 +6,9 @@ namespace grid
 {    
     partitioned_layout_1d create_layout_1d(const DM& da)
     {   
-        PetscInt dim, n, dofs, sw, processor_offset, stencil_offset, g2l_offset;
-        DMDAGetInfo(da,&dim,NULL,NULL,NULL,&n,NULL,NULL,&dofs,&sw,NULL,NULL,NULL,NULL);
+        PetscInt dim, nlocal, dofs, sw, processor_offset, stencil_offset, g2l_offset;
+        DMDAGetInfo(da,&dim,NULL,NULL,NULL,NULL,NULL,NULL,&dofs,&sw,NULL,NULL,NULL,NULL);
+        DMDAGetGhostCorners(da,NULL,NULL,NULL,&nlocal,NULL,NULL);
         assert(dim==1);
 
         // Get the offsets this process has.
@@ -17,7 +18,6 @@ namespace grid
         
         // Compute global to local offset. 
         g2l_offset = -(dofs*(processor_offset+stencil_offset));
-        return grid::partitioned_layout_1d(grid::extents_1d(n,dofs),g2l_offset);
+        return grid::partitioned_layout_1d(grid::extents_1d(nlocal,dofs),g2l_offset);
     }
-
 }
