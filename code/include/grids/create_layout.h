@@ -5,6 +5,6 @@
 
 namespace grid
 {
-    partitioned_layout_1d create_layout_1d(const DM& da, const PetscInt rank, const PetscInt size);
+    partitioned_layout_1d create_layout_1d(const DM& da);
 
 }

@@ -85,7 +85,7 @@ int main(int argc,char **argv)
   appctx.i_end = {i_xend};
   appctx.a = a;
   appctx.sw = stencil_radius;
-  appctx.layout = grid::create_layout_1d(da,rank,size);
+  appctx.layout = grid::create_layout_1d(da);
 
   // Extract local to local scatter context
   build_ltol_1D(da, &appctx.scatctx);
