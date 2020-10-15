@@ -23,9 +23,12 @@ include ${PETSC_DIR}/lib/petsc/conf/variables
 include ${PETSC_DIR}/lib/petsc/conf/rules
 include ${PETSC_DIR}/lib/petsc/conf/test
 
-all: init $(BIN_PATH)adv_1D $(BIN_PATH)adv_2D $(BIN_PATH)ref_1D $(BIN_PATH)ref_2D $(BIN_PATH)sim_adv_ts_old
+all: init $(BIN_PATH)adv_1D $(BIN_PATH)adv_2D $(BIN_PATH)ref_1D $(BIN_PATH)ref_2D $(BIN_PATH)acowave_2D $(BIN_PATH)sim_adv_ts_old
 
 # Link object files to create binaries in BIN_PATH/
+$(BIN_PATH)acowave_2D: $(OBJ_PATH)acowave_2D.o $(OBJ_PATH)create_layout.o 
+	-${CXX} -o $@ $^ ${PETSC_SYS_LIB}
+
 $(BIN_PATH)adv_2D: $(OBJ_PATH)adv_2D.o $(OBJ_PATH)create_layout.o 
 	-${CXX} -o $@ $^ ${PETSC_SYS_LIB}
 
@@ -42,6 +45,9 @@ $(BIN_PATH)sim_adv_ts_old: $(OBJ_PATH)sim_adv_ts_old.o
 	-${CXX} -o $@ $^ ${PETSC_SYS_LIB}
 
 # Compile object files to OBJ_PATH/
+$(OBJ_PATH)acowave_2D.o: $(SRC_PATH)acowave_2D.cpp
+	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
+	
 $(OBJ_PATH)adv_1D.o: $(SRC_PATH)adv_1D.cpp
 	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
 
