@@ -26,7 +26,7 @@ include ${PETSC_DIR}/lib/petsc/conf/test
 all: init $(BIN_PATH)adv_1D $(BIN_PATH)adv_2D $(BIN_PATH)ref_1D $(BIN_PATH)ref_2D $(BIN_PATH)sim_adv_ts_old
 
 # Link object files to create binaries in BIN_PATH/
-$(BIN_PATH)adv_2D: $(OBJ_PATH)adv_2D.o
+$(BIN_PATH)adv_2D: $(OBJ_PATH)adv_2D.o $(OBJ_PATH)create_layout.o 
 	-${CXX} -o $@ $^ ${PETSC_SYS_LIB}
 
 $(BIN_PATH)adv_1D: $(OBJ_PATH)adv_1D.o $(OBJ_PATH)create_layout.o 
@@ -35,7 +35,7 @@ $(BIN_PATH)adv_1D: $(OBJ_PATH)adv_1D.o $(OBJ_PATH)create_layout.o
 $(BIN_PATH)ref_1D: $(OBJ_PATH)ref_1D.o $(OBJ_PATH)create_layout.o 
 	-${CXX} -o $@ $^ ${PETSC_SYS_LIB}
 
-$(BIN_PATH)ref_2D: $(OBJ_PATH)ref_2D.o
+$(BIN_PATH)ref_2D: $(OBJ_PATH)ref_2D.o $(OBJ_PATH)create_layout.o 
 	-${CXX} -o $@ $^ ${PETSC_SYS_LIB}
 
 $(BIN_PATH)sim_adv_ts_old: $(OBJ_PATH)sim_adv_ts_old.o

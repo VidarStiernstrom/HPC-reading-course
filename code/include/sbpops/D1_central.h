@@ -103,12 +103,12 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_2D_x_left(const PetscScalar *const *const *const v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_2D_x_left(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<closure_width; is++)
       {
-        u += static_cast<const Stencils&>(*this).closure_stencils[i][is]*v[j][is][comp];
+        u += static_cast<const Stencils&>(*this).closure_stencils[i][is]*v(j,is,comp);
       }
       return hix*u;
     };
@@ -123,12 +123,12 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_2D_y_left(const PetscScalar *const *const *const v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_2D_y_left(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<closure_width; is++)
       {
-        u += static_cast<const Stencils&>(*this).closure_stencils[j][is]*v[is][i][comp];
+        u += static_cast<const Stencils&>(*this).closure_stencils[j][is]*v(is,i,comp);
       }
       return hiy*u;
     };
@@ -143,12 +143,12 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_2D_x_interior(const PetscScalar *const *const *const v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_2D_x_interior(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<interior_width; is++)
       {
-        u += static_cast<const Stencils&>(*this).interior_stencil[is]*v[j][i-(interior_width-1)/2+is][comp];
+        u += static_cast<const Stencils&>(*this).interior_stencil[is]*v(j,i-(interior_width-1)/2+is,comp);
       }
       return hix*u;
     };
@@ -163,12 +163,12 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_2D_y_interior(const PetscScalar *const *const *const v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_2D_y_interior(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<interior_width; is++)
       {
-        u += static_cast<const Stencils&>(*this).interior_stencil[is]*v[j-(interior_width-1)/2+is][i][comp];
+        u += static_cast<const Stencils&>(*this).interior_stencil[is]*v(j-(interior_width-1)/2+is,i,comp);
       }
       return hiy*u;
     };
@@ -184,12 +184,12 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_2D_x_right(const PetscScalar *const *const *const v, const PetscScalar hix, const PetscInt Nx, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_2D_x_right(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hix, const PetscInt Nx, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is < closure_width; is++)
       {
-        u -= static_cast<const Stencils&>(*this).closure_stencils[Nx-i-1][closure_width-is-1]*v[j][Nx-closure_width+is][comp];
+        u -= static_cast<const Stencils&>(*this).closure_stencils[Nx-i-1][closure_width-is-1]*v(j,Nx-closure_width+is,comp);
       }
       return hix*u;
     };
@@ -205,12 +205,12 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_2D_y_right(const PetscScalar *const *const *const v, const PetscScalar hiy, const PetscInt Ny, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_2D_y_right(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hiy, const PetscInt Ny, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is < closure_width; is++)
       {
-        u -= static_cast<const Stencils&>(*this).closure_stencils[Ny-j-1][closure_width-is-1]*v[Ny-closure_width+is][i][comp];
+        u -= static_cast<const Stencils&>(*this).closure_stencils[Ny-j-1][closure_width-is-1]*v(Ny-closure_width+is,i,comp);
       }
       return hiy*u;
     };

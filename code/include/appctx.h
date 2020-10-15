@@ -40,6 +40,7 @@
 		std::function<double(int, int)> b;
 		const sbp::D1_central<sbp::Stencils_2nd,3,1,2> D1;
 		VecScatter scatctx;
+		grid::partitioned_layout_2d layout;
 		};
 	#elif defined PROBLEM_TYPE_2D_O4
 		struct AppCtx{
@@ -50,6 +51,7 @@
 		std::function<double(int, int)> b;
 		const sbp::D1_central<sbp::Stencils_4th,5,4,6> D1;
 		VecScatter scatctx;
+		grid::partitioned_layout_2d layout;
 		};
 	#elif defined PROBLEM_TYPE_2D_O6
 		struct AppCtx{
@@ -60,6 +62,7 @@
 		std::function<double(int, int)> b;
 		const sbp::D1_central<sbp::Stencils_6th,7,6,9> D1;
 		VecScatter scatctx;
+		grid::partitioned_layout_2d layout;
 		};
 	#endif	
 

@@ -808,8 +808,8 @@ namespace sbp{
   inline PetscErrorCode advection_apply_2D_2_inner(const SbpDerivative& D1, 
                                            VelocityFunction&& a,
                                            VelocityFunction&& b,
-                                           const PetscScalar *const *const *const array_src,
-                                           PetscScalar *const *const *const array_dst,
+                                           const grid::grid_function_2d<PetscScalar> src,
+                                           grid::grid_function_2d<PetscScalar> dst,
                                            const std::array<PetscInt,2>& i_start, std::array<PetscInt,2>& i_end,
                                            const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& hi, const PetscInt sw)
   {
@@ -830,8 +830,8 @@ namespace sbp{
         { 
           for (i = 0; i < n_closures; i++) 
           { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) + 
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) + 
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: closure
@@ -839,8 +839,8 @@ namespace sbp{
         { 
           for (i = n_closures; i < i_xend; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
           }
         }
         // x: closure, y: inner
@@ -848,8 +848,8 @@ namespace sbp{
         { 
           for (i = 0; i < n_closures; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -857,8 +857,8 @@ namespace sbp{
         { 
           for (i = n_closures; i < i_xend ; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }    
       } else if (i_end[0] == N[0]) // BOTTOM RIGHT
@@ -868,8 +868,8 @@ namespace sbp{
         { 
           for (i = N[0]-n_closures; i < N[0]; i++) 
           { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) + 
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) + 
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: closure
@@ -877,8 +877,8 @@ namespace sbp{
         { 
           for (i = i_xstart ; i < N[0]-n_closures; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
           }
         }
         // x: closure, y: inner
@@ -886,8 +886,8 @@ namespace sbp{
         { 
           for (i = N[0]-n_closures; i < N[0]; i++) 
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -895,8 +895,8 @@ namespace sbp{
         { 
           for (i = i_xstart; i < N[0]-n_closures; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         } 
       } else // BOTTOM CENTER
@@ -906,8 +906,8 @@ namespace sbp{
         {
           for (i = i_xstart; i < i_xend; i++) 
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -915,8 +915,8 @@ namespace sbp{
         { 
           for (i = i_xstart; i < i_xend; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
       }
@@ -929,8 +929,8 @@ namespace sbp{
         { 
           for (i = 0; i < n_closures; i++) 
           { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) + 
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) + 
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
           }
         }
         // x: inner, y: closure
@@ -938,8 +938,8 @@ namespace sbp{
         { 
           for (i = n_closures; i < i_xend; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
           }
         }
         // x: closure, y: inner
@@ -947,8 +947,8 @@ namespace sbp{
         { 
           for (i = 0; i < n_closures; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -956,8 +956,8 @@ namespace sbp{
         { 
           for (i = n_closures; i < i_xend; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }    
       } else if (i_end[0] == N[0]) // TOP RIGHT
@@ -967,8 +967,8 @@ namespace sbp{
         { 
           for (i = N[0]-n_closures; i < N[0]; i++) 
           { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) + 
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) + 
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
           }
         }
         // x: inner, y: closure
@@ -976,8 +976,8 @@ namespace sbp{
         { 
           for (i = i_xstart; i < N[0]-n_closures; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
           }
         }
         // x: closure, y: inner
@@ -985,8 +985,8 @@ namespace sbp{
         { 
           for (i = N[0]-n_closures; i < N[0]; i++) 
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -994,8 +994,8 @@ namespace sbp{
         { 
           for (i = i_xstart; i < N[0] - n_closures; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         } 
       } else // TOP CENTER
@@ -1005,8 +1005,8 @@ namespace sbp{
         {
           for (i = i_xstart; i < i_xend; i++) 
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -1014,8 +1014,8 @@ namespace sbp{
         { 
           for (i = i_xstart; i < i_xend; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
       }
@@ -1026,8 +1026,8 @@ namespace sbp{
       { 
         for (i = 0; i < n_closures; i++) 
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
       // x: inner, y: inner
@@ -1035,8 +1035,8 @@ namespace sbp{
       { 
         for (i = n_closures; i < i_xend; i++) 
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
     } else if (i_end[0] == N[0]) // RIGHT NOT BOTTOM OR TOP
@@ -1046,8 +1046,8 @@ namespace sbp{
       { 
         for (i = N[0]-n_closures; i < N[0]; i++) 
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
       // x: inner, y: inner
@@ -1055,8 +1055,8 @@ namespace sbp{
       { 
         for (i = i_xstart; i < N[0]-n_closures; i++)
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
     } else // CENTER
@@ -1066,8 +1066,8 @@ namespace sbp{
       { 
         for (i = i_xstart; i < i_xend; i++) 
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
     }
@@ -1090,8 +1090,8 @@ namespace sbp{
   inline PetscErrorCode advection_apply_2D_outer(const SbpDerivative& D1, 
                                            VelocityFunction&& a,
                                            VelocityFunction&& b,
-                                           const PetscScalar *const *const *const array_src,
-                                           PetscScalar *const *const *const array_dst,
+                                           const grid::grid_function_2d<PetscScalar> src,
+                                           grid::grid_function_2d<PetscScalar> dst,
                                            const std::array<PetscInt,2>& i_start, std::array<PetscInt,2>& i_end,
                                            const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& hi, const PetscInt sw)
   {
@@ -1111,8 +1111,8 @@ namespace sbp{
         { 
           for (i = i_xend - sw; i < i_xend; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
           }
         }
         // x: closure, y: inner
@@ -1120,8 +1120,8 @@ namespace sbp{
         { 
           for (i = 0; i < n_closures; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -1129,8 +1129,8 @@ namespace sbp{
         { 
           for (i = n_closures; i < i_xend; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -1138,8 +1138,8 @@ namespace sbp{
         { 
           for (i = i_xend - sw; i < i_xend; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }      
       } else if (i_xend == N[0]) // BOTTOM RIGHT
@@ -1149,8 +1149,8 @@ namespace sbp{
         { 
           for (i = i_xstart; i < i_xstart + sw; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
           }
         }
         // x: closure, y: inner
@@ -1158,8 +1158,8 @@ namespace sbp{
         { 
           for (i = N[0]-n_closures; i < N[0]; i++) 
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -1167,8 +1167,8 @@ namespace sbp{
         { 
           for (i = i_xstart; i < N[0]-n_closures; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -1176,8 +1176,8 @@ namespace sbp{
         { 
           for (i = i_xstart; i < i_xstart + sw; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }  
       } else // BOTTOM CENTER
@@ -1187,8 +1187,8 @@ namespace sbp{
         {
           for (i = i_xstart; i < i_xstart + sw; i++) 
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: closure
@@ -1196,8 +1196,8 @@ namespace sbp{
         {
           for (i = i_xend - sw; i < i_xend; i++) 
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -1205,8 +1205,8 @@ namespace sbp{
         { 
           for (i = i_xstart; i < i_xend; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -1214,8 +1214,8 @@ namespace sbp{
         { 
           for (i = i_xstart; i < i_xstart + sw; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -1223,8 +1223,8 @@ namespace sbp{
         { 
           for (i = i_xend - sw; i < i_xend; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
       }
@@ -1237,8 +1237,8 @@ namespace sbp{
         { 
           for (i = i_xend - sw; i < i_xend; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
           }
         }
         // x: closure, y: inner
@@ -1246,8 +1246,8 @@ namespace sbp{
         { 
           for (i = 0; i < n_closures; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -1255,8 +1255,8 @@ namespace sbp{
         { 
           for (i = n_closures; i < i_xend; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -1264,8 +1264,8 @@ namespace sbp{
         { 
           for (i = i_xend - sw; i < i_xend; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }      
       } else if (i_xend == N[0]) // TOP RIGHT /////
@@ -1275,8 +1275,8 @@ namespace sbp{
         { 
           for (i = i_xstart; i < i_xstart + sw; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
           }
         }
         // x: closure, y: inner
@@ -1284,8 +1284,8 @@ namespace sbp{
         { 
           for (i = N[0]-n_closures; i < N[0]; i++) 
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -1293,8 +1293,8 @@ namespace sbp{
         { 
           for (i = i_xstart; i < N[0]-n_closures; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         } 
         // x: inner, y: inner
@@ -1302,8 +1302,8 @@ namespace sbp{
         { 
           for (i = i_xstart; i < i_xstart + sw; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         } 
       } else // TOP CENTER
@@ -1313,8 +1313,8 @@ namespace sbp{
         {
           for (i = i_xstart; i < i_xstart + sw; i++) 
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
           }
         }
         // x: inner, y: closure
@@ -1322,8 +1322,8 @@ namespace sbp{
         {
           for (i = i_xend - sw; i < i_xend; i++) 
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -1331,8 +1331,8 @@ namespace sbp{
         { 
           for (i = i_xstart; i < i_xend; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -1340,8 +1340,8 @@ namespace sbp{
         { 
           for (i = i_xstart; i < i_xstart + sw; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
         // x: inner, y: inner
@@ -1349,8 +1349,8 @@ namespace sbp{
         { 
           for (i = i_xend - sw; i < i_xend; i++)
           {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
           }
         }
       }
@@ -1361,8 +1361,8 @@ namespace sbp{
       { 
         for (i = 0; i < n_closures; i++) 
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
       // x: closure, y: inner
@@ -1370,8 +1370,8 @@ namespace sbp{
       { 
         for (i = 0; i < n_closures; i++) 
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
       // x: inner, y: inner
@@ -1379,8 +1379,8 @@ namespace sbp{
       { 
         for (i = i_xend - sw; i < i_xend; i++) 
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
       // x: inner, y: inner
@@ -1388,8 +1388,8 @@ namespace sbp{
       { 
         for (i = n_closures; i < i_xend - sw; i++) 
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
       // x: inner, y: inner
@@ -1397,8 +1397,8 @@ namespace sbp{
       { 
         for (i = n_closures; i < i_xend - sw; i++) 
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
     } else if (i_xend == N[0]) // RIGHT NOT BOTTOM OR TOP
@@ -1408,8 +1408,8 @@ namespace sbp{
       { 
         for (i = N[0]-n_closures; i < N[0]; i++) 
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
       // x: closure, y: inner
@@ -1417,8 +1417,8 @@ namespace sbp{
       { 
         for (i = N[0]-n_closures; i < N[0]; i++) 
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
       // x: inner, y: inner
@@ -1426,8 +1426,8 @@ namespace sbp{
       { 
         for (i = i_xstart; i < i_xstart + sw; i++)
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
       // x: inner, y: inner
@@ -1435,8 +1435,8 @@ namespace sbp{
       { 
         for (i = i_xstart + sw; i < i_xend - n_closures; i++)
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
       // x: inner, y: inner
@@ -1444,8 +1444,8 @@ namespace sbp{
       { 
         for (i = i_xstart + sw; i < i_xend - n_closures; i++)
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
     } else // CENTER
@@ -1455,8 +1455,8 @@ namespace sbp{
       { 
         for (i = i_xstart; i < i_xend; i++) 
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
       // x: inner, y: inner
@@ -1464,8 +1464,8 @@ namespace sbp{
       { 
         for (i = i_xstart; i < i_xend; i++) 
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
       // x: inner, y: inner
@@ -1473,8 +1473,8 @@ namespace sbp{
       { 
         for (i = i_xstart; i < i_xstart + sw; i++) 
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
       // x: inner, y: inner
@@ -1482,8 +1482,8 @@ namespace sbp{
       { 
         for (i = i_xend - sw; i < i_xend; i++) 
         { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
+            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
+                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
         }
       }
     }

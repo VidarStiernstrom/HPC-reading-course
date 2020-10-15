@@ -16,6 +16,8 @@ static char help[] ="Solves the 2D reflection equation u_t + a*A*u_x + b*A*u_y =
 #include "timestepping.h"
 #include <petsc/private/dmdaimpl.h> 
 #include "appctx.h"
+#include "grids/grid_function.h"
+#include "grids/create_layout.h"
 
 extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
 extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, AppCtx *);
@@ -97,6 +99,7 @@ int main(int argc,char **argv)
   appctx.a = a;
   appctx.b = b;
   appctx.sw = stencil_radius;
+  appctx.layout = grid::create_layout_2d(da);
 
   // Extract local to local scatter context
   build_ltol_2D(da, &appctx.scatctx);
@@ -232,22 +235,25 @@ PetscScalar theta2(PetscScalar x, PetscScalar y, PetscScalar t)
 
 PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
 {
-  PetscScalar       ***array_src, ***array_dst;
+  PetscScalar       *array_src, *array_dst;
 
-  DMDAVecGetArrayDOFRead(da,v_src,&array_src);
-  DMDAVecGetArrayDOF(da,v_dst,&array_dst);
+  VecGetArray(v_src,&array_src);
+  VecGetArray(v_dst,&array_dst);
+
+  auto gf_src = grid::grid_function_2d<PetscScalar>(array_src, appctx->layout);
+  auto gf_dst = grid::grid_function_2d<PetscScalar>(array_dst, appctx->layout);
 
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
 
-  sbp::reflection_apply_2D_2(appctx->D1, appctx->a, appctx->b, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
+  sbp::reflection_apply_2D_2(appctx->D1, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
 
-  // Apply homogeneous Dirichlet BC via injection on west and north boundary
+  // Apply homogeneous Dirichlet BC via injection on first component on all boundaries
   if (appctx->i_start[0] == 0) // west
   {
     for (PetscInt j = appctx->i_start[1]; j < appctx->i_end[1]; j++)
     {
-      array_dst[j][0][0] = 0;
+      gf_dst(j,0,0) = 0;
     }   
   }
 
@@ -255,7 +261,7 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
   {
     for (PetscInt j = appctx->i_start[1]; j < appctx->i_end[1]; j++)
     {
-      array_dst[j][appctx->N[0]-1][0] = 0;
+      gf_dst(j,appctx->N[0]-1,0) = 0;
     }   
   }
 
@@ -263,7 +269,7 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
   {
     for (PetscInt i = appctx->i_start[0]; i < appctx->i_end[0]; i++)
     {
-      array_dst[0][i][0] = 0;
+      gf_dst(0,i,0) = 0;
     }   
   }
 
@@ -271,13 +277,13 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
   {
     for (PetscInt i = appctx->i_start[0]; i < appctx->i_end[0]; i++)
     {
-      array_dst[appctx->N[1]-1][i][0] = 0;
+      gf_dst(appctx->N[1]-1,i,0) = 0;
     }   
   }
 
   // Restore arrays
-  DMDAVecRestoreArrayDOFRead(da, v_src, &array_src);
-  DMDAVecRestoreArrayDOF(da, v_dst, &array_dst);
+  VecRestoreArray(v_src,&array_src);
+  VecRestoreArray(v_dst,&array_dst);
   return 0;
 }
 
