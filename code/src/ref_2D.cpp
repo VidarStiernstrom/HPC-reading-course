@@ -18,6 +18,7 @@ static char help[] ="Solves the 2D reflection equation u_t + a*A*u_x + b*A*u_y =
 #include "appctx.h"
 #include "grids/grid_function.h"
 #include "grids/create_layout.h"
+#include "IO_utils.h"
 
 extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
 extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, AppCtx *);
@@ -32,10 +33,10 @@ int main(int argc,char **argv)
   DM             da;
   Vec            v, v_analytic, v_error, vlocal;
   PetscInt       stencil_radius, i_xstart, i_xend, i_ystart, i_yend, Nx, Ny, nx, ny, procx, procy;
-  PetscScalar    xl, xr, yl, yr, hix, hiy, dt, t0, Tend;
+  PetscScalar    xl, xr, yl, yr, hix, hiy, dt, t0, Tend, CFL;
 
   AppCtx         appctx;
-  PetscBool      write_data, use_custom_ts;
+  PetscBool      write_data, use_custom_ts, use_custom_sc;
   PetscLogDouble v1,v2,elapsed_time = 0;
 
   PetscErrorCode ierr;
@@ -45,6 +46,11 @@ int main(int argc,char **argv)
   ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
 
+  if (get_inputs_2d(argc, argv, &Nx, &Ny, &Tend, &CFL, &use_custom_ts, &use_custom_sc) == -1) {
+    PetscFinalize();
+    return -1;
+  }
+
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Problem setup
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
@@ -53,15 +59,12 @@ int main(int argc,char **argv)
   xr = 1;
   yl = -1;
   yr = 1;
-  Nx = 101;
-  Ny = 101;
   hix = (Nx-1)/(xr-xl);
   hiy = (Ny-1)/(yr-yl);
   
   // Time
   t0 = 0;
-  dt = 0.1/(std::min(hix,hiy));
-  Tend = 2; // period
+  dt = CFL/(std::min(hix,hiy));
 
   // Velocity field a(i,j) = 1
   auto a = [](const PetscInt i, const PetscInt j){ return 1;};
@@ -69,9 +72,6 @@ int main(int argc,char **argv)
 
   // Set if data should be written.
   write_data = PETSC_FALSE;
-
-  // Set if custom time stepping is used
-  use_custom_ts = PETSC_TRUE;
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Create distributed array (DMDA) to manage parallel grid and vectors
@@ -102,9 +102,12 @@ int main(int argc,char **argv)
   appctx.layout = grid::create_layout_2d(da);
 
   // Extract local to local scatter context
-  build_ltol_2D(da, &appctx.scatctx);
-  // DMDAGetScatter(da, NULL, &appctx.scatctx);
-  
+  if (use_custom_sc) {
+    build_ltol_2D(da, &appctx.scatctx);
+  } else {
+    DMDAGetScatter(da, NULL, &appctx.scatctx);
+  }
+
   /*  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       Extract global vectors from DMDA; then duplicate for remaining
       vectors that are the same types
@@ -172,7 +175,20 @@ int main(int argc,char **argv)
   // }
 
   if (rank == 0) {
-    FILE *f = fopen("data/timings_ts_SCM.txt", "a");
+    FILE *f;
+    if (use_custom_ts) {
+      if (use_custom_sc) {
+        f = fopen("data/timings_tsC_scC.txt", "a");
+      } else {
+        f = fopen("data/timings_tsC_scP.txt", "a");
+      }
+    } else {
+      if (use_custom_sc) {
+        f = fopen("data/timings_tsP_scC.txt", "a");
+      } else {
+        f = fopen("data/timings_tsP_scP.txt", "a");
+      }
+    }
     fprintf(f,"Size: %d, Nx: %d, Ny: %d, dt: %e, Tend: %f, elapsed time: %f, l2-error: %e, max-error: %e\n",size,Nx,Ny,dt,Tend,elapsed_time,l2_error,max_error);
     fclose(f);
   }
