@@ -12,6 +12,8 @@ static char help[] = "Solves advection 1D problem u_t + u_x = 0.\n";
 #include <functional>
 #include <petscts.h>
 #include "sbpops/D1_central.h"
+#include "sbpops/H_central.h"
+#include "sbpops/HI_central.h"
 #include "diffops/advection.h"
 #include "timestepping.h"
 #include <petsc/private/dmdaimpl.h> 
@@ -26,13 +28,15 @@ extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, AppCtx *);
 extern PetscScalar gaussian(PetscScalar);
 extern PetscErrorCode write_vector_to_binary(const Vec&, const std::string, const std::string);
 extern PetscErrorCode build_ltol_1D(DM da, VecScatter *ltol);
+extern PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx);
 
 int main(int argc,char **argv)
 { 
   DM             da;
   Vec            v, v_analytic, v_error, vlocal;
-  PetscInt       stencil_radius, i_xstart, i_xend, N, n;
-  PetscScalar    xl, xr, hi, dt, t0, Tend, CFL;
+  PetscInt       stencil_radius, i_xstart, i_xend, N, n, dofs;
+  PetscScalar    xl, xr, hi, h, dt, t0, Tend, CFL;
+  PetscReal      l2_error, max_error, H_error;
 
   AppCtx         appctx;
   PetscBool      write_data, use_custom_ts, use_custom_sc;
@@ -57,10 +61,13 @@ int main(int argc,char **argv)
   xl = -1;
   xr = 1;
   hi = (N-1)/(xr-xl);
+  h = 1.0/hi;
   
   // Time
   t0 = 0;
   dt = CFL/hi;
+
+  dofs = 1;
 
   auto a = [](const PetscInt i){ return 1.5;};
 
@@ -72,7 +79,7 @@ int main(int argc,char **argv)
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   auto [stencil_width, nc, cw] = appctx.D1.get_ranges();
   stencil_radius = (stencil_width-1)/2;
-  ierr = DMDACreate1d(PETSC_COMM_WORLD, DM_BOUNDARY_NONE, N, 1, stencil_radius, NULL, &da);CHKERRQ(ierr);
+  ierr = DMDACreate1d(PETSC_COMM_WORLD, DM_BOUNDARY_NONE, N, dofs, stencil_radius, NULL, &da);CHKERRQ(ierr);
   DMSetFromOptions(da);
   DMSetUp(da);
   DMDAGetCorners(da,&i_xstart,NULL,NULL,&n,NULL,NULL);
@@ -80,9 +87,11 @@ int main(int argc,char **argv)
   // Populate application context.
   appctx.N = {N};
   appctx.hi = {hi};
+  appctx.h = {h};
   appctx.xl = xl;
   appctx.i_start = {i_xstart};
   appctx.i_end = {i_xend};
+  appctx.dofs = dofs;
   appctx.a = a;
   appctx.sw = stencil_radius;
   appctx.layout = grid::create_layout_1d(da);
@@ -136,13 +145,8 @@ int main(int argc,char **argv)
   DMLocalToGlobalEnd(da,vlocal,INSERT_VALUES,v);
 
   analytic_solution(da, Tend, appctx, v_analytic);
-  VecSet(v_error,0);
-  VecWAXPY(v_error,-1,v,v_analytic);
-  PetscReal l2_error, max_error;
-  VecNorm(v_error,NORM_2,&l2_error);
-  VecNorm(v_error,NORM_INFINITY,&max_error);
-  l2_error = sqrt(1./(hi))*l2_error;
-  PetscPrintf(PETSC_COMM_WORLD,"The l2-error error is: %g and the maximum error is %g\n",l2_error,max_error);
+  get_error(da, v, v_analytic, &v_error, &H_error, &l2_error, &max_error, appctx);
+  PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %g, the H-error is: %g and the maximum error is %g\n",l2_error,H_error,max_error);
 
   // Write solution to file
   // if (write_data)
@@ -181,6 +185,23 @@ int main(int argc,char **argv)
   
   ierr = PetscFinalize();
   return ierr;
+}
+
+PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx) {
+  PetscScalar **arr;
+
+  VecWAXPY(*v_error,-1,v1,v2);
+
+  VecNorm(*v_error,NORM_2,l2_error);
+  *l2_error = sqrt(appctx.h[0])*(*l2_error);
+
+  VecNorm(*v_error,NORM_INFINITY,max_error);
+  
+  DMDAVecGetArrayDOF(da, *v_error, &arr);
+  *H_error = appctx.H.get_norm_1D(arr, appctx.h[0], appctx.N[0], appctx.i_start[0], appctx.i_end[0], appctx.dofs);
+  DMDAVecRestoreArrayDOF(da, *v_error, &arr);
+
+  return 0;
 }
 
 PetscErrorCode analytic_solution(const DM& da, const PetscScalar t, const AppCtx& appctx, Vec& v_analytic)
