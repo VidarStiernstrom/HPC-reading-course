@@ -7,48 +7,56 @@
 
 namespace sbp{
 
-  /**
-  * Approximate RHS of advection problem, u_t = -au_x, between indices i_start <= i < i_end. "Smart" looping.
-  * Inputs: D1        - SBP D1 operator
-  *         a         -  velocity field function parametrized on indices, i.e a(x(i)),
-  *         array_src - 2D array containing multi-component input data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
-  *         array_src - 2D array containing multi-component output data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
-  *         i_start   - Starting index to compute
-  *         i_end     - Final index to compute, index < i_end
-  *         N         - Global number of points excluding ghost points
-  *         hi        - Inverse step length
-  **/
-  template <class SbpDerivative, typename VelocityFunction>
-  inline PetscErrorCode advection_apply1(const SbpDerivative& D1, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
+  //=============================================================================
+  // 1D functions
+  //=============================================================================
+
+  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
+  inline PetscErrorCode advection_apply_l(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, const PetscInt N, const PetscScalar hi, const PetscInt n_closures)
   {
-    PetscInt i;
-    const auto [iw, n_closures, closure_width] = D1.get_ranges();
+    int i;
+   
+    // BC using projection, vt = P*D*P*v.
+    // src(0,0) = 0.0;   
+    // for (i = 1; i < n_closures; i++) 
+    // { 
+    //   dst(i,0) = -std::forward<VelocityFunction>(a)(i)*D1.apply_left(src,hi,i,0);
+    // }
+    // dst(0,0) = 0.0;
 
-    if (i_start == 0) 
+    // BC using SAT, vt = -a*D*v + tau*HI*e_1*e_1'*v
+    PetscScalar tau = -std::forward<VelocityFunction>(a)(0)/2; // assume a(0) good enough
+    dst(0,0) = -std::forward<VelocityFunction>(a)(0)*D1.apply_left(src,hi,0,0) + tau*HI.apply_left(src, hi, 0, 0);
+    for (i = 1; i < n_closures; i++) 
+    { 
+      dst(i,0) = -std::forward<VelocityFunction>(a)(i)*D1.apply_left(src,hi,i,0);
+    }   
+
+    return 0;
+  }
+
+  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
+  inline PetscErrorCode advection_apply_r(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, const PetscInt N, const PetscScalar hi, const PetscInt n_closures)
+  {
+    int i;
+    for (i = N-n_closures; i < N; i++)
     {
-      for (i = 0; i < n_closures; i++) 
-      { 
-        dst(i,0) = -std::forward<VelocityFunction>(a)(i)*D1.apply_left(src,hi,i,0);
-      }
-      i_start = n_closures;
+        dst(i,0) = -std::forward<VelocityFunction>(a)(i)*D1.apply_right(src,hi,N,i,0);
     }
+    return 0;
+  }
 
-    if (i_end == N) 
-    {
-      for (i = N-n_closures; i < N; i++)
-      {
-          dst(i,0) = -std::forward<VelocityFunction>(a)(i)*D1.apply_right(src,hi,N,i,0);
-      }
-      i_end = N-n_closures;
-    }
-
+  template <class SbpDerivative, typename VelocityFunction>
+  inline PetscErrorCode advection_apply_c(const SbpDerivative& D1, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
+  {
+    int i;
     for (i = i_start; i < i_end; i++)
     {
       dst(i,0) = -std::forward<VelocityFunction>(a)(i)*D1.apply_interior(src,hi,i,0);
     }
 
     return 0;
-  };
+  }
 
   /**
   * Approximate RHS of advection problem, u_t = -au_x, between indices i_start <= i < i_end. Direct looping.
@@ -61,44 +69,66 @@ namespace sbp{
   *         N         - Global number of points excluding ghost points
   *         hi        - Inverse step length
   **/
-  template <class SbpDerivative, typename VelocityFunction>
-  inline PetscErrorCode advection_apply2(const SbpDerivative& D1, VelocityFunction&& a, const PetscScalar *const *const array_src, PetscScalar **array_dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
+  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
+  inline PetscErrorCode advection_apply_all(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
   {
-    PetscInt i;
     const auto [iw, n_closures, closure_width] = D1.get_ranges();
 
     if (i_start == 0) 
     {
-      for (i = 0; i < n_closures; i++) 
-      { 
-        array_dst[i][0] = -std::forward<VelocityFunction>(a)(i)*D1.apply_left(array_src,hi,i,0);
-      }
-      
-      for (i = n_closures; i < i_end; i++)
-      {
-        array_dst[i][0] = -std::forward<VelocityFunction>(a)(i)*D1.apply_interior(array_src,hi,i,0);
-      }
+      advection_apply_l(D1, HI, a, src, dst,  N, hi, n_closures);
+      advection_apply_c(D1, a, src, dst, n_closures, i_end,  N, hi);
     } else if (i_end == N) 
     {
-      for (i = N-n_closures; i < N; i++)
-      {
-          array_dst[i][0] = -std::forward<VelocityFunction>(a)(i)*D1.apply_right(array_src,hi,N,i,0);
-      }
-
-      for (i = i_start; i < N-n_closures; i++)
-      {
-        array_dst[i][0] = -std::forward<VelocityFunction>(a)(i)*D1.apply_interior(array_src,hi,i,0);
-      }
+      advection_apply_r(D1, HI, a, src, dst,  N, hi, n_closures);
+      advection_apply_c(D1, a, src, dst, i_start, N - n_closures,  N, hi);
     } else 
     {
-      for (i = i_start; i < i_end; i++)
-      {
-        array_dst[i][0] = -std::forward<VelocityFunction>(a)(i)*D1.apply_interior(array_src,hi,i,0);
-      }
+      advection_apply_c(D1, a, src, dst, i_start, i_end,  N, hi);
     }
     return 0;
   };
 
+  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
+  inline PetscErrorCode advection_apply_inner(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi, const PetscInt sw)
+  {
+    const auto [iw, n_closures, closure_width] = D1.get_ranges();
+
+    if (i_start == 0) 
+    {
+      advection_apply_l(D1, HI, a, src, dst, N, hi, n_closures);
+      advection_apply_c(D1, a, src, dst, n_closures, i_end-sw,  N, hi);
+    } else if (i_end == N) 
+    {
+      advection_apply_r(D1, HI, a, src, dst, N, hi, n_closures);
+      advection_apply_c(D1, a, src, dst, i_start+sw, N - n_closures,  N, hi);
+    } else 
+    {
+      advection_apply_c(D1, a, src, dst, i_start, i_end,  N, hi);
+    }
+    return 0;
+  };
+
+  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
+  inline PetscErrorCode advection_apply_outer(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi, const PetscInt sw)
+  {
+    if (i_start == 0) 
+    {
+      advection_apply_c(D1, a, src, dst, i_end-sw, i_end,  N, hi);
+    } else if (i_end == N) 
+    {
+      advection_apply_c(D1, a, src, dst, i_start, i_start+sw,  N, hi);
+    } else 
+    {
+      advection_apply_c(D1, a, src, dst, i_start, i_start+sw,  N, hi);
+      advection_apply_c(D1, a, src, dst, i_end-sw, i_end,  N, hi);
+    }
+    return 0;
+  };
+
+  //=============================================================================
+  // 2D functions
+  //=============================================================================
 
   /**
   * Approximate RHS of 2D advection problem, u_t = -au_x, between indices [i_start, i_end], [j_start, j_end].

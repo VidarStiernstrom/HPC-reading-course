@@ -234,15 +234,14 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
   auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, appctx->layout);
 
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
+
+  sbp::advection_apply_inner(appctx->D1, appctx->HI, appctx->a, gf_src, gf_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0], appctx->sw);
+
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
 
-  sbp::advection_apply1(appctx->D1, appctx->a, gf_src, gf_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0]);
+  sbp::advection_apply_outer(appctx->D1, appctx->HI, appctx->a, gf_src, gf_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0], appctx->sw);
 
-  //Apply homogeneous Dirichlet BC via injection on west and north boundary
-  if (appctx->i_start[0] == 0)
-  {
-    gf_dst(0,0) = 0.0;   
-  }
+  // sbp::advection_apply_all(appctx->D1, appctx->HI, appctx->a, gf_src, gf_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0]);
 
   // Restore arrays
   VecRestoreArray(v_src, &array_src);
