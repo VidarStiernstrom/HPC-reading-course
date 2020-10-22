@@ -12,6 +12,8 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 #include <functional>
 #include <petscts.h>
 #include "sbpops/D1_central.h"
+#include "sbpops/H_central.h"
+#include "sbpops/HI_central.h"
 #include "diffops/acowave.h"
 #include "timestepping.h"
 #include <petsc/private/dmdaimpl.h> 
@@ -265,40 +267,7 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
 
-  sbp::acowave_apply_2D(appctx->D1, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
-
-  // Apply homogeneous Dirichlet BC via injection on third component on all boundaries
-  if (appctx->i_start[0] == 0) // west
-  {
-    for (PetscInt j = appctx->i_start[1]; j < appctx->i_end[1]; j++)
-    {
-      gf_dst(j,0,2) = 0;
-    }   
-  }
-
-  if (appctx->i_end[0] == appctx->N[0]) // east
-  {
-    for (PetscInt j = appctx->i_start[1]; j < appctx->i_end[1]; j++)
-    {
-      gf_dst(j,appctx->N[0]-1,2) = 0;
-    }   
-  }
-
-  if (appctx->i_start[1] == 0) // south
-  {
-    for (PetscInt i = appctx->i_start[0]; i < appctx->i_end[0]; i++)
-    {
-      gf_dst(0,i,2) = 0;
-    }   
-  }
-
-  if (appctx->i_end[1] == appctx->N[1]) // north
-  {
-    for (PetscInt i = appctx->i_start[0]; i < appctx->i_end[0]; i++)
-    {
-      gf_dst(appctx->N[1]-1,i,2) = 0;
-    }   
-  }
+  sbp::acowave_apply_2D_all(appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
 
   // Restore arrays
   VecRestoreArray(v_src,&array_src);

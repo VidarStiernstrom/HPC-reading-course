@@ -48,6 +48,8 @@
 		std::function<double(int, int)> a;
 		std::function<double(int, int)> b;
 		const sbp::D1_central<sbp::Stencils_2nd,3,1,2> D1;
+		const sbp::H_central<sbp::Quadrature_6th,6> H;
+		const sbp::HI_central<sbp::InverseQuadrature_6th,6> HI;
 		VecScatter scatctx;
 		grid::partitioned_layout_2d layout;
 		};
@@ -59,6 +61,8 @@
 		std::function<double(int, int)> a;
 		std::function<double(int, int)> b;
 		const sbp::D1_central<sbp::Stencils_4th,5,4,6> D1;
+		const sbp::H_central<sbp::Quadrature_6th,6> H;
+		const sbp::HI_central<sbp::InverseQuadrature_6th,6> HI;
 		VecScatter scatctx;
 		grid::partitioned_layout_2d layout;
 		};
@@ -70,6 +74,8 @@
 		std::function<double(int, int)> a;
 		std::function<double(int, int)> b;
 		const sbp::D1_central<sbp::Stencils_6th,7,6,9> D1;
+		const sbp::H_central<sbp::Quadrature_6th,6> H;
+		const sbp::HI_central<sbp::InverseQuadrature_6th,6> HI;
 		VecScatter scatctx;
 		grid::partitioned_layout_2d layout;
 		};
