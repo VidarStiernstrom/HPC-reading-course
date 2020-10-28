@@ -756,6 +756,30 @@ namespace sbp{
     return 0;
   }
 
+template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
+  inline PetscErrorCode acowave_apply_2D_1p(const SbpDerivative& D1, const SbpInvQuad& HI,
+                                           VelocityFunction&& a,
+                                           VelocityFunction&& b,
+                                           const PetscScalar *const *const *const src,
+                                           PetscScalar *const *const *const dst,
+                                           const std::array<PetscInt,2>& i_start, const std::array<PetscInt,2>& i_end,
+                                           const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& hi, const PetscInt sw)
+  {
+    const auto [iw, n_closures, closure_width] = D1.get_ranges();
+
+    acowave_apply_2D_LL(D1, HI, a, b, src, dst, N, hi, sw, n_closures);
+    acowave_apply_2D_RL(D1, HI, a, b, src, dst, N, hi, sw, n_closures);
+    acowave_apply_2D_LR(D1, HI, a, b, src, dst, N, hi, sw, n_closures);
+    acowave_apply_2D_RR(D1, HI, a, b, src, dst, N, hi, sw, n_closures);
+    acowave_apply_2D_CL(D1, HI, a, b, src, dst, n_closures, N[0]-n_closures, N, hi, sw, n_closures);
+    acowave_apply_2D_CR(D1, HI, a, b, src, dst, n_closures, N[0]-n_closures, N, hi, sw, n_closures);
+    acowave_apply_2D_LC(D1, HI, a, b, src, dst, n_closures, N[1]-n_closures, N, hi, sw, n_closures);
+    acowave_apply_2D_RC(D1, HI, a, b, src, dst, n_closures, N[1]-n_closures, N, hi, sw, n_closures);
+    acowave_apply_2D_CC(D1, HI, a, b, src, dst, n_closures, N[0]-n_closures, n_closures, N[1]-n_closures, N, hi, sw, n_closures);
+
+    return 0;
+  }
+
   template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
   inline PetscErrorCode acowave_apply_2D_all(const SbpDerivative& D1, const SbpInvQuad& HI,
                                            VelocityFunction&& a,

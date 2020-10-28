@@ -258,15 +258,13 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
   DMDAVecGetArrayDOF(da, v_src, &array_src);
   DMDAVecGetArrayDOF(da, v_dst, &array_dst);
 
-  VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  
-  sbp::acowave_apply_2D_inner(appctx->D1, appctx->HI, appctx->a, appctx->b, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
+  // VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
+  // sbp::acowave_apply_2D_inner(appctx->D1, appctx->HI, appctx->a, appctx->b, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
+  // VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
+  // sbp::acowave_apply_2D_outer(appctx->D1, appctx->HI, appctx->a, appctx->b, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
 
-  VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
 
-  sbp::acowave_apply_2D_outer(appctx->D1, appctx->HI, appctx->a, appctx->b, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
-  
-  // sbp::acowave_apply_2D_all(appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
+  sbp::acowave_apply_2D_1p(appctx->D1, appctx->HI, appctx->a, appctx->b, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
 
   // Restore arrays
   DMDAVecRestoreArrayDOF(da, v_src, &array_src);
