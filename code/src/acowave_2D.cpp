@@ -18,8 +18,6 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 #include "timestepping.h"
 #include <petsc/private/dmdaimpl.h> 
 #include "appctx.h"
-#include "grids/grid_function.h"
-#include "grids/create_layout.h"
 #include "IO_utils.h"
 
 extern PetscErrorCode analytic_solution(DM, PetscScalar, AppCtx*, Vec&);
@@ -102,7 +100,6 @@ int main(int argc,char **argv)
   appctx.a = a;
   appctx.b = b;
   appctx.sw = stencil_radius;
-  appctx.layout = grid::create_layout_2d(da);
 
   // Extract local to local scatter context
   if (use_custom_sc) {
@@ -256,27 +253,24 @@ PetscScalar theta2(PetscScalar x, PetscScalar y, PetscScalar t)
 
 PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
 {
-  PetscScalar       *array_src, *array_dst;
+  PetscScalar       ***array_src, ***array_dst;
 
-  VecGetArray(v_src,&array_src);
-  VecGetArray(v_dst,&array_dst);
-
-  auto gf_src = grid::grid_function_2d<PetscScalar>(array_src, appctx->layout);
-  auto gf_dst = grid::grid_function_2d<PetscScalar>(array_dst, appctx->layout);
+  DMDAVecGetArrayDOF(da, v_src, &array_src);
+  DMDAVecGetArrayDOF(da, v_dst, &array_dst);
 
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   
-  sbp::acowave_apply_2D_inner(appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
+  sbp::acowave_apply_2D_inner(appctx->D1, appctx->HI, appctx->a, appctx->b, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
 
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
 
-  sbp::acowave_apply_2D_outer(appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
+  sbp::acowave_apply_2D_outer(appctx->D1, appctx->HI, appctx->a, appctx->b, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
   
   // sbp::acowave_apply_2D_all(appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
 
   // Restore arrays
-  VecRestoreArray(v_src,&array_src);
-  VecRestoreArray(v_dst,&array_dst);
+  DMDAVecRestoreArrayDOF(da, v_src, &array_src);
+  DMDAVecRestoreArrayDOF(da, v_dst, &array_dst);
   return 0;
 }
 
