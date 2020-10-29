@@ -58,6 +58,17 @@ namespace sbp{
     return 0;
   }
 
+  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
+  inline PetscErrorCode advection_apply_1p(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
+  {
+    const auto [iw, n_closures, closure_width] = D1.get_ranges();
+    advection_apply_l(D1, HI, a, src, dst,  N, hi, n_closures);
+    advection_apply_c(D1, a, src, dst, n_closures, i_end-n_closures,  N, hi);
+    advection_apply_r(D1, HI, a, src, dst,  N, hi, n_closures);
+
+    return 0;
+  };
+
   /**
   * Approximate RHS of advection problem, u_t = -au_x, between indices i_start <= i < i_end. Direct looping.
   * Inputs: D1        - SBP D1 operator
