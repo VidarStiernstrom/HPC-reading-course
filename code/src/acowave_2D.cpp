@@ -1,5 +1,26 @@
 static char help[] ="Solves the 2D acoustic wave equation on first order form: u_t = A*u_x + B*u_y, A = [0,0,-1;0,0,0;-1,0,0], B = [0,0,0;0,0,-1;0,-1,0].";
 
+
+/**
+* Solves 2D acoustic wave equation on first order form. See http://sepwww.stanford.edu/sep/prof/bei/fdm/paper_html/node40.html
+* Variables:
+* u - x-velocity
+* v - y-velocity
+* p - pressure
+* 
+* Coefficients: 
+* rho - density
+* K - incompressibility
+* 
+* Equations:
+* ut = -1/rho px + F1
+* vt = -1/rho py + F2
+* pt = -K*(ux + vx)
+* 
+* F1, F2 - velocity forcing data
+* 
+**/
+
 #define PROBLEM_TYPE_2D_O6
 
 #include <algorithm>
@@ -70,8 +91,12 @@ int main(int argc,char **argv)
   dt = CFL/(std::min(hix,hiy));
 
   // Velocity field a(i,j) = 1
-  auto a = [](const PetscInt i, const PetscInt j){ return 1;};
-  auto b = [](const PetscInt i, const PetscInt j){ return 1;};
+  auto a = [xl,yl,hix,hiy](const PetscInt i, const PetscInt j){  // 1/rho.
+    PetscScalar x = xl + i/hix;
+    PetscScalar y = yl + j/hiy;
+    return 1.0/(2 + x*y);
+  };
+  auto b = [](const PetscInt i, const PetscInt j){ return 1;}; // unused at the moment, K = 1.
 
   // Set if data should be written.
   write_data = PETSC_FALSE;
@@ -95,8 +120,7 @@ int main(int argc,char **argv)
   // Populate application context.
   appctx.N = {Nx, Ny};
   appctx.hi = {hix, hiy};
-  appctx.xl = xl;
-  appctx.yl = yl;
+  appctx.xl = {xl, yl};
   appctx.i_start = {i_xstart,i_ystart};
   appctx.i_end = {i_xend,i_yend};
   appctx.a = a;
@@ -213,10 +237,10 @@ PetscErrorCode analytic_solution(DM da, PetscScalar t, AppCtx *appctx, Vec& v) {
 
   for (j = appctx->i_start[1]; j < appctx->i_end[1]; j++)
   {
-    y = appctx->yl + j/appctx->hi[1];
+    y = appctx->xl[1] + j/appctx->hi[1];
     for (i = appctx->i_start[0]; i < appctx->i_end[0]; i++)
     {
-      x = appctx->xl + i/appctx->hi[0];
+      x = appctx->xl[0] + i/appctx->hi[0];
       varr[j][i][0] = -n*cos(n*PETSC_PI*x)*sin(m*PETSC_PI*y)*sin(PETSC_PI*sqrt(n*n + m*m)*t)/sqrt(n*n + m*m);
       varr[j][i][1] = -m*sin(n*PETSC_PI*x)*cos(m*PETSC_PI*y)*sin(PETSC_PI*sqrt(n*n + m*m)*t)/sqrt(n*n + m*m);
       varr[j][i][2] = sin(PETSC_PI*n*x)*sin(PETSC_PI*m*y)*cos(PETSC_PI*sqrt(n*n + m*m)*t);
@@ -265,13 +289,13 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
   auto gf_dst = grid::grid_function_2d<PetscScalar>(array_dst, appctx->layout);
 
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::acowave_apply_2D_inner(appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
+  sbp::acowave_apply_2D_inner(t, appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::acowave_apply_2D_outer(appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
+  sbp::acowave_apply_2D_outer(t, appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
   
   // sbp::acowave_apply_2D_all(appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
 
-  // sbp::acowave_apply_2D_1p(appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->N, appctx->hi, appctx->sw);
+  // sbp::acowave_apply_2D_1p(t, appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->N, appctx->xl, appctx->hi, appctx->sw);
 
   // Restore arrays
   VecRestoreArray(v_src,&array_src);
