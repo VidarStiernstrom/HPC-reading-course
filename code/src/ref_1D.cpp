@@ -2,25 +2,17 @@ static char help[] = "Solves 1D reflection problem.\n";
 
 #define PROBLEM_TYPE_1D_O6
 
-#include <algorithm>
-#include <cmath>
-#include <string>
-// #include <filesystem>
-#include <petscsys.h>
-#include <petscdmda.h>
-#include <petscvec.h>
-#include <functional>
-#include <petscts.h>
+#include <petsc.h>
 #include "sbpops/D1_central.h"
 #include "sbpops/H_central.h"
 #include "sbpops/HI_central.h"
 #include "diffops/reflection.h"
 #include "timestepping.h"
-#include <petsc/private/dmdaimpl.h> 
 #include "appctx.h"
 #include "grids/create_layout.h"
 #include "grids/grid_function.h"
 #include "IO_utils.h"
+#include "scatter_ctx.h"
 
 extern PetscScalar theta1(PetscScalar x, PetscScalar t);
 extern PetscScalar theta2(PetscScalar x, PetscScalar t);
@@ -30,8 +22,6 @@ extern PetscErrorCode set_initial_condition(DM da, Vec v, AppCtx *appctx);
 extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
 extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, AppCtx *);
 extern PetscScalar gaussian(PetscScalar);
-extern PetscErrorCode write_vector_to_binary(const Vec&, const std::string, const std::string);
-extern PetscErrorCode build_ltol_1D(DM da, VecScatter *ltol);
 
 int main(int argc,char **argv)
 { 
@@ -68,7 +58,7 @@ int main(int argc,char **argv)
 
   // Time
   t0 = 0;
-  dt = CFL/hi;
+  dt = CFL*h;
 
   dofs = 2;
 
@@ -77,6 +67,11 @@ int main(int argc,char **argv)
 
   // Set if data should be written.
   write_data = PETSC_FALSE;
+
+  PetscScalar L = xr - xl; // domain width
+  if ((Tend < L - L/4) || (Tend > L + L/4)) {
+    PetscPrintf(PETSC_COMM_WORLD,"--- Warning ---\nTend = %f is outside range of known solution T = [%f,%f]\n",Tend,L - L/4,L + L/4);
+  }
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Create distributed array (DMDA) to manage parallel grid and vectors
@@ -119,7 +114,7 @@ int main(int argc,char **argv)
   // Initial solution, starting time and end time.
   set_initial_condition(da, v, &appctx);
 
-  // if (write_data) write_vector_to_binary(v,"data/sim_adv_ts","v_init");
+  if (write_data) write_vector_to_binary(v,"data/ref_1D","v_init");
 
   ierr = DMCreateLocalVector(da,&vlocal);CHKERRQ(ierr);
   DMGlobalToLocalBegin(da,v,INSERT_VALUES,vlocal);  
@@ -154,30 +149,16 @@ int main(int argc,char **argv)
   get_error(da, v, v_analytic, &v_error, &H_error, &l2_error, &max_error, appctx);
   PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %g, the H-error is: %g and the maximum error is %g\n",l2_error,H_error,max_error);
 
-  // Write solution to file
-  // if (write_data)
-  // {
-  //   write_vector_to_binary(v,"data/sim_adv_ts","v");
-  //   write_vector_to_binary(v_error,"data/sim_adv_ts","v_error");
-  // }
+  if (write_data)
+  {
+    write_vector_to_binary(v,"data/ref_1D","v");
+    write_vector_to_binary(v_error,"data/ref_1D","v_error");
 
-  if (rank == 0) {
-    FILE *f;
-    if (use_custom_ts) {
-      if (use_custom_sc) {
-        f = fopen("data/timings_tsC_scC.txt", "a");
-      } else {
-        f = fopen("data/timings_tsC_scP.txt", "a");
-      }
-    } else {
-      if (use_custom_sc) {
-        f = fopen("data/timings_tsP_scC.txt", "a");
-      } else {
-        f = fopen("data/timings_tsP_scP.txt", "a");
-      }
-    }
-    fprintf(f,"Size: %d, N: %d, dt: %e, Tend: %f, elapsed time: %f, l2-error: %e, max-error: %e\n",size,N,dt,Tend,elapsed_time,l2_error,max_error);
-    fclose(f);
+    char tmp_str[200];
+    std::string data_string;
+    sprintf(tmp_str,"%d\t%d\t%d\t%e\t%f\t%f\t%e\t%e\t%e\n",size,N,-1,dt,Tend,elapsed_time,l2_error,H_error,max_error);
+    data_string.assign(tmp_str);
+    write_data_to_file(data_string, "data/ref_1D", "data.tsv");
   }
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -191,6 +172,16 @@ int main(int argc,char **argv)
   
   ierr = PetscFinalize();
   return ierr;
+}
+
+PetscErrorCode rhs_TS(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx) // Function to utilize PETSc TS.
+{
+  AppCtx *appctx = (AppCtx*) ctx;
+  DM                da;
+
+  TSGetDM(ts,&da);
+  rhs(da, t, v_src, v_dst, appctx);
+  return 0;
 }
 
 PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx) {
@@ -209,7 +200,6 @@ PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_erro
 
   return 0;
 }
-
 
 PetscErrorCode analytic_solution(const DM& da, const PetscScalar t, const AppCtx& appctx, const Vec& v_analytic, const PetscScalar W)
 {
@@ -292,120 +282,4 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
   return 0;
 }
 
-PetscErrorCode rhs_TS(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx) // Function to utilize PETSc TS.
-{
-  AppCtx *appctx = (AppCtx*) ctx;
-  DM                da;
 
-  TSGetDM(ts,&da);
-  rhs(da, t, v_src, v_dst, appctx);
-  return 0;
-}
-
-/**
-* Build local to local scatter context containing only ghost point communications
-* Inputs: da        - DMDA object
-*         ltol      - pointer to local to local scatter context
-**/
-PetscErrorCode build_ltol_1D(DM da, VecScatter *ltol)
-{
-  PetscInt    stencil_radius, i_xstart, i_xend, ig_xstart, ig_xend, n, i, j, ln, no_com_vals, count, N, dof;
-  IS          ix, iy;
-  Vec         vglobal, vlocal;
-  VecScatter  gtol;
-
-  DMDAGetStencilWidth(da, &stencil_radius);
-  DMDAGetCorners(da,&i_xstart,NULL,NULL,&n,NULL,NULL);
-  DMDAGetGhostCorners(da,&ig_xstart,NULL,NULL,&ln,NULL,NULL);
-  DMDAGetInfo(da, NULL, &N, NULL,NULL,NULL,NULL,NULL,&dof,NULL,NULL,NULL,NULL,NULL);
-
-  i_xend = i_xstart + n;
-  ig_xend = ig_xstart + ln;
-
-  int rank;
-  MPI_Comm_rank(PETSC_COMM_WORLD,&rank); 
-
-  /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    Compute how many elements to receive
-  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  no_com_vals = 0;
-  if (i_xstart != 0)  // NOT LEFT BOUNDARY, RECEIVE LEFT
-  {
-    no_com_vals += 1;
-  }
-  if (i_xend != N) // NOT RIGHT BOUNDARY, RECEIVE RIGHT
-  {
-    no_com_vals += 1;
-  }
-  no_com_vals *= stencil_radius*dof;
-
-  /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    Define communication pattern, from global index ixx[i] to local index iyy[i]
-  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  PetscInt ixx[no_com_vals], iyy[no_com_vals];
-  count = 0;
-
-  for (i = ig_xstart; i < i_xstart; i++) { // LEFT
-    for (j = 0; j < dof; j++) {
-      ixx[count] = dof*i + j;
-      iyy[count] = dof*(i - ig_xstart) + j;
-      count++;
-    }
-  }
-
-  for (i = i_xend; i < ig_xend; i++) { // RIGHT
-    for (j = 0; j < dof; j++) {
-      ixx[count] = dof*i + j;
-      iyy[count] = dof*(i - ig_xstart) + j;
-      count++;
-    }
-  }
-
-  /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    Build global to local scatter context
-  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  ISCreateGeneral(PETSC_COMM_SELF,no_com_vals,ixx,PETSC_COPY_VALUES,&ix);  
-  ISCreateGeneral(PETSC_COMM_SELF,no_com_vals,iyy,PETSC_COPY_VALUES,&iy);  
-
-  DMGetGlobalVector(da, &vglobal);
-  DMGetLocalVector(da, &vlocal);
-
-  VecScatterCreate(vglobal,ix,vlocal,iy, &gtol);  
-  VecScatterSetUp(gtol);
-
-  DMRestoreGlobalVector(da, &vglobal);
-  DMRestoreLocalVector(da, &vlocal);
-
-  ISDestroy(&ix);
-  ISDestroy(&iy);
-
-  /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    Map 2D global to local scatter context to local to local (petsc source code)
-  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  VecScatterCopy(gtol,ltol);
-  VecScatterDestroy(&gtol);
-
-  PetscInt *idx,left;
-  DM_DA *dd = (DM_DA*) da->data; 
-  left = dd->xs - dd->Xs;
-  PetscMalloc1(dd->xe-dd->xs,&idx);
-  for (j=0; j<dd->xe-dd->xs; j++) 
-  {
-    idx[j] = left + j;
-  }
-  VecScatterRemap(*ltol,idx,NULL);
-
-  return 0;
-}
-
-// PetscErrorCode write_vector_to_binary(const Vec& v, const std::string folder, const std::string file)
-// { 
-//   std::filesystem::create_directories(folder);
-//   PetscErrorCode ierr;
-//   PetscViewer viewer;
-//   ierr = PetscViewerBinaryOpen(PETSC_COMM_WORLD,(folder+"/"+file).c_str(),FILE_MODE_WRITE,&viewer);
-//   ierr = VecView(v,viewer);
-//   ierr = PetscViewerDestroy(&viewer);
-//   CHKERRQ(ierr);
-//   return 0;
-// }

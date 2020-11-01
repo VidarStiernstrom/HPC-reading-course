@@ -823,51 +823,52 @@ template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
     {
       if (i_xstart == 0) // BOTTOM LEFT
       {
-        acowave_apply_2D_LL(D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
-        acowave_apply_2D_CL(D1, HI, a, b, src, dst, n_closures, i_xend, N, xl, hi, sw, n_closures);
-        acowave_apply_2D_LC(D1, HI, a, b, src, dst, n_closures, i_yend, N, xl, hi, sw, n_closures);
-        acowave_apply_2D_CC(D1, HI, a, b, src, dst, n_closures, i_xend, n_closures, i_yend, N, xl, hi, sw, n_closures); 
+        acowave_apply_2D_LL(t, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
+        acowave_apply_2D_CL(t, D1, HI, a, b, src, dst, n_closures, i_xend, N, xl, hi, sw, n_closures);
+        acowave_apply_2D_LC(t, D1, HI, a, b, src, dst, n_closures, i_yend, N, xl, hi, sw, n_closures);
+        acowave_apply_2D_CC(t, D1, HI, a, b, src, dst, n_closures, i_xend, n_closures, i_yend, N, xl, hi, sw, n_closures); 
       } else if (i_xend == N[0]) // BOTTOM RIGHT
       { 
-        acowave_apply_2D_RL(D1, HI, a, b, src, dst, N, hi, sw, n_closures);
-        acowave_apply_2D_CL(D1, HI, a, b, src, dst, i_xstart, N[0]-n_closures, N, xl, hi, sw, n_closures);
-        acowave_apply_2D_RC(D1, HI, a, b, src, dst, n_closures, i_yend, N, xl, hi, sw, n_closures);
-        acowave_apply_2D_CC(D1, HI, a, b, src, dst, i_xstart, N[0]-n_closures, n_closures, i_yend, N, xl, hi, sw, n_closures); 
+        acowave_apply_2D_RL(t, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
+        acowave_apply_2D_CL(t, D1, HI, a, b, src, dst, i_xstart, N[0]-n_closures, N, xl, hi, sw, n_closures);
+        acowave_apply_2D_RC(t, D1, HI, a, b, src, dst, n_closures, i_yend, N, xl, hi, sw, n_closures);
+        acowave_apply_2D_CC(t, D1, HI, a, b, src, dst, i_xstart, N[0]-n_closures, n_closures, i_yend, N, xl, hi, sw, n_closures); 
       } else // BOTTOM CENTER
       { 
-        acowave_apply_2D_CL(D1, HI, a, b, src, dst, i_xstart, i_xend, N, xl, hi, sw, n_closures);
-        acowave_apply_2D_CC(D1, HI, a, b, src, dst, i_xstart, i_xend, n_closures, i_yend, N, xl, hi, sw, n_closures); 
+        acowave_apply_2D_CL(t, D1, HI, a, b, src, dst, i_xstart, i_xend, N, xl, hi, sw, n_closures);
+        acowave_apply_2D_CC(t, D1, HI, a, b, src, dst, i_xstart, i_xend, n_closures, i_yend, N, xl, hi, sw, n_closures); 
       }
     } else if (i_yend == N[1]) // TOP
     {
       if (i_xstart == 0) // TOP LEFT
       {
-        acowave_apply_2D_LR(D1, HI, a, b, src, dst, N, hi, sw, n_closures);
-        acowave_apply_2D_CR(D1, HI, a, b, src, dst, n_closures, i_xend, N, xl, hi, sw, n_closures);
-        acowave_apply_2D_LC(D1, HI, a, b, src, dst, i_ystart, N[1] - n_closures, N, xl, hi, sw, n_closures);
-        acowave_apply_2D_CC(D1, HI, a, b, src, dst, n_closures, i_xend, i_ystart, N[1]-n_closures, N, xl, hi, sw, n_closures);  
+        acowave_apply_2D_LR(t, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
+        acowave_apply_2D_CR(t, D1, HI, a, b, src, dst, n_closures, i_xend, N, xl, hi, sw, n_closures);
+        acowave_apply_2D_LC(t, D1, HI, a, b, src, dst, i_ystart, N[1] - n_closures, N, xl, hi, sw, n_closures);
+        acowave_apply_2D_CC(t, D1, HI, a, b, src, dst, n_closures, i_xend, i_ystart, N[1]-n_closures, N, xl, hi, sw, n_closures);  
       } else if (i_xend == N[0]) // TOP RIGHT
       { 
-        acowave_apply_2D_RR(D1, HI, a, b, src, dst, N, hi, sw, n_closures);
-        acowave_apply_2D_CR(D1, HI, a, b, src, dst, i_xstart, N[0]-n_closures, N, xl, hi, sw, n_closures);
-        acowave_apply_2D_RC(D1, HI, a, b, src, dst, i_ystart, N[1] - n_closures, N, xl, hi, sw, n_closures);
-        acowave_apply_2D_CC(D1, HI, a, b, src, dst, i_xstart, N[0]-n_closures, i_ystart, N[1] - n_closures, N, xl, hi, sw, n_closures);
+
+        acowave_apply_2D_RR(t, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
+        acowave_apply_2D_CR(t, D1, HI, a, b, src, dst, i_xstart, N[0]-n_closures, N, xl, hi, sw, n_closures);
+        acowave_apply_2D_RC(t, D1, HI, a, b, src, dst, i_ystart, N[1] - n_closures, N, xl, hi, sw, n_closures);
+        acowave_apply_2D_CC(t, D1, HI, a, b, src, dst, i_xstart, N[0]-n_closures, i_ystart, N[1] - n_closures, N, xl, hi, sw, n_closures);
       } else // TOP CENTER
       { 
-        acowave_apply_2D_CR(D1, HI, a, b, src, dst, i_xstart, i_xend, N, xl, hi, sw, n_closures);
-        acowave_apply_2D_CC(D1, HI, a, b, src, dst, i_xstart, i_xend, i_ystart,  N[1] - n_closures, N, xl, hi, sw, n_closures);
+        acowave_apply_2D_CR(t, D1, HI, a, b, src, dst, i_xstart, i_xend, N, xl, hi, sw, n_closures);
+        acowave_apply_2D_CC(t, D1, HI, a, b, src, dst, i_xstart, i_xend, i_ystart,  N[1] - n_closures, N, xl, hi, sw, n_closures);
       }
     } else if (i_xstart == 0) // LEFT NOT BOTTOM OR TOP
     { 
-      acowave_apply_2D_LC(D1, HI, a, b, src, dst, i_ystart, i_yend, N, xl, hi, sw, n_closures);
-      acowave_apply_2D_CC(D1, HI, a, b, src, dst, n_closures, i_xend, i_ystart, i_yend, N, xl, hi, sw, n_closures);
+      acowave_apply_2D_LC(t, D1, HI, a, b, src, dst, i_ystart, i_yend, N, xl, hi, sw, n_closures);
+      acowave_apply_2D_CC(t, D1, HI, a, b, src, dst, n_closures, i_xend, i_ystart, i_yend, N, xl, hi, sw, n_closures);
     } else if (i_xend == N[0]) // RIGHT NOT BOTTOM OR TOP
     {
-      acowave_apply_2D_RC(D1, HI, a, b, src, dst, i_ystart, i_yend, N, xl, hi, sw, n_closures);
-      acowave_apply_2D_CC(D1, HI, a, b, src, dst, i_xstart, N[0] - n_closures, i_ystart, i_yend, N, xl, hi, sw, n_closures);
+      acowave_apply_2D_RC(t, D1, HI, a, b, src, dst, i_ystart, i_yend, N, xl, hi, sw, n_closures);
+      acowave_apply_2D_CC(t, D1, HI, a, b, src, dst, i_xstart, N[0] - n_closures, i_ystart, i_yend, N, xl, hi, sw, n_closures);
     } else // CENTER
     {
-      acowave_apply_2D_CC(D1, HI, a, b, src, dst, i_xstart, i_xend, i_ystart, i_yend, N, xl, hi, sw, n_closures);
+      acowave_apply_2D_CC(t, D1, HI, a, b, src, dst, i_xstart, i_xend, i_ystart, i_yend, N, xl, hi, sw, n_closures);
     }
 
     return 0;

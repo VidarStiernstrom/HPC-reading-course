@@ -44,6 +44,7 @@
 		struct AppCtx{
 		std::array<PetscInt,2> N, i_start, i_end;
 		std::array<PetscScalar,2> hi, h, xl;
+		PetscInt dofs;
 		PetscScalar sw;
 		std::function<double(int, int)> a;
 		std::function<double(int, int)> b;
@@ -57,6 +58,7 @@
 		struct AppCtx{
 		std::array<PetscInt,2> N, i_start, i_end;
 		std::array<PetscScalar,2> hi, h, xl;
+		PetscInt dofs;
 		PetscScalar sw;
 		std::function<double(int, int)> a;
 		std::function<double(int, int)> b;
@@ -70,6 +72,7 @@
 		struct AppCtx{
 		std::array<PetscInt,2> N, i_start, i_end;
 		std::array<PetscScalar,2> hi, h, xl;
+		PetscInt dofs;
 		PetscScalar sw;
 		std::function<double(int, int)> a;
 		std::function<double(int, int)> b;

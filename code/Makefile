@@ -23,25 +23,19 @@ include ${PETSC_DIR}/lib/petsc/conf/variables
 include ${PETSC_DIR}/lib/petsc/conf/rules
 include ${PETSC_DIR}/lib/petsc/conf/test
 
-all: init $(BIN_PATH)adv_1D $(BIN_PATH)adv_2D $(BIN_PATH)ref_1D $(BIN_PATH)ref_2D $(BIN_PATH)acowave_2D $(BIN_PATH)sim_adv_ts_old
+all: init $(BIN_PATH)adv_1D $(BIN_PATH)adv_2D $(BIN_PATH)ref_1D $(BIN_PATH)acowave_2D
 
 # Link object files to create binaries in BIN_PATH/
-$(BIN_PATH)acowave_2D: $(OBJ_PATH)acowave_2D.o $(OBJ_PATH)create_layout.o $(OBJ_PATH)IO_utils.o
+$(BIN_PATH)acowave_2D: $(OBJ_PATH)acowave_2D.o $(OBJ_PATH)create_layout.o $(OBJ_PATH)IO_utils.o $(OBJ_PATH)scatter_ctx.o
 	-${CXX} -o $@ $^ ${PETSC_SYS_LIB}
 
-$(BIN_PATH)adv_2D: $(OBJ_PATH)adv_2D.o $(OBJ_PATH)create_layout.o $(OBJ_PATH)IO_utils.o
+$(BIN_PATH)adv_2D: $(OBJ_PATH)adv_2D.o $(OBJ_PATH)create_layout.o $(OBJ_PATH)IO_utils.o $(OBJ_PATH)scatter_ctx.o
 	-${CXX} -o $@ $^ ${PETSC_SYS_LIB}
 
-$(BIN_PATH)adv_1D: $(OBJ_PATH)adv_1D.o $(OBJ_PATH)create_layout.o $(OBJ_PATH)IO_utils.o
+$(BIN_PATH)adv_1D: $(OBJ_PATH)adv_1D.o $(OBJ_PATH)create_layout.o $(OBJ_PATH)IO_utils.o $(OBJ_PATH)scatter_ctx.o
 	-${CXX} -o $@ $^ ${PETSC_SYS_LIB}
 	
-$(BIN_PATH)ref_1D: $(OBJ_PATH)ref_1D.o $(OBJ_PATH)create_layout.o $(OBJ_PATH)IO_utils.o
-	-${CXX} -o $@ $^ ${PETSC_SYS_LIB}
-
-$(BIN_PATH)ref_2D: $(OBJ_PATH)ref_2D.o $(OBJ_PATH)create_layout.o $(OBJ_PATH)IO_utils.o
-	-${CXX} -o $@ $^ ${PETSC_SYS_LIB}
-
-$(BIN_PATH)sim_adv_ts_old: $(OBJ_PATH)sim_adv_ts_old.o
+$(BIN_PATH)ref_1D: $(OBJ_PATH)ref_1D.o $(OBJ_PATH)create_layout.o $(OBJ_PATH)IO_utils.o $(OBJ_PATH)scatter_ctx.o
 	-${CXX} -o $@ $^ ${PETSC_SYS_LIB}
 
 # Compile object files to OBJ_PATH/
@@ -57,13 +51,13 @@ $(OBJ_PATH)adv_2D.o: $(SRC_PATH)adv_2D.cpp
 $(OBJ_PATH)ref_1D.o: $(SRC_PATH)ref_1D.cpp
 	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
 
-$(OBJ_PATH)ref_2D.o: $(SRC_PATH)ref_2D.cpp
-	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
-
 $(OBJ_PATH)create_layout.o: $(SRC_PATH)grids/create_layout.cpp
 	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
 
 $(OBJ_PATH)IO_utils.o: $(SRC_PATH)IO_utils.cpp
+	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
+
+$(OBJ_PATH)scatter_ctx.o: $(SRC_PATH)scatter_ctx.cpp
 	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
 
 

@@ -67,7 +67,8 @@ namespace sbp {
     // *
     // * Output: computed H-norm, sqrt(v1'*H*v1 + v2'*H*v2 + ...).
     // *
-    inline PetscScalar get_norm_1D(const PetscScalar *const *const v, const PetscScalar h, const PetscInt N, const PetscInt i_start, const PetscInt i_end, const PetscInt dofs) const
+    inline PetscScalar get_norm_1D(const PetscScalar *const *const v, const PetscScalar h, const PetscInt N,
+                                   const PetscInt i_start, const PetscInt i_end, const PetscInt dofs) const
     {
       PetscInt is, comp;
       PetscReal u = 0, sum;
@@ -173,12 +174,12 @@ namespace sbp {
     // *
     // * Output: computed H-norm, sqrt(v'*H*v).
     // *
-    inline PetscScalar get_norm_2D(const PetscScalar *const *const *const v, 
-      const std::array<PetscInt,2>& i_start, std::array<PetscInt,2>& i_end, 
-      const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& h, const PetscInt comp) const
+    inline PetscScalar get_norm_2D(const PetscScalar *const *const *const v, const std::array<PetscScalar,2>& h, 
+                                   const std::array<PetscInt,2>& N, const std::array<PetscInt,2>& i_start, 
+                                   const std::array<PetscInt,2>& i_end, const PetscInt dofs) const
     {
       // TODO!
-      return 0;
+      return -1;
     };
   };
 
