@@ -1,10 +1,14 @@
-# HPC-reading-course
+# Hyperbolic-system-SBP-FD-solver
 
-This repo is used to organize a PhD reading course on HPC for PDE:s given at the division of scientific computing, Uppsala University in the fall 2020. The main goal is to develop an distributed matrix free finite difference code for solving PDE:s based on the SBP framework, and in the process study concepts related to HPC on distributed environments.
+The main goal of the project is to develop an distributed matrix free finite difference code for solving systems of hyperbolic PDE:s based on the SBP framework. Parallelization is carried out using the PETSc library.
 
-The project is outlined as follows:
 
-1. Search for relevant literature on HPC computing in a distributed environment, and concepts relevant for finite difference methods.
-2. Search for useful exisiting software libraries.
-3. Decide on a representative problem. Implement the solver and develop tests, assuring correctness of the solver and measuring it's performance. If possible, make a comparison to (1.) a matrix-based version of the code, (2.) a Matlab version of the code.
-4. Give an oral presentation or write a report on the results.
+The repo was started to organize a PhD reading course on HPC for PDE:s given at the division of scientific computing, Uppsala University in the fall 2020.
+
+TODO:
+Describe code
+Once the HPC reading course is complete, move acowave to a folder 'examples'
+
+Authors:
+Vidar Stiernström
+Gustav Eriksson
