@@ -24,9 +24,14 @@ namespace sbp {
       return std::make_tuple(interior_width,n_closures,closure_width);
     };
 
-    //TODO: The pointer to pointer layout may prevent compiler optimization for e.g vectorization since it is not clear whether
-    //      the memory is contiguous or not. We should switch to a flat array layout, once we get something running for systems in 2D.
-    
+    /**
+    * Convenience function returning the size of the closure n_closures (number of points with a closure stencil)
+    **/
+    inline constexpr PetscInt closure_size() const
+    {
+      return n_closures;
+    };
+
     //=============================================================================
     // 1D functions
     //=============================================================================

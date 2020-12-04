@@ -264,17 +264,11 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, appctx->layout);
-  auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, appctx->layout);\
+  auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, appctx->layout);
 
-  sbp::reflection_apply1(appctx->D1, gf_src, gf_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0]);
+  sbp::reflection_non_overlapping(appctx->D1, gf_src, gf_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0]);
+  //sbp::reflection_single_core(appctx->D1, gf_src, gf_dst, appctx->N[0], appctx->hi[0]);
 
-// Apply BC
-  if (appctx->i_start[0] == 0) {
-    gf_dst(0,0) = 0.0;  
-  }
-  if (appctx->i_end[0] == appctx->N[0]) {
-    gf_dst(appctx->N[0]-1,0) = 0.0;
-  }
 
   // Restore arrays
   VecRestoreArray(v_src, &array_src);
