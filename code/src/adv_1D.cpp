@@ -1,6 +1,6 @@
 static char help[] = "Solves advection 1D problem u_t + u_x = 0.\n";
 
-#define PROBLEM_TYPE_1D_O6
+#define PROBLEM_TYPE_2D_O6
 
 #include <petsc.h>
 #include "sbpops/D1_central.h"
@@ -14,23 +14,30 @@ static char help[] = "Solves advection 1D problem u_t + u_x = 0.\n";
 #include "IO_utils.h"
 #include "scatter_ctx.h"
 
-extern PetscErrorCode analytic_solution(const DM&, const PetscScalar, const AppCtx&, Vec&);
-extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
-extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, AppCtx *);
+struct GridCtxs{
+  AppCtx F_appctx, C_appctx;
+};
+
+extern PetscErrorCode analytic_solution(const PetscScalar t, const AppCtx& appctx, Vec& v_analytic);
 extern PetscScalar gaussian(PetscScalar);
+extern PetscErrorCode LHS(Mat, Vec, Vec);
+extern PetscErrorCode RHS(const AppCtx& appctx, Vec& b, const PetscScalar Tend, Vec v0);
 extern PetscErrorCode write_vector_to_binary(const Vec&, const std::string, const std::string);
 extern PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx);
+extern PetscErrorCode apply_pc(PC pc, Vec xin, Vec xout);
+extern PetscErrorCode get_solution(Vec v_final, Vec v, const AppCtx& appctx);
 
 int main(int argc,char **argv)
 { 
-  DM             da;
-  Vec            v, v_analytic, v_error, vlocal;
-  PetscInt       stencil_radius, i_xstart, i_xend, N, n, dofs;
-  PetscScalar    xl, xr, hi, h, dt, t0, Tend, CFL;
+  Mat D;
+  Vec            v, v_analytic, v_error, v_final;
+  PC             pc;
+  PetscInt       stencil_radius, i_xstart, i_xend, i_tstart, i_tend, Nx, nx, Nt, nt, dofs, tblocks;
+  PetscInt       ig_xstart, ig_xend, ig_tstart, ig_tend, ngx, ngt, blockidx;
+  PetscScalar    xl, xr, dx, dxi, dt, dti, t0, Tend, CFL, Tpb;
   PetscReal      l2_error, max_error, H_error;
+  GridCtxs       gridctxs;
 
-  AppCtx         appctx;
-  PetscBool      write_data, use_custom_ts, use_custom_sc;
   PetscLogDouble v1,v2,elapsed_time = 0;
 
   PetscErrorCode ierr;
@@ -40,76 +47,98 @@ int main(int argc,char **argv)
   ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
 
-  if (get_inputs_1d(argc, argv, &N, &Tend, &CFL, &use_custom_ts, &use_custom_sc) == -1) {
-    PetscFinalize();
-    return -1;
-  }
-
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Problem setup
-   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */ 
   // Space
+  Nx = 2001;
   xl = -1;
   xr = 1;
-  hi = (N-1)/(xr-xl);
-  h = 1.0/hi;
+  dx = (xr - xl)/(Nx-1);
+  dxi = 1./dx;
   
   // Time
+  tblocks = 100;
   t0 = 0;
-  dt = CFL/hi;
+  Tend = 1;
+  Tpb = Tend/tblocks;
+  Nt = 4;
+  dt = Tpb/(Nt-1);
+  dti = 1./dt;
 
   dofs = 1;
 
-  auto a = [](const PetscInt i){ return 1.5;};
+  auto a = [](const PetscInt i){ return 4;};
 
-  // Set if data should be written.
-  write_data = PETSC_FALSE;
+  PetscPrintf(PETSC_COMM_WORLD,"dx: %f, dt: %f\n",dx,dt);
 
-  /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-     Create distributed array (DMDA) to manage parallel grid and vectors
-   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  auto [stencil_width, nc, cw] = appctx.D1.get_ranges();
+
+  // /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  //    Create distributed array (DMDA) to manage parallel grid and vectors
+  //  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+  auto [stencil_width, nc, cw] = gridctxs.F_appctx.D1.get_ranges();
   stencil_radius = (stencil_width-1)/2;
-  ierr = DMDACreate1d(PETSC_COMM_WORLD, DM_BOUNDARY_NONE, N, dofs, stencil_radius, NULL, &da);CHKERRQ(ierr);
-  DMSetFromOptions(da);
-  DMSetUp(da);
-  DMDAGetCorners(da,&i_xstart,NULL,NULL,&n,NULL,NULL);
-  i_xend = i_xstart + n;
-  // Populate application context.
-  appctx.N = {N};
-  appctx.hi = {hi};
-  appctx.h = {h};
-  appctx.xl = xl;
-  appctx.i_start = {i_xstart};
-  appctx.i_end = {i_xend};
-  appctx.dofs = dofs;
-  appctx.a = a;
-  appctx.sw = stencil_radius;
-  appctx.layout = grid::create_layout_1d(da);
+  DMDACreate2d(PETSC_COMM_WORLD,DM_BOUNDARY_NONE,DM_BOUNDARY_NONE,DMDA_STENCIL_STAR,
+               Nt,Nx,1,PETSC_DECIDE,dofs,stencil_radius,NULL,NULL,&gridctxs.F_appctx.da);
+  DMSetFromOptions(gridctxs.F_appctx.da);
+  DMSetUp(gridctxs.F_appctx.da);
+  DMDAGetCorners(gridctxs.F_appctx.da,&i_tstart,&i_xstart,NULL,&nt,&nx,NULL);
+  i_xend = i_xstart + nx;
+  i_tend = i_tstart + nt;
+  DMDAGetGhostCorners(gridctxs.F_appctx.da,&ig_tstart,&ig_xstart,NULL,&ngt,&ngx,NULL);
+  ig_xend = ig_xstart + ngx;
+  ig_tend = ig_tstart + ngt;
 
-  // Extract local to local scatter context
-  if (use_custom_sc) {
-    build_ltol_1D(da, &appctx.scatctx);
-  } else {
-    DMDAGetScatter(da, NULL, &appctx.scatctx);
-  }
+  // printf("Rank: %d, xstart: %d, xend: %d, tstart: %d, tend: %d, nx: %d, nt: %d\n",rank,i_xstart,i_xend,i_tstart,i_tend, nx, nt);
+  // printf("Rank: %d, xgstart: %d, xgend: %d, tgstart: %d, tgend: %d, ngx: %d, ngt: %d\n",rank,ig_xstart,ig_xend,ig_tstart,ig_tend, ngx, ngt);
 
-  /*  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-      Extract global vectors from DMDA; then duplicate for remaining
-      vectors that are the same types
-    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  DMCreateGlobalVector(da,&v);
-  VecDuplicate(v,&v_analytic);
-  VecDuplicate(v,&v_error);
-  
-  // Initial solution, starting time and end time.
-  analytic_solution(da, 0, appctx, v);
-  if (write_data) write_vector_to_binary(v,"data/adv_1D","v_init");
+  // /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  //    Fill application context
+  //  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+  gridctxs.F_appctx.N = {Nx,Nt};
+  gridctxs.F_appctx.hi = {dxi,dti};
+  gridctxs.F_appctx.h = {dx,dt};
+  gridctxs.F_appctx.xl = {xl,0};
+  gridctxs.F_appctx.Tpb = Tpb;
+  gridctxs.F_appctx.i_start = {i_xstart,i_tstart};
+  gridctxs.F_appctx.i_end = {i_xend,i_tend};
+  gridctxs.F_appctx.dofs = dofs;
+  gridctxs.F_appctx.a = a;
+  gridctxs.F_appctx.sw = stencil_radius;
 
-  ierr = DMCreateLocalVector(da,&vlocal);CHKERRQ(ierr);
-  DMGlobalToLocalBegin(da,v,INSERT_VALUES,vlocal);  
-  DMGlobalToLocalEnd(da,v,INSERT_VALUES,vlocal);
+  // /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  //    Setup solver
+  //  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
+  DMCreateGlobalVector(gridctxs.F_appctx.da,&v);
+  DMCreateGlobalVector(gridctxs.F_appctx.da,&gridctxs.F_appctx.b);
+
+  MatCreateShell(PETSC_COMM_WORLD,nx*nt,nx*nt,Nx*Nt,Nx*Nt,&gridctxs.F_appctx,&D);
+  MatShellSetOperation(D,MATOP_MULT,(void(*)(void))LHS);
+
+  KSPCreate(PETSC_COMM_WORLD, &gridctxs.F_appctx.ksp);
+  KSPSetOperators(gridctxs.F_appctx.ksp, D, D);
+  KSPSetTolerances(gridctxs.F_appctx.ksp, 1e-14, PETSC_DEFAULT, PETSC_DEFAULT, 1e5);
+  KSPSetPCSide(gridctxs.F_appctx.ksp, PC_RIGHT);
+  KSPSetType(gridctxs.F_appctx.ksp, KSPPIPEFGMRES);
+  KSPGMRESSetRestart(gridctxs.F_appctx.ksp, 10);
+  KSPSetInitialGuessNonzero(gridctxs.F_appctx.ksp, PETSC_TRUE);
+  KSPSetFromOptions(gridctxs.F_appctx.ksp);
+
+  KSPGetPC(gridctxs.F_appctx.ksp,&pc);
+  PCSetType(pc,PCSHELL);
+  // PCSetType(pc,PCNONE);
+  PCShellSetContext(pc, &gridctxs);
+  PCShellSetApply(pc, apply_pc);
+  PCSetUp(pc);
+
+  VecCreate(PETSC_COMM_WORLD, &v_final);
+  VecSetSizes(v_final, nx, Nx);
+  VecSetType(v_final, VECSTANDARD);
+  VecSetUp(v_final);
+
+
+  analytic_solution(0, gridctxs.F_appctx, v_final);
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Run simulation and compute the error
   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
@@ -118,12 +147,12 @@ int main(int argc,char **argv)
     PetscTime(&v1);
   }
 
-  if (use_custom_ts) {
-    RK4_custom(da, appctx, Tend, dt, vlocal, rhs);  
-  } else {
-    RK4_petsc(da, appctx, Tend, dt, vlocal, rhs_TS);  
+  for (blockidx = 0; blockidx < tblocks; blockidx++) {
+    RHS(gridctxs.F_appctx, gridctxs.F_appctx.b, Tpb, v_final);
+    KSPSolve(gridctxs.F_appctx.ksp, gridctxs.F_appctx.b, v);
+    get_solution(v_final, v, gridctxs.F_appctx); 
   }
-  
+
   PetscBarrier((PetscObject) v);
   if (rank == 0) {
     PetscTime(&v2);
@@ -132,103 +161,172 @@ int main(int argc,char **argv)
 
   PetscPrintf(PETSC_COMM_WORLD,"Elapsed time: %f seconds\n",elapsed_time);
 
-  DMLocalToGlobalBegin(da,vlocal,INSERT_VALUES,v);
-  DMLocalToGlobalEnd(da,vlocal,INSERT_VALUES,v);
 
-  analytic_solution(da, Tend, appctx, v_analytic);
-  get_error(da, v, v_analytic, &v_error, &H_error, &l2_error, &max_error, appctx);
-  PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %g, the H-error is: %g and the maximum error is %g\n",l2_error,H_error,max_error);
 
-  if (write_data)
-  {
-    write_vector_to_binary(v,"data/adv_1D","v");
-    write_vector_to_binary(v_error,"data/adv_1D","v_error");
+  VecDuplicate(v_final,&v_error);
+  VecDuplicate(v_final,&v_analytic);
 
-    char tmp_str[200];
-    std::string data_string;
-    sprintf(tmp_str,"%d\t%d\t%d\t%e\t%f\t%f\t%e\t%e\t%e\n",size,N,-1,dt,Tend,elapsed_time,l2_error,H_error,max_error);
-    data_string.assign(tmp_str);
-    write_data_to_file(data_string, "data/adv_1D", "data.tsv");
-  }
+  write_vector_to_binary(v,"data/adv_1D_try","v");
+  write_vector_to_binary(v_final,"data/adv_1D_try","v_final");
+
+  analytic_solution(Tend, gridctxs.F_appctx, v_analytic);
+
+  get_error(gridctxs.F_appctx.da, v_final, v_analytic, &v_error, &H_error, &l2_error, &max_error, gridctxs.F_appctx);
+  PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %.8e, the H-error is: %.9e and the maximum error is %.9e\n",l2_error,H_error,max_error);
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       Free work space.  All PETSc objects should be destroyed when they
       are no longer needed.
     - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   VecDestroy(&v);
-  VecDestroy(&v_analytic);
+  VecDestroy(&v_final);
   VecDestroy(&v_error);
-  DMDestroy(&da);
+  VecDestroy(&v_final);
+  PCDestroy(&pc);
+  MatDestroy(&D);
+  DMDestroy(&gridctxs.F_appctx.da);
   
   ierr = PetscFinalize();
   return ierr;
 }
 
-PetscErrorCode rhs_TS(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx) // Function to utilize PETSc TS.
+PetscErrorCode apply_pc(PC pc, Vec xin, Vec xout) 
 {
-  AppCtx *appctx = (AppCtx*) ctx;
-  DM                da;
+  GridCtxs          *gridctxs;
+  Vec               xcoarse;
 
-  TSGetDM(ts,&da);
-  rhs(da, t, v_src, v_dst, appctx);
+  // PCShellGetContext(pc, (void**) &gridctxs);
+
+  // DMGetGlobalVector(gridctxs->C_appctx.da, &xcoarse);
+
+  // apply_F2C(xin, xcoarse, gridctxs);
+  // KSPSolve(gridctxs->C_appctx.ksp, gridctxs->C_appctx.b, xcoarse);
+  // apply_C2F(xout, xcoarse, gridctxs);
+
+  // DMRestoreGlobalVector(gridctxs->C_appctx.da, &xcoarse);
+  VecCopy(xin,xout);
+
+  return 0;
+}
+
+PetscErrorCode get_solution(Vec v_final, Vec v, const AppCtx& appctx) 
+{
+  PetscInt i, n, idx, istart;
+  PetscScalar *vfinal_arr, ***v_arr;
+
+  PetscScalar e_r[4] = {-0.113917196281990,0.400761520311650,-0.813632449486927,1.526788125457267};
+
+  DMDAVecGetArrayDOF(appctx.da,v,&v_arr); 
+  VecGetArray(v_final,&vfinal_arr); 
+
+  VecGetLocalSize(v_final, &n);
+  VecGetOwnershipRange(v_final, &istart, NULL);
+
+  for (i = 0; i < n; i++) {
+    idx = i + istart;
+    vfinal_arr[i] = e_r[0]*v_arr[idx][0][0] + e_r[1]*v_arr[idx][1][0] + e_r[2]*v_arr[idx][2][0] + e_r[3]*v_arr[idx][3][0];
+  }
+  VecRestoreArray(v_final,&vfinal_arr); 
+  DMDAVecRestoreArrayDOF(appctx.da,v,&v_arr); 
+
   return 0;
 }
 
 PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx) {
-  PetscScalar **arr;
+  // PetscScalar **arr;
 
   VecWAXPY(*v_error,-1,v1,v2);
 
   VecNorm(*v_error,NORM_2,l2_error);
-  *l2_error = sqrt(appctx.h[0])*(*l2_error);
 
+  *l2_error = sqrt(appctx.h[0])*(*l2_error);
   VecNorm(*v_error,NORM_INFINITY,max_error);
   
-  DMDAVecGetArrayDOF(da, *v_error, &arr);
-  *H_error = appctx.H.get_norm_1D(arr, appctx.h[0], appctx.N[0], appctx.i_start[0], appctx.i_end[0], appctx.dofs);
-  DMDAVecRestoreArrayDOF(da, *v_error, &arr);
+  // DMDAVecGetArrayDOF(da, *v_error, &arr);
+  // *H_error = appctx.H.get_norm_1D(arr, appctx.h[0], appctx.N[0], appctx.i_start[0], appctx.i_end[0], appctx.dofs);
+  // DMDAVecRestoreArrayDOF(da, *v_error, &arr);
+  *H_error = -1;
 
   return 0;
 }
 
-PetscErrorCode analytic_solution(const DM& da, const PetscScalar t, const AppCtx& appctx, Vec& v_analytic)
+PetscErrorCode analytic_solution(const PetscScalar t, const AppCtx& appctx, Vec& v_analytic)
 { 
   PetscScalar x, *array_analytic;
-  DMDAVecGetArray(da,v_analytic,&array_analytic);
-  for (PetscInt i = appctx.i_start[0]; i < appctx.i_end[0]; i++)
+  PetscInt istart, n;
+  VecGetOwnershipRange(v_analytic, &istart, NULL);
+  VecGetLocalSize(v_analytic, &n);
+
+  VecGetArray(v_analytic, &array_analytic);
+
+  for (PetscInt i = 0; i < n; i++)
   {
-    x = appctx.xl + i/appctx.hi[0];
+    x = appctx.xl[0] + (i + istart)*appctx.h[0];
     array_analytic[i] = gaussian(x-appctx.a(i)*t);
   }
-  DMDAVecRestoreArray(da,v_analytic,&array_analytic);  
+  VecRestoreArray(v_analytic, &array_analytic);
 
   return 0;
 };
 
-PetscScalar gaussian(PetscScalar x) {
+PetscScalar gaussian(PetscScalar x) 
+{
   PetscScalar rstar = 0.1;
   return exp(-x*x/(rstar*rstar));
 }
 
-PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
+PetscErrorCode RHS(const AppCtx& appctx, Vec& b, const PetscScalar Tend, Vec v0)
+{ 
+  PetscScalar       ***b_arr, val, x, tau, *v0_arr;
+  PetscInt          i, istart;
+
+  DMDAVecGetArrayDOF(appctx.da,b,&b_arr); 
+
+  VecGetOwnershipRange(v0, &istart, NULL);
+  VecGetArray(v0, &v0_arr);
+
+  int rank;
+  MPI_Comm_rank(PETSC_COMM_WORLD,&rank);
+
+  tau = 1.0;
+  PetscScalar HI_B[4] = {tau*4.389152966531085*2/Tend,tau*-1.247624770988935*2/Tend,tau*0.614528095966794*2/Tend,tau*-0.327484862937516*2/Tend};
+
+  for (i = appctx.i_start[0]; i < appctx.i_end[0]; i++) {
+    x = appctx.xl[0] + i*appctx.h[0];
+    val = gaussian(x);
+    b_arr[i][0][0] = HI_B[0]*v0_arr[i-istart];
+    b_arr[i][1][0] = HI_B[1]*v0_arr[i-istart];
+    b_arr[i][2][0] = HI_B[2]*v0_arr[i-istart];
+    b_arr[i][3][0] = HI_B[3]*v0_arr[i-istart];
+  }
+
+  DMDAVecRestoreArrayDOF(appctx.da,b,&b_arr); 
+
+  return 0;
+};
+
+PetscErrorCode LHS(Mat D, Vec v_src, Vec v_dst)
 {
-  PetscScalar       *array_src, *array_dst;
+  PetscScalar       ***array_src, ***array_dst;
+  Vec               v_src_local;
+  AppCtx            *appctx;
 
-  VecGetArray(v_src,&array_src);
-  VecGetArray(v_dst,&array_dst);
+  MatShellGetContext(D, &appctx);
 
-  auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, appctx->layout);
-  auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, appctx->layout);
+  DMGetLocalVector(appctx->da, &v_src_local);
 
-  VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::advection_apply_inner(appctx->D1, appctx->HI, appctx->a, gf_src, gf_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0], appctx->sw);
-  VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::advection_apply_outer(appctx->D1, appctx->HI, appctx->a, gf_src, gf_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0], appctx->sw);
+  DMGlobalToLocalBegin(appctx->da,v_src,INSERT_VALUES,v_src_local);
+  DMGlobalToLocalEnd(appctx->da,v_src,INSERT_VALUES,v_src_local);
 
-  // sbp::advection_apply_1p(appctx->D1, appctx->HI, appctx->a, gf_src, gf_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0]);
+  DMDAVecGetArrayDOF(appctx->da,v_dst,&array_dst); 
+  DMDAVecGetArrayDOF(appctx->da,v_src_local,&array_src); 
 
-  // Restore arrays
-  VecRestoreArray(v_src, &array_src);
-  VecRestoreArray(v_dst, &array_dst);
+  sbp::adv_imp_apply_all(appctx->D1, appctx->HI, appctx->a, array_src, array_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0], appctx->Tpb);
+
+  DMDAVecRestoreArrayDOF(appctx->da,v_dst,&array_dst); 
+  DMDAVecRestoreArrayDOF(appctx->da,v_src_local,&array_src); 
+
+  DMRestoreLocalVector(appctx->da,&v_src_local);
+  
   return 0;
 }

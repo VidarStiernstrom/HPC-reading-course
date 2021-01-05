@@ -99,12 +99,12 @@ namespace sbp{
   inline PetscErrorCode ode_apply_l(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, grid::grid_function_1d<PetscScalar> src, PetscScalar **dst, const PetscInt N, const PetscScalar hi, const PetscInt n_closures)
   {
     int i;
-    PetscScalar tmp;
-   
+    PetscScalar tmp, sigma;
+   sigma = hi;
     // BC using projection, vt = P*D*P*v.
 
     i = 0;
-    tmp = src(0,0)/hi;
+    tmp = sigma*src(0,0);
     src(0,0) = 0.0;
 
     dst[i][0] = D1.apply_left(src,hi,i,0) + tmp;

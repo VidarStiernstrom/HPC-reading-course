@@ -2,9 +2,11 @@
 make clean
 make init
 
-make bin/first_order_ode
+make bin/adv_1D
 
-mpirun -n 8 bin/first_order_ode -ksp_monitor -malloc_dump
+mpirun -n 2 bin/adv_1D
+
+
 
 # mpirun -n 4 bin/first_order_ode
 # 

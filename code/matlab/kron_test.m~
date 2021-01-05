@@ -1,0 +1,70 @@
+clear
+% close all
+
+addpath("op_interpolation_operators/");
+
+m = 11;
+xl = -1;
+xr = 1;
+T = 0.1;
+
+xvec = linspace(xl,xr,m);
+hx = xvec(2) - xvec(1);
+
+Imx = eye(m);
+Imt = eye(4);
+
+xvec = linspace(xl,xr,m)';
+
+[Dt,Ht,x,ht,e_l,e_r] = d1_gauss_4(T);
+HIt = inv(Ht);
+% D = full(D);
+% Dt = kron(D,Imx);
+
+eLt = kron(e_l',Imx);
+
+
+[H,HI,Dx,e_1,e_m,S_1,S_m] = SBP2_BV3(m,hx);
+
+v0 = exp(-xvec.^2/0.1^2);
+g = [0;0;0;0];
+L = [e_1'];
+P = eye(m) - L'*pinv(full(L*L'))*L;
+
+% Dx = kron(Imt,P*D*P);
+
+tau = 1;
+% D = kron(Dt + tau*HIt*e_l*e_l', Imx) + kron(Imt, P*Dx*P);
+D = kron(Dt + tau*HIt*e_l*e_l', Imx);
+% b = kron(tau*HIt*e_l,Imx)*v0;
+% 
+% v = D\b;
+% v = reshape(v,[m,4]);
+
+% figure
+% plt = plot(xvec,v(:,1));
+% axis([xl,xr,-1,1])
+% pause
+% plt.YData = v(:,2);
+% pause
+% plt.YData = v(:,3);
+% pause
+% plt.YData = v(:,4);
+
+% eigD = eig(D);
+% figure
+% scatter(real(eigD),imag(eigD))
+
+w = kron(ones(4,1),xvec.^4) + kron(ht*[0:3]',ones(m,1));
+
+reshape(reshape(D*w,[4,m]'),
+
+
+
+% 
+% w = (-0.040000:0.0080:0.040000);
+% figure
+% subplot(1,2,1)
+% spy(Dt)
+% subplot(1,2,2)
+% spy(Dx)

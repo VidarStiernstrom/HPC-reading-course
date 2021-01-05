@@ -2,3 +2,4 @@ bin/*
 obj/*
 data/*
 sample/*
+.DS_Store
