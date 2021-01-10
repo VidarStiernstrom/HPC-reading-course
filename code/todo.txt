@@ -1,0 +1,6 @@
+- Time dependent boundary conditions
+- 2D interpolation
+- 4th, 6th order interpolation
+- Move functions to new files
+- Check for bugs multigrid adv_1d
+- Add more multigrid layers 

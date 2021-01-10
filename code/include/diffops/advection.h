@@ -10,6 +10,127 @@ namespace sbp{
   // 1D functions
   //=============================================================================
 
+  template <class SbpInterpolator>
+  inline PetscErrorCode apply_F2C(const SbpInterpolator& ICF, PetscScalar **src, PetscScalar **dst, PetscInt i_start, PetscInt i_end, const PetscInt N)
+  {
+    int i;
+    const auto [F2C_nc, C2F_nc] = ICF.get_ranges();
+    if (i_start == 0) {
+      for (i = 0; i < F2C_nc; i++) 
+      { 
+        dst[i][0] = ICF.F2C_apply_left(src, i, 0);
+        dst[i][1] = ICF.F2C_apply_left(src, i, 1);
+        dst[i][2] = ICF.F2C_apply_left(src, i, 2);
+        dst[i][3] = ICF.F2C_apply_left(src, i, 3);
+      }
+
+      for (i = F2C_nc; i < i_end; i++) 
+      { 
+        dst[i][0] = ICF.F2C_apply_interior(src, i, 0);
+        dst[i][1] = ICF.F2C_apply_interior(src, i, 1);
+        dst[i][2] = ICF.F2C_apply_interior(src, i, 2);
+        dst[i][3] = ICF.F2C_apply_interior(src, i, 3);
+      }
+    } else if (i_end == N) {
+
+      for (i = i_start; i < i_end-F2C_nc; i++) 
+      { 
+        dst[i][0] = ICF.F2C_apply_interior(src, i, 0);
+        dst[i][1] = ICF.F2C_apply_interior(src, i, 1);
+        dst[i][2] = ICF.F2C_apply_interior(src, i, 2);
+        dst[i][3] = ICF.F2C_apply_interior(src, i, 3);
+      }
+
+      for (i = i_end - F2C_nc; i < i_end; i++) 
+      { 
+        dst[i][0] = ICF.F2C_apply_right(src, i_end, i, 0);
+        dst[i][1] = ICF.F2C_apply_right(src, i_end, i, 1);
+        dst[i][2] = ICF.F2C_apply_right(src, i_end, i, 2);
+        dst[i][3] = ICF.F2C_apply_right(src, i_end, i, 3);
+      }
+    } else {
+      for (i = i_start; i < i_end; i++) 
+      { 
+        dst[i][0] = ICF.F2C_apply_interior(src, i, 0);
+        dst[i][1] = ICF.F2C_apply_interior(src, i, 1);
+        dst[i][2] = ICF.F2C_apply_interior(src, i, 2);
+        dst[i][3] = ICF.F2C_apply_interior(src, i, 3);
+      }
+    }
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode apply_C2F(const SbpInterpolator& ICF, PetscScalar **src, PetscScalar **dst, PetscInt i_start, PetscInt i_end, const PetscInt N)
+  {
+    int i;
+    const auto [F2C_nc, C2F_nc] = ICF.get_ranges();
+    if (i_start == 0) {
+      for (i = 0; i < C2F_nc; i++) 
+      { 
+        dst[i][0] = ICF.C2F_apply_left(src, i, 0);
+        dst[i][1] = ICF.C2F_apply_left(src, i, 1);
+        dst[i][2] = ICF.C2F_apply_left(src, i, 2);
+        dst[i][3] = ICF.C2F_apply_left(src, i, 3);
+      }
+
+      for (i = C2F_nc; i < i_end; i++) 
+      { 
+        if (i % 2 == 0) {
+          dst[i][0] = ICF.C2F_even_apply_interior(src, i, 0);
+          dst[i][1] = ICF.C2F_even_apply_interior(src, i, 1);
+          dst[i][2] = ICF.C2F_even_apply_interior(src, i, 2);
+          dst[i][3] = ICF.C2F_even_apply_interior(src, i, 3);
+        } else {
+          dst[i][0] = ICF.C2F_odd_apply_interior(src, i, 0);
+          dst[i][1] = ICF.C2F_odd_apply_interior(src, i, 1);
+          dst[i][2] = ICF.C2F_odd_apply_interior(src, i, 2);
+          dst[i][3] = ICF.C2F_odd_apply_interior(src, i, 3);
+        }
+      }
+    } else if (i_end == N) {
+      for (i = i_start; i < i_end-C2F_nc; i++) 
+      { 
+        if (i % 2 == 0) {
+          dst[i][0] = ICF.C2F_even_apply_interior(src, i, 0);
+          dst[i][1] = ICF.C2F_even_apply_interior(src, i, 1);
+          dst[i][2] = ICF.C2F_even_apply_interior(src, i, 2);
+          dst[i][3] = ICF.C2F_even_apply_interior(src, i, 3);
+        } else {
+          dst[i][0] = ICF.C2F_odd_apply_interior(src, i, 0);
+          dst[i][1] = ICF.C2F_odd_apply_interior(src, i, 1);
+          dst[i][2] = ICF.C2F_odd_apply_interior(src, i, 2);
+          dst[i][3] = ICF.C2F_odd_apply_interior(src, i, 3);
+        }
+      }
+
+      for (i = i_end - C2F_nc; i < i_end; i++) 
+      { 
+        dst[i][0] = ICF.C2F_apply_right(src, N, i, 0);
+        dst[i][1] = ICF.C2F_apply_right(src, N, i, 1);
+        dst[i][2] = ICF.C2F_apply_right(src, N, i, 2);
+        dst[i][3] = ICF.C2F_apply_right(src, N, i, 3);
+      }
+    } else {
+      for (i = i_start; i < i_end; i++) 
+      { 
+        if (i % 2 == 0) {
+          dst[i][0] = ICF.C2F_even_apply_interior(src, i, 0);
+          dst[i][1] = ICF.C2F_even_apply_interior(src, i, 1);
+          dst[i][2] = ICF.C2F_even_apply_interior(src, i, 2);
+          dst[i][3] = ICF.C2F_even_apply_interior(src, i, 3);
+        } else {
+          dst[i][0] = ICF.C2F_odd_apply_interior(src, i, 0);
+          dst[i][1] = ICF.C2F_odd_apply_interior(src, i, 1);
+          dst[i][2] = ICF.C2F_odd_apply_interior(src, i, 2);
+          dst[i][3] = ICF.C2F_odd_apply_interior(src, i, 3);
+        }
+      }
+    }
+
+    return 0;
+  }
+
   inline PetscScalar adv_imp_apply_D_time(const PetscScalar D_time[4][4], PetscScalar **src, PetscInt i, PetscInt tcomp)
   {
     return D_time[tcomp][0]*src[i][0] + D_time[tcomp][1]*src[i][1] + D_time[tcomp][2]*src[i][2] + D_time[tcomp][3]*src[i][3];

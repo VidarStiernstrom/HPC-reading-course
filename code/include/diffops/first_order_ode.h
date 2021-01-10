@@ -13,7 +13,7 @@ namespace sbp{
 
 
   template <class SbpInterpolator>
-  inline PetscErrorCode apply_F2C(const SbpInterpolator& ICF, grid::grid_function_1d<PetscScalar> src, PetscScalar **dst, PetscInt i_start, PetscInt i_end, const PetscInt N)
+  inline PetscErrorCode apply_F2C(const SbpInterpolator& ICF, PetscScalar **src, PetscScalar **dst, PetscInt i_start, PetscInt i_end, const PetscInt N)
   {
     int i;
     const auto [F2C_nc, C2F_nc] = ICF.get_ranges();
@@ -48,7 +48,7 @@ namespace sbp{
   }
 
   template <class SbpInterpolator>
-  inline PetscErrorCode apply_C2F(const SbpInterpolator& ICF, grid::grid_function_1d<PetscScalar> src, PetscScalar **dst, PetscInt i_start, PetscInt i_end, const PetscInt N)
+  inline PetscErrorCode apply_C2F(const SbpInterpolator& ICF, PetscScalar **src, PetscScalar **dst, PetscInt i_start, PetscInt i_end, const PetscInt N)
   {
     int i;
     const auto [F2C_nc, C2F_nc] = ICF.get_ranges();
@@ -96,7 +96,7 @@ namespace sbp{
   }
 
   template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode ode_apply_l(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, grid::grid_function_1d<PetscScalar> src, PetscScalar **dst, const PetscInt N, const PetscScalar hi, const PetscInt n_closures)
+  inline PetscErrorCode ode_apply_l(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, PetscScalar **src, PetscScalar **dst, const PetscInt N, const PetscScalar hi, const PetscInt n_closures)
   {
     int i;
     PetscScalar tmp, sigma;
@@ -104,8 +104,8 @@ namespace sbp{
     // BC using projection, vt = P*D*P*v.
 
     i = 0;
-    tmp = sigma*src(0,0);
-    src(0,0) = 0.0;
+    tmp = sigma*src[0][0];
+    src[0][0] = 0.0;
 
     dst[i][0] = D1.apply_left(src,hi,i,0) + tmp;
 
@@ -126,7 +126,7 @@ namespace sbp{
   }
 
   template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode ode_apply_r(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, grid::grid_function_1d<PetscScalar> src, PetscScalar **dst, const PetscInt N, const PetscScalar hi, const PetscInt n_closures)
+  inline PetscErrorCode ode_apply_r(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, PetscScalar **src, PetscScalar **dst, const PetscInt N, const PetscScalar hi, const PetscInt n_closures)
   {
     int i;
     for (i = N-n_closures; i < N; i++)
@@ -137,7 +137,7 @@ namespace sbp{
   }
 
   template <class SbpDerivative, typename VelocityFunction>
-  inline PetscErrorCode ode_apply_c(const SbpDerivative& D1, VelocityFunction&& a, grid::grid_function_1d<PetscScalar> src, PetscScalar **dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
+  inline PetscErrorCode ode_apply_c(const SbpDerivative& D1, VelocityFunction&& a, PetscScalar **src, PetscScalar **dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
   {
     int i;
     for (i = i_start; i < i_end; i++)
@@ -149,7 +149,7 @@ namespace sbp{
   }
 
   template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode ode_apply_1p(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
+  inline PetscErrorCode ode_apply_1p(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, PetscScalar **src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
   {
     const auto [iw, n_closures, closure_width] = D1.get_ranges();
     ode_apply_l(D1, HI, a, src, dst,  N, hi, n_closures);
@@ -171,7 +171,7 @@ namespace sbp{
   *         hi        - Inverse step length
   **/
   template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode ode_apply_all(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, grid::grid_function_1d<PetscScalar> src, PetscScalar **dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
+  inline PetscErrorCode ode_apply_all(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, PetscScalar **src, PetscScalar **dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
   {
     const auto [iw, n_closures, closure_width] = D1.get_ranges();
 
@@ -191,7 +191,7 @@ namespace sbp{
   };
 
   template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode ode_apply_inner(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi, const PetscInt sw)
+  inline PetscErrorCode ode_apply_inner(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, PetscScalar **src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi, const PetscInt sw)
   {
     const auto [iw, n_closures, closure_width] = D1.get_ranges();
 
@@ -211,7 +211,7 @@ namespace sbp{
   };
 
   template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode ode_apply_outer(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi, const PetscInt sw)
+  inline PetscErrorCode ode_apply_outer(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, PetscScalar **src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi, const PetscInt sw)
   {
     if (i_start == 0) 
     {

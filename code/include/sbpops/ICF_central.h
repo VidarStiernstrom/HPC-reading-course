@@ -31,27 +31,27 @@ namespace sbp {
     // 1D functions
     //=============================================================================
 
-    inline PetscScalar F2C_apply_left(const grid::grid_function_1d<PetscScalar> v, const PetscInt i, const PetscInt comp) const
+    inline PetscScalar F2C_apply_left(PetscScalar **v, const PetscInt i, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is < F2C_cw; is++)
       {
-        u += static_cast<const Interp&>(*this).F2C_closure_stencils[i][is]*v(is, comp);
+        u += static_cast<const Interp&>(*this).F2C_closure_stencils[i][is]*v[is][comp];
       }
       return u;
     };
 
-    inline PetscScalar C2F_apply_left(const grid::grid_function_1d<PetscScalar> v, const PetscInt i, const PetscInt comp) const
+    inline PetscScalar C2F_apply_left(PetscScalar **v, const PetscInt i, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is < C2F_cw; is++)
       {
-        u += static_cast<const Interp&>(*this).C2F_closure_stencils[i][is]*v(is, comp);
+        u += static_cast<const Interp&>(*this).C2F_closure_stencils[i][is]*v[is][comp];
       }
       return u;
     };
 
-    inline PetscScalar F2C_apply_interior(const grid::grid_function_1d<PetscScalar> v, const PetscInt i, const PetscInt comp) const
+    inline PetscScalar F2C_apply_interior(PetscScalar **v, const PetscInt i, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<F2C_iw; is++)
@@ -59,54 +59,54 @@ namespace sbp {
         // if (i == 17) {
         //   printf("i: %d, vstart=%f\n",i,v(i+is+i-(F2C_iw-1)/2, comp));
         // }
-        u += static_cast<const Interp&>(*this).F2C_interior_stencil[is]*v(i+is+i-(F2C_iw-1)/2, comp);
+        u += static_cast<const Interp&>(*this).F2C_interior_stencil[is]*v[i+is+i-(F2C_iw-1)/2][comp];
       }
       return u;
     };
 
-    inline PetscScalar C2F_odd_apply_interior(const grid::grid_function_1d<PetscScalar> v, const PetscInt i, const PetscInt comp) const
+    inline PetscScalar C2F_odd_apply_interior(PetscScalar **v, const PetscInt i, const PetscInt comp) const
     {
       PetscScalar u = 0;
       PetscInt icoar;
       for (PetscInt is = 0; is<C2F_odd_iw; is++)
       {
         icoar = (i-1)/2 + is;
-        u += static_cast<const Interp&>(*this).C2F_interior_stencil_odd[is]*v(icoar, comp);
+        u += static_cast<const Interp&>(*this).C2F_interior_stencil_odd[is]*v[icoar][comp];
       }
       return u;
     };
 
-    inline PetscScalar C2F_even_apply_interior(const grid::grid_function_1d<PetscScalar> v, const PetscInt i, const PetscInt comp) const
+    inline PetscScalar C2F_even_apply_interior(PetscScalar **v, const PetscInt i, const PetscInt comp) const
     {
       PetscScalar u = 0;
       PetscInt icoar;
       for (PetscInt is = 0; is<C2F_even_iw; is++)
       {
         icoar = i/2;
-        u += static_cast<const Interp&>(*this).C2F_interior_stencil_even[is]*v(icoar, comp);
+        u += static_cast<const Interp&>(*this).C2F_interior_stencil_even[is]*v[icoar][comp];
       }
       return u;
     };
 
-    inline PetscScalar F2C_apply_right(const grid::grid_function_1d<PetscScalar> v, const PetscInt N, const PetscInt i, const PetscInt comp) const
+    inline PetscScalar F2C_apply_right(PetscScalar **v, const PetscInt N, const PetscInt i, const PetscInt comp) const
     {
       PetscScalar u = 0;
       PetscInt ifine;
       for (PetscInt is = 0; is < F2C_cw; is++)
       {
         ifine = N+i-F2C_cw+is;
-        u += static_cast<const Interp&>(*this).F2C_closure_stencils[N-i-1+is][F2C_cw-is-1]*v(ifine, comp);
+        u += static_cast<const Interp&>(*this).F2C_closure_stencils[N-i-1+is][F2C_cw-is-1]*v[ifine][comp];
       }
       
       return u;
     };
 
-    inline PetscScalar C2F_apply_right(const grid::grid_function_1d<PetscScalar> v, const PetscInt N, const PetscInt i, const PetscInt comp) const
+    inline PetscScalar C2F_apply_right(PetscScalar **v, const PetscInt N, const PetscInt i, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is < C2F_cw; is++)
       {
-        u += static_cast<const Interp&>(*this).C2F_closure_stencils[N-i-1][C2F_cw-is-1]*v((N-1)/2+1-C2F_cw+is, comp);
+        u += static_cast<const Interp&>(*this).C2F_closure_stencils[N-i-1][C2F_cw-is-1]*v[(N-1)/2+1-C2F_cw+is][comp];
       }
       return u;
     };
