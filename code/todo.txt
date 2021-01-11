@@ -3,4 +3,5 @@
 - 4th, 6th order interpolation
 - Move functions to new files
 - Check for bugs multigrid adv_1d
-- Add more multigrid layers 
+- Add more multigrid layers
+- Test matrix-based preconditioners, maybe on ODE problem 

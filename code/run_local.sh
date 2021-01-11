@@ -2,7 +2,7 @@
 make clean
 make init
 
-make bin/first_order_ode
+make bin/adv_1D
 
 # mpirun -n 2 bin/adv_1D
 
@@ -17,7 +17,7 @@ make bin/first_order_ode
 # mpirun -n 7 bin/adv_1D
 
 # mpirun -n 2 bin/adv_1D -ksp_monitor
-mpirun -n 2 bin/first_order_ode	-ksp_converged_reason -ksp_monitor
+mpirun -n 2 bin/adv_1D -ksp_monitor_true_residual	-ksp_converged_reason	-pc_sor_backward	-pc_sor_omega 1
 
 
 

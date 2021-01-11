@@ -3,7 +3,7 @@
 
 	#if defined PROBLEM_TYPE_1D_O2
 		struct GridCtx{
-		std::array<PetscInt,1> N, i_start, i_end;
+		std::array<PetscInt,1> N, n, i_start, i_end;
 		std::array<PetscScalar,1> hi, h, xl;
 		PetscInt dofs;
 		PetscScalar sw;
@@ -21,7 +21,7 @@
 		};
 	#elif defined PROBLEM_TYPE_1D_O4
 		struct GridCtx{
-		std::array<PetscInt,1> N, i_start, i_end;
+		std::array<PetscInt,1> N, n, i_start, i_end;
 		std::array<PetscScalar,1> hi, h, xl;
 		PetscInt dofs;
 		PetscScalar sw;
@@ -39,7 +39,7 @@
 		};
 	#elif defined PROBLEM_TYPE_1D_O6
 		struct GridCtx{
-		std::array<PetscInt,1> N, i_start, i_end;
+		std::array<PetscInt,1> N, n, i_start, i_end;
 		std::array<PetscScalar,1> hi, h, xl;
 		PetscInt dofs;
 		PetscScalar sw;

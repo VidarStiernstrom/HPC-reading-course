@@ -18,6 +18,7 @@ static char help[] = "Solves advection 1D problem u_t + u_x = 0.\n";
 #include <unistd.h>
 
 struct TimeCtx {
+  PetscInt N;
   PetscScalar Tend, Tpb;
   PetscScalar er[4], HI_el[4], D[4][4];
 };
@@ -42,10 +43,12 @@ extern PetscErrorCode LHS(Mat D, Vec v_src, Vec v_dst);
 extern PetscErrorCode apply_F2C(Vec &xfine, Vec &xcoarse, PCCtx pcctx) ;
 extern PetscErrorCode apply_C2F(Vec &xfine, Vec &xcoarse, PCCtx pcctx) ;
 extern PetscErrorCode print_vec(GridCtx gridctx, Vec v, PetscInt comp);
+extern PetscErrorCode shell2sparse(Mat D_shell, Mat& D_sparse, MatCtx matctx);
 
 int main(int argc,char **argv)
 { 
   Vec            v, v_analytic, v_error, v_final;
+  Mat            D_sparse;
   PC             pc;
   PetscInt       stencil_radius, stencil_radius_pc, i_xstart, i_xend, Nx, nx, Nt, ngx, Nx_pc, nx_pc, dofs, tblocks, ig_xstart, ig_xend, blockidx;
   PetscScalar    xl, xr, dx, dxi, dx_pc, dxi_pc, dt, dti, t0, Tend, Tpb, tau;
@@ -69,7 +72,7 @@ int main(int argc,char **argv)
   tau = 1.0; // SAT parameter
 
   // Fine space grid
-  Nx = 2001;
+  Nx = 1001;
   dx = (xr - xl)/(Nx-1);
   dxi = 1./dx;
   
@@ -79,9 +82,9 @@ int main(int argc,char **argv)
   dxi_pc = 1./dx_pc;
   
   // Time
-  tblocks = 10000;
+  tblocks = 1;
   t0 = 0;
-  Tend = 1;
+  Tend = 0.01;
   Tpb = Tend/tblocks;
   Nt = 4;
   dt = Tpb/(Nt-1);
@@ -103,6 +106,7 @@ int main(int argc,char **argv)
   pcctx.F_matctx.gridctx.dofs = dofs;
   pcctx.F_matctx.gridctx.a = a;
 
+  pcctx.F_matctx.timectx.N = Nt;
   pcctx.F_matctx.timectx.Tend = Tend;
   pcctx.F_matctx.timectx.Tpb = Tpb;
 
@@ -113,6 +117,7 @@ int main(int argc,char **argv)
   pcctx.C_matctx.gridctx.dofs = dofs;
   pcctx.C_matctx.gridctx.a = a;
 
+  pcctx.C_matctx.timectx.N = Nt;
   pcctx.C_matctx.timectx.Tend = Tend;
   pcctx.C_matctx.timectx.Tpb = Tpb;
 
@@ -128,6 +133,7 @@ int main(int argc,char **argv)
   DMDAGetCorners(pcctx.F_matctx.gridctx.da_xt,&i_xstart,NULL,NULL,&nx,NULL,NULL);
   i_xend = i_xstart + nx;
 
+  pcctx.F_matctx.gridctx.n = {nx};
   pcctx.F_matctx.gridctx.i_start = {i_xstart};
   pcctx.F_matctx.gridctx.i_end = {i_xend};
   pcctx.F_matctx.gridctx.sw = stencil_radius;
@@ -176,11 +182,14 @@ int main(int argc,char **argv)
   MatCreateShell(PETSC_COMM_WORLD,nx_pc*Nt,nx_pc*Nt,Nx_pc*Nt,Nx_pc*Nt,&pcctx.C_matctx.gridctx,&pcctx.C_matctx.gridctx.D);
   MatShellSetOperation(pcctx.C_matctx.gridctx.D,MATOP_MULT,(void(*)(void))LHS);
 
+  shell2sparse(pcctx.F_matctx.gridctx.D, D_sparse, pcctx.F_matctx);
+
   // ---------------------------------------------------------------------------------------- //
   KSPCreate(PETSC_COMM_WORLD, &pcctx.F_matctx.gridctx.ksp);
-  KSPSetOperators(pcctx.F_matctx.gridctx.ksp, pcctx.F_matctx.gridctx.D, pcctx.F_matctx.gridctx.D);
+  // KSPSetOperators(pcctx.F_matctx.gridctx.ksp, pcctx.F_matctx.gridctx.D, D_sparse);
+  KSPSetOperators(pcctx.F_matctx.gridctx.ksp, D_sparse, D_sparse);
   KSPSetTolerances(pcctx.F_matctx.gridctx.ksp, 1e-8, PETSC_DEFAULT, PETSC_DEFAULT, 1e5);
-  KSPSetPCSide(pcctx.F_matctx.gridctx.ksp, PC_RIGHT);
+  // KSPSetPCSide(pcctx.F_matctx.gridctx.ksp, PC_RIGHT);
   KSPSetType(pcctx.F_matctx.gridctx.ksp, KSPPIPEFGMRES);
   KSPGMRESSetRestart(pcctx.F_matctx.gridctx.ksp, 20);
   KSPSetInitialGuessNonzero(pcctx.F_matctx.gridctx.ksp, PETSC_TRUE);
@@ -189,9 +198,10 @@ int main(int argc,char **argv)
 
   KSPGetPC(pcctx.F_matctx.gridctx.ksp,&pc);
   // PCSetType(pc,PCSHELL);
-  PCSetType(pc,PCNONE);
-  PCShellSetContext(pc, &pcctx);
-  PCShellSetApply(pc, apply_pc);
+  // PCSetType(pc,PCNONE);
+  PCSetType(pc,PCSOR );
+  // PCShellSetContext(pc, &pcctx);
+  // PCShellSetApply(pc, apply_pc);
   PCSetUp(pc);
 
   // ---------------------------------------------------------------------------------------- //
@@ -241,8 +251,6 @@ int main(int argc,char **argv)
 
   VecDuplicate(pcctx.F_matctx.gridctx.v_curr,&v_error);
   VecDuplicate(pcctx.F_matctx.gridctx.v_curr,&v_analytic);
-
-  
 
   PetscBarrier((PetscObject) v);
   if (rank == 0) {
@@ -554,3 +562,83 @@ PetscErrorCode LHS(Mat D, Vec v_src, Vec v_dst)
   
   return 0;
 }
+
+PetscErrorCode shell2sparse(Mat D_shell, Mat& D_sparse, MatCtx matctx) {
+  Vec v, b;
+
+  MatCreateAIJ(PETSC_COMM_WORLD, matctx.gridctx.n[0]*matctx.timectx.N, matctx.gridctx.n[0]*matctx.timectx.N, matctx.gridctx.N[0]*matctx.timectx.N, matctx.gridctx.N[0]*matctx.timectx.N, 0, NULL, 0, NULL, &D_sparse);
+
+  MatSetOption(D_sparse, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+  MatSetUp(D_sparse);
+
+  DMCreateGlobalVector(matctx.gridctx.da_xt,&v);
+  DMCreateGlobalVector(matctx.gridctx.da_xt,&b);
+
+  int j = 0, i, k, count;
+  PetscInt idx[matctx.gridctx.n[0]*matctx.timectx.N];
+  PetscInt col_idx[1];
+  PetscScalar val[matctx.gridctx.n[0]*matctx.timectx.N];
+  VecSet(v,0.0);
+
+  // Loop over all columns
+  for (j = 0; j < matctx.gridctx.N[0]*matctx.timectx.N; j++) {
+
+    // Set v[j] = 1
+    VecSetValue(v,j,1,INSERT_VALUES);
+
+    VecAssemblyBegin(v);
+    VecAssemblyEnd(v);
+
+    // Compute D*v
+    MatMult(D_shell,v,b);
+    VecSetValue(v,j,0,INSERT_VALUES);
+
+    // Loop over elements in b, save non-zero in arr
+    PetscScalar **arr;
+    DMDAVecGetArrayDOF(matctx.gridctx.da_xt, b, &arr); 
+    
+    col_idx[0] = j;
+
+    count = 0;
+    for (i = matctx.gridctx.i_start[0]; i < matctx.gridctx.i_end[0]; i++) {
+      for (k = 0; k < matctx.timectx.N; k++) {
+        if (arr[i][k] != 0) {
+          idx[count] = k + matctx.timectx.N*i;
+          val[count] = arr[i][k];
+          count++;
+        }
+      }
+    }
+
+    // Insert non-zero b-values in column j of Dpsarse
+    MatSetValues(D_sparse, count , idx , 1, col_idx, val , INSERT_VALUES);
+
+    DMDAVecRestoreArrayDOF(matctx.gridctx.da_xt, b,&arr); 
+  }
+
+  MatAssemblyBegin(D_sparse, MAT_FINAL_ASSEMBLY);
+  MatAssemblyEnd(D_sparse, MAT_FINAL_ASSEMBLY);
+
+  return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
