@@ -5,3 +5,4 @@
 - Check for bugs multigrid adv_1d
 - Add more multigrid layers
 - Test matrix-based preconditioners, maybe on ODE problem 
+- Clean up linking/makefile
