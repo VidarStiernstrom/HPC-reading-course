@@ -7,7 +7,7 @@
 #include "sbpops/ICF_central.h"
 #include <array>
 
-#define PROBLEM_TYPE_1D_O6
+#define PROBLEM_TYPE_1D_O2
 
 #if defined PROBLEM_TYPE_1D_O2
 	struct GridCtx{

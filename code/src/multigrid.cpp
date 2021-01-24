@@ -1,7 +1,10 @@
 #include<petsc.h>
 #include "appctx.h"
-#include "diffops/advection.h"
+// #include "diffops/advection.h"
+#include "diffops/reflection.h"
 #include "imp_timestepping.h"
+#include "ref_1D.h"
+// #include "adv_1D.h"
 
 struct InterpCtx {
   GridCtx *F_gridctx, *C_gridctx;
@@ -11,15 +14,10 @@ static PetscErrorCode setup_mgsolver(KSP& ksp_fine, PetscInt nlevels, Mat& Afine
 static PetscErrorCode setup_operators(MatCtx *C_matctx, MatCtx *F_matctx, InterpCtx *prolctx, InterpCtx *restctx);
 static PetscErrorCode apply_R(Mat R, Vec xfine, Vec xcoarse);
 static PetscErrorCode apply_P(Mat P, Vec xcoarse, Vec xfine);
-static PetscErrorCode get_solution(Vec& v_final, Vec& v, const GridCtx& gridctx, const TimeCtx& timectx) ;
-static PetscErrorCode RHS(const GridCtx& gridctx, const TimeCtx& timectx, Vec& b, Vec v0);
-static PetscScalar gaussian(PetscScalar x) ;
-static PetscErrorCode analytic_solution(const GridCtx& gridctx, const PetscScalar t, Vec& v_analytic);
-static PetscErrorCode get_error(const GridCtx& gridctx, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error) ;
 
 PetscErrorCode mgsolver(Mat& Afine, Vec& v, PetscInt nlevels)
 {
-  PetscInt level, Nt, blockidx, rank;
+  PetscInt level, Nt, blockidx, rank, dofs;
   PetscLogDouble v1,v2,elapsed_time = 0;
   Vec            v_analytic, v_error, b, v_curr;
   MatCtx *F_matctx;
@@ -39,6 +37,7 @@ PetscErrorCode mgsolver(Mat& Afine, Vec& v, PetscInt nlevels)
 
   // Number of timesteps (gauss = 4)
   Nt = F_matctx->timectx.N;
+  dofs = F_matctx->gridctx.dofs;
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Setup contexts for system-/restriction-/prolongation-matrices
@@ -52,23 +51,23 @@ PetscErrorCode mgsolver(Mat& Afine, Vec& v, PetscInt nlevels)
      Create system-/restriction-/prolongation-matrices
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */ 
   // Restriction matrix needed for level = nlevels-1, nlevels-2,...,1
-  MatCreateShell(PETSC_COMM_WORLD,C_matctxs[nlevels-2].gridctx.n[0]*Nt,F_matctx->gridctx.n[0]*Nt,C_matctxs[nlevels-2].gridctx.N[0]*Nt,F_matctx->gridctx.N[0]*Nt,&restctx[nlevels-2],&R[nlevels-2]);
+  MatCreateShell(PETSC_COMM_WORLD,C_matctxs[nlevels-2].gridctx.n[0]*Nt*dofs,F_matctx->gridctx.n[0]*Nt*dofs,C_matctxs[nlevels-2].gridctx.N[0]*Nt*dofs,F_matctx->gridctx.N[0]*Nt*dofs,&restctx[nlevels-2],&R[nlevels-2]);
   MatShellSetOperation(R[nlevels-2],MATOP_MULT,(void(*)(void))apply_R);
   for (level = 1; level < nlevels-1; level++) {
-    MatCreateShell(PETSC_COMM_WORLD,C_matctxs[level-1].gridctx.n[0]*Nt,C_matctxs[level].gridctx.n[0]*Nt,C_matctxs[level-1].gridctx.N[0]*Nt,C_matctxs[level].gridctx.N[0]*Nt,&restctx[level-1],&R[level-1]);
+    MatCreateShell(PETSC_COMM_WORLD,C_matctxs[level-1].gridctx.n[0]*Nt*dofs,C_matctxs[level].gridctx.n[0]*Nt*dofs,C_matctxs[level-1].gridctx.N[0]*Nt*dofs,C_matctxs[level].gridctx.N[0]*Nt*dofs,&restctx[level-1],&R[level-1]);
     MatShellSetOperation(R[level-1],MATOP_MULT,(void(*)(void))apply_R);    
   }
 
   // Prolongation matrix needed for level = nlevels-1, nlevels-2,...,1
-  MatCreateShell(PETSC_COMM_WORLD,F_matctx->gridctx.n[0]*Nt,C_matctxs[nlevels-2].gridctx.n[0]*Nt,F_matctx->gridctx.N[0]*Nt,C_matctxs[nlevels-2].gridctx.N[0]*Nt,&prolctx[nlevels-2],&P[nlevels-2]);
+  MatCreateShell(PETSC_COMM_WORLD,F_matctx->gridctx.n[0]*Nt*dofs,C_matctxs[nlevels-2].gridctx.n[0]*Nt*dofs,F_matctx->gridctx.N[0]*Nt*dofs,C_matctxs[nlevels-2].gridctx.N[0]*Nt*dofs,&prolctx[nlevels-2],&P[nlevels-2]);
   MatShellSetOperation(P[nlevels-2],MATOP_MULT,(void(*)(void))apply_P);  
   for (level = 1; level < nlevels-1; level++) {
-    MatCreateShell(PETSC_COMM_WORLD,C_matctxs[level].gridctx.n[0]*Nt,C_matctxs[level-1].gridctx.n[0]*Nt,C_matctxs[level].gridctx.N[0]*Nt,C_matctxs[level-1].gridctx.N[0]*Nt,&prolctx[level-1],&P[level-1]);
+    MatCreateShell(PETSC_COMM_WORLD,C_matctxs[level].gridctx.n[0]*Nt*dofs,C_matctxs[level-1].gridctx.n[0]*Nt*dofs,C_matctxs[level].gridctx.N[0]*Nt*dofs,C_matctxs[level-1].gridctx.N[0]*Nt*dofs,&prolctx[level-1],&P[level-1]);
     MatShellSetOperation(P[level-1],MATOP_MULT,(void(*)(void))apply_P);    
   }
   // System matrix needed for level = nlevels-2, nlevels-3,...,0
   for (level = 0; level < nlevels-1; level++) {
-    MatCreateShell(PETSC_COMM_WORLD,C_matctxs[level].gridctx.n[0]*Nt,C_matctxs[level].gridctx.n[0]*Nt,C_matctxs[level].gridctx.N[0]*Nt,C_matctxs[level].gridctx.N[0]*Nt,&C_matctxs[level],&Dcoarses[level]);
+    MatCreateShell(PETSC_COMM_WORLD,C_matctxs[level].gridctx.n[0]*Nt*dofs,C_matctxs[level].gridctx.n[0]*Nt*dofs,C_matctxs[level].gridctx.N[0]*Nt*dofs,C_matctxs[level].gridctx.N[0]*Nt*dofs,&C_matctxs[level],&Dcoarses[level]);
     MatShellSetOperation(Dcoarses[level],MATOP_MULT,(void(*)(void))LHS);
     MatSetDM(Dcoarses[level], C_matctxs[level].gridctx.da_xt);
   }
@@ -92,7 +91,7 @@ PetscErrorCode mgsolver(Mat& Afine, Vec& v, PetscInt nlevels)
   DMCreateGlobalVector(F_matctx->gridctx.da_x, &v_curr);
   DMCreateGlobalVector(F_matctx->gridctx.da_xt,&b);
 
-  analytic_solution(F_matctx->gridctx, 0, v_curr);
+  set_initial_condition(F_matctx->gridctx, v_curr);
 
   PetscBarrier((PetscObject) v);
   if (rank == 0) {
@@ -101,6 +100,7 @@ PetscErrorCode mgsolver(Mat& Afine, Vec& v, PetscInt nlevels)
 
   for (blockidx = 0; blockidx < F_matctx->timectx.tblocks; blockidx++) 
   {
+    PetscPrintf(PETSC_COMM_WORLD,"---------------------- Time iteration: %d, t = %f ----------------------\n",blockidx,blockidx*F_matctx->timectx.Tpb);
     RHS(F_matctx->gridctx, F_matctx->timectx, b, v_curr);
     KSPSolve(ksp, b, v);
     get_solution(v_curr, v, F_matctx->gridctx, F_matctx->timectx);
@@ -168,9 +168,9 @@ static PetscErrorCode setup_mgsolver(KSP& ksp_fine, PetscInt nlevels, Mat& Afine
   // Finest smoother
   PCMGGetSmoother(pcfine, nlevels-1, &ksp_fine_smoth);
   KSPSetOperators(ksp_fine_smoth, Afine, Afine);
-  KSPSetTolerances(ksp_fine_smoth, 1e-8, PETSC_DEFAULT, PETSC_DEFAULT, 10);
+  KSPSetTolerances(ksp_fine_smoth, 1e-8, PETSC_DEFAULT, PETSC_DEFAULT, 20);
   KSPSetType(ksp_fine_smoth, KSPGMRES);
-  // KSPGMRESSetRestart(ksp_fine_smoth, 1);
+  KSPGMRESSetRestart(ksp_fine_smoth, 20);
   KSPGetPC(ksp_fine_smoth, &pcfine_smoot);
   PCSetType(pcfine_smoot, PCNONE);
   KSPSetFromOptions(ksp_fine_smoth);
@@ -180,9 +180,9 @@ static PetscErrorCode setup_mgsolver(KSP& ksp_fine, PetscInt nlevels, Mat& Afine
   // Coarsest inner solver
   PCMGGetCoarseSolve(pcfine, &ksp_coarse);
   KSPSetOperators(ksp_coarse, Acoarses[0], Acoarses[0]);
-  KSPSetTolerances(ksp_coarse, 1e-8, PETSC_DEFAULT, PETSC_DEFAULT, 1e5);
+  KSPSetTolerances(ksp_coarse, 1e-8, PETSC_DEFAULT, PETSC_DEFAULT, 4);
   KSPSetType(ksp_coarse, KSPGMRES);
-  KSPGMRESSetRestart(ksp_coarse, 10);
+  KSPGMRESSetRestart(ksp_coarse, 4);
   KSPSetPCSide(ksp_coarse, PC_RIGHT);
   KSPGetPC(ksp_coarse, &pccoarse);
   KSPSetFromOptions(ksp_coarse);
@@ -194,9 +194,10 @@ static PetscErrorCode setup_mgsolver(KSP& ksp_fine, PetscInt nlevels, Mat& Afine
   for (level = 1; level < nlevels-1; level++) {
       PCMGGetSmoother(pcfine, level, &ksp_mid_smoth[level-1]);
       KSPSetOperators(ksp_mid_smoth[level-1], Acoarses[level], Acoarses[level]);
-      KSPSetTolerances(ksp_mid_smoth[level-1], 1e-8, PETSC_DEFAULT, PETSC_DEFAULT, 10);
+      KSPSetTolerances(ksp_mid_smoth[level-1], 1e-8, PETSC_DEFAULT, PETSC_DEFAULT, 4);
       KSPSetType(ksp_mid_smoth[level-1], KSPGMRES);
       KSPGetPC(ksp_mid_smoth[level-1], &pcmid_smoth[level-1]);
+      KSPGMRESSetRestart(ksp_mid_smoth[level-1], 4);
       PCSetType(pcmid_smoth[level-1], PCNONE);
       KSPSetFromOptions(ksp_mid_smoth[level-1]);
       PCSetUp(pcmid_smoth[level-1]);
@@ -331,86 +332,6 @@ PetscErrorCode setup_operators(MatCtx *C_matctx, MatCtx *F_matctx, InterpCtx *pr
 
   prolctx->F_gridctx = &F_matctx->gridctx;
   prolctx->C_gridctx = &C_matctx->gridctx;
-
-  return 0;
-}
-
-static PetscErrorCode get_solution(Vec& v_final, Vec& v, const GridCtx& gridctx, const TimeCtx& timectx) 
-{
-  PetscInt i;
-  PetscScalar **vfinal_arr, **v_arr;
-
-  DMDAVecGetArrayDOF(gridctx.da_xt,v,&v_arr); 
-  DMDAVecGetArrayDOF(gridctx.da_x, v_final, &vfinal_arr); 
-
-  for (i = gridctx.i_start[0]; i < gridctx.i_end[0]; i++) {
-    vfinal_arr[i][0] = timectx.er[0]*v_arr[i][0] + timectx.er[1]*v_arr[i][1] + timectx.er[2]*v_arr[i][2] + timectx.er[3]*v_arr[i][3];
-  }
-
-  DMDAVecRestoreArrayDOF(gridctx.da_xt,v,&v_arr); 
-  DMDAVecRestoreArrayDOF(gridctx.da_x, v_final, &vfinal_arr); 
-
-  return 0;
-}
-
-static PetscErrorCode analytic_solution(const GridCtx& gridctx, const PetscScalar t, Vec& v_analytic)
-{ 
-  PetscScalar x, **array_analytic;
-  PetscInt i;
-
-  DMDAVecGetArrayDOF(gridctx.da_x, v_analytic, &array_analytic); 
-
-  for (i = gridctx.i_start[0]; i < gridctx.i_end[0]; i++) {
-    x = gridctx.xl[0] + i*gridctx.h[0];
-    array_analytic[i][0] = gaussian(x-gridctx.a(i)*t);
-  }
-
-  DMDAVecRestoreArrayDOF(gridctx.da_x, v_analytic, &array_analytic); 
-
-  return 0;
-};
-
-static PetscScalar gaussian(PetscScalar x) 
-{
-  PetscScalar rstar = 0.1;
-  return exp(-x*x/(rstar*rstar));
-}
-
-static PetscErrorCode RHS(const GridCtx& gridctx, const TimeCtx& timectx, Vec& b, Vec v0)
-{ 
-  PetscScalar       **b_arr, **v0_arr;
-  PetscInt          i;
-
-  DMDAVecGetArrayDOF(gridctx.da_xt,b,&b_arr); 
-  DMDAVecGetArrayDOF(gridctx.da_x,v0,&v0_arr); 
-
-  for (i = gridctx.i_start[0]; i < gridctx.i_end[0]; i++) {
-    b_arr[i][0] = timectx.HI_el[0]*v0_arr[i][0];
-    b_arr[i][1] = timectx.HI_el[1]*v0_arr[i][0];
-    b_arr[i][2] = timectx.HI_el[2]*v0_arr[i][0];
-    b_arr[i][3] = timectx.HI_el[3]*v0_arr[i][0];
-  }
-
-  DMDAVecRestoreArrayDOF(gridctx.da_xt,b,&b_arr); 
-  DMDAVecRestoreArrayDOF(gridctx.da_x,v0,&v0_arr); 
-
-  return 0;
-};
-
-static PetscErrorCode get_error(const GridCtx& gridctx, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error) 
-{
-  PetscScalar **arr;
-
-  VecWAXPY(*v_error,-1,v1,v2);
-
-  VecNorm(*v_error,NORM_2,l2_error);
-
-  *l2_error = sqrt(gridctx.h[0])*(*l2_error);
-  VecNorm(*v_error,NORM_INFINITY,max_error);
-  
-  DMDAVecGetArrayDOF(gridctx.da_x, *v_error, &arr);
-  *H_error = gridctx.H.get_norm_1D(arr, gridctx.h[0], gridctx.N[0], gridctx.i_start[0], gridctx.i_end[0], gridctx.dofs);
-  DMDAVecRestoreArrayDOF(gridctx.da_x, *v_error, &arr);
 
   return 0;
 }

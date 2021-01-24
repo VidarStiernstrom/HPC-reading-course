@@ -1,104 +1,230 @@
 #pragma once
 
-#include<petscsystypes.h>
+#include <petscsystypes.h>
 #include <array>
 #include "grids/grid_function.h"
 
+
 namespace sbp{
+  //=============================================================================
+  // 1D functions
+  //=============================================================================
 
-  /**
-  * Approximate RHS of reflection problem, [u;v]_t = [v_x;u_x], between indices i_start <= i < i_end. "Smart" looping.
-  * Inputs: D1        - SBP D1 operator
-  *         array_src - 2D array containing multi-component input data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
-  *         array_src - 2D array containing multi-component output data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
-  *         i_start   - Starting index to compute
-  *         i_end     - Final index to compute, index < i_end
-  *         N         - Global number of points excluding ghost points
-  *         hi        - Inverse step length
-  **/
-  template <class SbpDerivative>
-  inline PetscErrorCode reflection_apply1(const SbpDerivative& D1, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, PetscInt N, PetscScalar hi)
+  template <class SbpInterpolator>
+  inline PetscErrorCode apply_F2C(const SbpInterpolator& ICF, PetscScalar **src, PetscScalar **dst, PetscInt i_start, PetscInt i_end, const PetscInt N)
   {
-    PetscInt i;
-    const auto [iw, n_closures, closure_width] = D1.get_ranges();
+    int i, dof;
+    const PetscInt ndofs = 8;
 
+    const auto [F2C_nc, C2F_nc] = ICF.get_ranges();
     if (i_start == 0) {
-      for (i = 0; i < n_closures; i++) 
+      for (i = 0; i < F2C_nc; i++) 
       { 
-        dst(i,1) = D1.apply_left(src,hi,i,0);
-        dst(i,0) = D1.apply_left(src,hi,i,1);
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[i][dof] = ICF.F2C_apply_left(src, i, dof);  
+        }
       }
-      i_start = n_closures;
-    }
 
-    if (i_end == N) {
-      for (i = N-n_closures; i < N; i++)
-      {
-          dst(i,1) = D1.apply_right(src,hi,N,i,0);
-          dst(i,0) = D1.apply_right(src,hi,N,i,1);
+      for (i = F2C_nc; i < i_end; i++) 
+      { 
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[i][dof] = ICF.F2C_apply_interior(src, i, dof);
+        }
       }
-      i_end = N-n_closures;
-    }
+    } else if (i_end == N) {
 
-    for (i = i_start; i < i_end; i++)
-    {
-      dst(i,1) = D1.apply_interior(src,hi,i,0);
-      dst(i,0) = D1.apply_interior(src,hi,i,1);
+      for (i = i_start; i < i_end-F2C_nc; i++) 
+      { 
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[i][dof] = ICF.F2C_apply_interior(src, i, dof);
+        }
+      }
+
+      for (i = i_end - F2C_nc; i < i_end; i++) 
+      { 
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[i][dof] = ICF.F2C_apply_right(src, i_end, i, dof);
+        }
+      }
+    } else {
+      for (i = i_start; i < i_end; i++) 
+      { 
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[i][dof] = ICF.F2C_apply_interior(src, i, dof);
+        }
+      }
+    }
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode apply_C2F(const SbpInterpolator& ICF, PetscScalar **src, PetscScalar **dst, PetscInt i_start, PetscInt i_end, const PetscInt N)
+  {
+    int i, dof;
+    const PetscInt ndofs = 8;
+
+    const auto [F2C_nc, C2F_nc] = ICF.get_ranges();
+    if (i_start == 0) {
+      for (i = 0; i < C2F_nc; i++) 
+      { 
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[i][dof] = ICF.C2F_apply_left(src, i, dof);
+        }
+      }
+
+      for (i = C2F_nc; i < i_end; i++) 
+      { 
+        if (i % 2 == 0) {
+          for (dof = 0; dof < ndofs; dof++) {
+            dst[i][dof] = ICF.C2F_even_apply_interior(src, i, dof);
+          }
+        } else {
+          for (dof = 0; dof < ndofs; dof++) {
+            dst[i][dof] = ICF.C2F_odd_apply_interior(src, i, dof);
+          }
+        }
+      }
+    } else if (i_end == N) {
+      for (i = i_start; i < i_end-C2F_nc; i++) 
+      { 
+        if (i % 2 == 0) {
+          for (dof = 0; dof < ndofs; dof++) {
+            dst[i][dof] = ICF.C2F_even_apply_interior(src, i, dof);
+          }
+        } else {
+          for (dof = 0; dof < ndofs; dof++) {
+            dst[i][dof] = ICF.C2F_odd_apply_interior(src, i, dof);
+          }
+        }
+      }
+
+      for (i = i_end - C2F_nc; i < i_end; i++) 
+      { 
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[i][dof] = ICF.C2F_apply_right(src, N, i, dof);
+        }
+      }
+    } else {
+      for (i = i_start; i < i_end; i++) 
+      { 
+        if (i % 2 == 0) {
+          for (dof = 0; dof < ndofs; dof++) {
+            dst[i][dof] = ICF.C2F_even_apply_interior(src, i, dof);
+          }
+        } else {
+          for (dof = 0; dof < ndofs; dof++) {
+            dst[i][dof] = ICF.C2F_odd_apply_interior(src, i, dof);
+          }
+        }
+      }
     }
 
     return 0;
-  };
+  }
 
-  /**
-  * Approximate RHS of reflection problem, [u;v]_t = [v_x;u_x], between indices i_start <= i < i_end. Direct looping.
-  * Inputs: D1        - SBP D1 operator
-  *         array_src - 2D array containing multi-component input data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
-  *         array_src - 2D array containing multi-component output data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
-  *         i_start   - Starting index to compute
-  *         i_end     - Final index to compute, index < i_end
-  *         N         - Global number of points excluding ghost points
-  *         hi        - Inverse step length
-  **/
-  template <class SbpDerivative>
-  inline PetscErrorCode reflection_apply2(const SbpDerivative& D1, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, PetscInt N, PetscScalar hi)
+  inline PetscScalar ref_imp_apply_D_time(const PetscScalar D_time[4][4], PetscScalar **src, PetscInt i, PetscInt tcomp, PetscInt dof)
   {
-    PetscInt i;
+    return D_time[tcomp][0]*src[i][0+dof] + D_time[tcomp][1]*src[i][2+dof] + D_time[tcomp][2]*src[i][4+dof] + D_time[tcomp][3]*src[i][6+dof];
+  }
+
+  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
+  inline PetscErrorCode ref_imp_apply_left(const PetscScalar D_time[4][4], const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, PetscScalar **src, PetscScalar **dst, const PetscInt N, const PetscScalar hi, const PetscInt n_closures)
+  {
+    int i, tcomp;
+
+    i = 0;
+    // Compute first component at boundary point, only time derivative
+    for (tcomp = 0; tcomp < 4; tcomp++) {
+      dst[i][2*tcomp] = ref_imp_apply_D_time(D_time, src, i, tcomp, 0);
+    }
+
+    // Set first comp in src to zero at boundary point
+    for (tcomp = 0; tcomp < 4; tcomp++) {
+      src[i][2*tcomp] = 0;
+    }
+
+    // Compute second component at boundary point
+    for (tcomp = 0; tcomp < 4; tcomp++) {
+      dst[i][2*tcomp+1] = ref_imp_apply_D_time(D_time, src, i, tcomp, 1) - D1.apply_left(src,hi,i,2*tcomp);
+    }
+    
+    // Compute inner points
+    for (i = 1; i < n_closures; i++)
+    {
+      for (tcomp = 0; tcomp < 4; tcomp++) {
+        dst[i][2*tcomp] = ref_imp_apply_D_time(D_time, src, i, tcomp, 0) - D1.apply_left(src,hi,i,2*tcomp+1);
+        dst[i][2*tcomp+1] = ref_imp_apply_D_time(D_time, src, i, tcomp, 1) - D1.apply_left(src,hi,i,2*tcomp);
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
+  inline PetscErrorCode ref_imp_apply_right(const PetscScalar D_time[4][4], const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, PetscScalar **src, PetscScalar **dst, const PetscInt N, const PetscScalar hi, const PetscInt n_closures)
+  {
+    int i, tcomp;
+
+    i = N-1;
+
+    // Compute first component, only time derivative
+    for (tcomp = 0; tcomp < 4; tcomp++) {
+      dst[i][2*tcomp] = ref_imp_apply_D_time(D_time, src, i, tcomp, 0);
+    }
+
+    // Set first comp in src to zero at boundary point
+    for (tcomp = 0; tcomp < 4; tcomp++) {
+      src[i][2*tcomp] = 0;
+    }
+
+    // Compute second component
+    for (tcomp = 0; tcomp < 4; tcomp++) {
+      dst[i][2*tcomp+1] = ref_imp_apply_D_time(D_time, src, i, tcomp, 1) - D1.apply_right(src,hi,N,i,2*tcomp);
+    }
+
+    for (i = N-n_closures; i < N-1; i++)
+    {
+      for (tcomp = 0; tcomp < 4; tcomp++) {
+        dst[i][2*tcomp] = ref_imp_apply_D_time(D_time, src, i, tcomp, 0) - D1.apply_right(src,hi,N,i,2*tcomp+1);
+        dst[i][2*tcomp+1] = ref_imp_apply_D_time(D_time, src, i, tcomp, 1) - D1.apply_right(src,hi,N,i,2*tcomp);  
+      }
+    }
+    return 0;
+  }
+
+  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
+  inline PetscErrorCode ref_imp_apply_interior(const PetscScalar D_time[4][4], const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, PetscScalar **src, PetscScalar **dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi, const PetscInt n_closures)
+  {
+    int i, tcomp;
+
+    for (i = i_start; i < i_end; i++)
+    {
+      for (tcomp = 0; tcomp < 4; tcomp++) {
+        dst[i][2*tcomp] = ref_imp_apply_D_time(D_time, src, i, tcomp, 0) - D1.apply_interior(src,hi,i,2*tcomp+1);  
+        dst[i][2*tcomp+1] = ref_imp_apply_D_time(D_time, src, i, tcomp, 1) - D1.apply_interior(src,hi,i,2*tcomp);  
+      }
+    }
+    return 0;
+  }
+
+  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
+  inline PetscErrorCode ref_imp_apply_all(const PetscScalar D_time[4][4], const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, PetscScalar **src, PetscScalar **dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi, const PetscScalar Tend)
+  {
     const auto [iw, n_closures, closure_width] = D1.get_ranges();
 
     if (i_start == 0) 
     {
-      for (i = 0; i < n_closures; i++) 
-      { 
-        dst(i,1) = D1.apply_left(src,hi,i,0);
-        dst(i,0) = D1.apply_left(src,hi,i,1);
-      }
-      
-      for (i = n_closures; i < i_end; i++)
-      {
-        dst(i,1) = D1.apply_interior(src,hi,i,0);
-        dst(i,0) = D1.apply_interior(src,hi,i,1);
-      }
+      ref_imp_apply_left(D_time, D1, HI, a, src, dst, N, hi, n_closures);
+      ref_imp_apply_interior(D_time, D1, HI, a, src, dst, n_closures, i_end, N, hi, n_closures);
     } else if (i_end == N) 
     {
-      for (i = N-n_closures; i < N; i++)
-      {
-        dst(i,1) = D1.apply_right(src,hi,N,i,0);
-        dst(i,0) = D1.apply_right(src,hi,N,i,1);
-      }
-
-      for (i = i_start; i < N-n_closures; i++)
-      {
-        dst(i,1) = D1.apply_interior(src,hi,i,0);
-        dst(i,0) = D1.apply_interior(src,hi,i,1);
-      }
+      ref_imp_apply_right(D_time, D1, HI, a, src, dst, N, hi, n_closures);
+      ref_imp_apply_interior(D_time, D1, HI, a, src, dst, i_start, N-n_closures, N, hi, n_closures);
     } else 
     {
-      for (i = i_start; i < i_end; i++)
-      {
-        dst(i,1) = D1.apply_interior(src,hi,i,0);
-        dst(i,0) = D1.apply_interior(src,hi,i,1);
-      }
+      ref_imp_apply_interior(D_time, D1, HI, a, src, dst, i_start, i_end, N, hi, n_closures);
     }
     return 0;
-  };
+  }  
+
 } //namespace sbp

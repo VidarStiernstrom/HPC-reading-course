@@ -1,13 +1,19 @@
 #include<petsc.h>
 #include "appctx.h"
-#include "diffops/advection.h"
 #include "imp_timestepping.h"
+#include "IO_utils.h"
+#include "ref_1D.h"
+// #include "adv_1D.h"
 
-static PetscErrorCode get_solution(Vec& v_final, Vec& v, const GridCtx& gridctx, const TimeCtx& timectx) ;
-static PetscErrorCode RHS(const GridCtx& gridctx, const TimeCtx& timectx, Vec& b, Vec v0);
-static PetscScalar gaussian(PetscScalar x) ;
-static PetscErrorCode analytic_solution(const GridCtx& gridctx, const PetscScalar t, Vec& v_analytic);
-static PetscErrorCode get_error(const GridCtx& gridctx, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error) ;
+static PetscErrorCode shell2diag(Mat& D_shell, Vec& diag);
+static PetscErrorCode jacsetup(PC pc);
+static PetscErrorCode jacapply(PC pc, Vec vin, Vec vout);
+
+struct JACCtx {
+  Vec invdiag;
+  Mat *A;
+};
+
 
 PetscErrorCode standard_solver(Mat &A, Vec& v) 
 {
@@ -17,6 +23,7 @@ PetscErrorCode standard_solver(Mat &A, Vec& v)
   	Vec            v_analytic, v_error, b, v_curr;
   	PetscReal      l2_error, max_error, H_error;
 	MatCtx *matctx;
+	JACCtx 		   	jacctx;
 	PetscInt rank, blockidx;
 
 	MPI_Comm_rank(PETSC_COMM_WORLD,&rank);
@@ -33,8 +40,17 @@ PetscErrorCode standard_solver(Mat &A, Vec& v)
 	KSPSetFromOptions(ksp);
 	KSPSetUp(ksp);
 	KSPGetPC(ksp,&pc);
+
+	// none
 	PCSetType(pc,PCNONE);
-	PCSetUp(pc);
+	
+	// jacobi
+	// PCSetType(pc, PCSHELL);
+	// jacctx.A = &A;
+	// PCShellSetContext(pc, &jacctx);
+	// PCShellSetSetUp(pc, jacsetup);
+	// PCShellSetApply(pc, jacapply);
+	// PCSetUp(pc);
 
 	/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	Solve system
@@ -42,7 +58,9 @@ PetscErrorCode standard_solver(Mat &A, Vec& v)
 	DMCreateGlobalVector(matctx->gridctx.da_x, &v_curr);
 	DMCreateGlobalVector(matctx->gridctx.da_xt,&b);
 
-	analytic_solution(matctx->gridctx, 0, v_curr);
+	set_initial_condition(matctx->gridctx, v_curr);
+
+	// VecView(v_curr, PETSC_VIEWER_STDOUT_WORLD);
 
 	PetscBarrier((PetscObject) v);
 	if (rank == 0) {
@@ -51,6 +69,7 @@ PetscErrorCode standard_solver(Mat &A, Vec& v)
 
 	for (blockidx = 0; blockidx < matctx->timectx.tblocks; blockidx++) 
 	{
+		PetscPrintf(PETSC_COMM_WORLD,"---------------------- Time iteration: %d, t = %f ----------------------\n",blockidx,blockidx*matctx->timectx.Tpb);
 		RHS(matctx->gridctx, matctx->timectx, b, v_curr);
 		KSPSolve(ksp, b, v);
 		get_solution(v_curr, v, matctx->gridctx, matctx->timectx);
@@ -63,13 +82,14 @@ PetscErrorCode standard_solver(Mat &A, Vec& v)
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"Elapsed time: %f seconds\n",elapsed_time);
 
-	/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-	Compute and print error
-	- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+	 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	// Compute and print error
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	DMCreateGlobalVector(matctx->gridctx.da_x, &v_error);
 	DMCreateGlobalVector(matctx->gridctx.da_x, &v_analytic);
 
 	analytic_solution(matctx->gridctx, matctx->timectx.Tend, v_analytic);
+	// VecView(v_analytic, PETSC_VIEWER_STDOUT_WORLD);
 
 	get_solution(v_curr, v, matctx->gridctx, matctx->timectx); 
 	get_error(matctx->gridctx, v_curr, v_analytic, &v_error, &H_error, &l2_error, &max_error);
@@ -87,82 +107,76 @@ PetscErrorCode standard_solver(Mat &A, Vec& v)
 	return 0;
 }
 
-static PetscErrorCode get_solution(Vec& v_final, Vec& v, const GridCtx& gridctx, const TimeCtx& timectx) 
-{
-  PetscInt i;
-  PetscScalar **vfinal_arr, **v_arr;
+PetscErrorCode jacapply(PC pc, Vec vin, Vec vout) {
+	JACCtx 		   	*jacctx;
+	PCShellGetContext(pc, (void**) &jacctx);
 
-  DMDAVecGetArrayDOF(gridctx.da_xt,v,&v_arr); 
-  DMDAVecGetArrayDOF(gridctx.da_x, v_final, &vfinal_arr); 
-
-  for (i = gridctx.i_start[0]; i < gridctx.i_end[0]; i++) {
-    vfinal_arr[i][0] = timectx.er[0]*v_arr[i][0] + timectx.er[1]*v_arr[i][1] + timectx.er[2]*v_arr[i][2] + timectx.er[3]*v_arr[i][3];
-  }
-
-  DMDAVecRestoreArrayDOF(gridctx.da_xt,v,&v_arr); 
-  DMDAVecRestoreArrayDOF(gridctx.da_x, v_final, &vfinal_arr); 
-
-  return 0;
+	VecPointwiseMult(vout, vin, jacctx->invdiag);
+	return 0;
 }
 
-static PetscErrorCode analytic_solution(const GridCtx& gridctx, const PetscScalar t, Vec& v_analytic)
-{ 
-  PetscScalar x, **array_analytic;
-  PetscInt i;
+PetscErrorCode jacsetup(PC pc) {
+	JACCtx 		   	*jacctx;
+	PCShellGetContext(pc, (void**) &jacctx);
 
-  DMDAVecGetArrayDOF(gridctx.da_x, v_analytic, &array_analytic); 
+	PetscPrintf(PETSC_COMM_WORLD,"Setting up Jacobi preconditioner... ");
 
-  for (i = gridctx.i_start[0]; i < gridctx.i_end[0]; i++) {
-    x = gridctx.xl[0] + i*gridctx.h[0];
-    array_analytic[i][0] = gaussian(x-gridctx.a(i)*t);
-  }
+	shell2diag(*jacctx->A, jacctx->invdiag);
+	VecReciprocal(jacctx->invdiag);
 
-  DMDAVecRestoreArrayDOF(gridctx.da_x, v_analytic, &array_analytic); 
+	PetscPrintf(PETSC_COMM_WORLD,"Done!\n");
 
-  return 0;
-};
-
-static PetscScalar gaussian(PetscScalar x) 
-{
-  PetscScalar rstar = 0.1;
-  return exp(-x*x/(rstar*rstar));
+	return 0;
 }
 
-static PetscErrorCode RHS(const GridCtx& gridctx, const TimeCtx& timectx, Vec& b, Vec v0)
-{ 
-  PetscScalar       **b_arr, **v0_arr;
-  PetscInt          i;
+PetscErrorCode shell2diag(Mat& D_shell, Vec& diag) {
+  Vec v, b;
+  MatCtx *matctx;
+  int j = 0, i, k;
 
-  DMDAVecGetArrayDOF(gridctx.da_xt,b,&b_arr); 
-  DMDAVecGetArrayDOF(gridctx.da_x,v0,&v0_arr); 
+  MatShellGetContext(D_shell, &matctx);
 
-  for (i = gridctx.i_start[0]; i < gridctx.i_end[0]; i++) {
-    b_arr[i][0] = timectx.HI_el[0]*v0_arr[i][0];
-    b_arr[i][1] = timectx.HI_el[1]*v0_arr[i][0];
-    b_arr[i][2] = timectx.HI_el[2]*v0_arr[i][0];
-    b_arr[i][3] = timectx.HI_el[3]*v0_arr[i][0];
-  }
 
-  DMDAVecRestoreArrayDOF(gridctx.da_xt,b,&b_arr); 
-  DMDAVecRestoreArrayDOF(gridctx.da_x,v0,&v0_arr); 
+  DMCreateGlobalVector(matctx->gridctx.da_xt, &diag);
+  DMGetGlobalVector(matctx->gridctx.da_xt,&v);
+  DMGetGlobalVector(matctx->gridctx.da_xt,&b);
 
-  return 0;
-};
+  VecSet(v,0.0);
 
-static PetscErrorCode get_error(const GridCtx& gridctx, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error) 
-{
   PetscScalar **arr;
+  PetscScalar **diag_arr;
 
-  VecWAXPY(*v_error,-1,v1,v2);
+  DMDAVecGetArrayDOF(matctx->gridctx.da_xt, diag, &diag_arr);
 
-  VecNorm(*v_error,NORM_2,l2_error);
+  // Loop over all columns
+  for (i = 0; i < matctx->gridctx.N[0]; i++) {
+    for (k = 0; k < matctx->timectx.N*matctx->gridctx.dofs; k++) {
+      j = k + matctx->timectx.N*i;
 
-  *l2_error = sqrt(gridctx.h[0])*(*l2_error);
-  VecNorm(*v_error,NORM_INFINITY,max_error);
-  
-  DMDAVecGetArrayDOF(gridctx.da_x, *v_error, &arr);
-  *H_error = gridctx.H.get_norm_1D(arr, gridctx.h[0], gridctx.N[0], gridctx.i_start[0], gridctx.i_end[0], gridctx.dofs);
-  DMDAVecRestoreArrayDOF(gridctx.da_x, *v_error, &arr);
+      // Set v[j] = 1
+      VecSetValue(v,j,1,INSERT_VALUES);
+
+      VecAssemblyBegin(v);
+      VecAssemblyEnd(v);
+
+      // Compute D*v
+      MatMult(D_shell,v,b);
+      VecSetValue(v,j,0,INSERT_VALUES);
+
+      DMDAVecGetArrayDOF(matctx->gridctx.da_xt, b, &arr);
+      if ((i >= matctx->gridctx.i_start[0]) && (i < matctx->gridctx.i_end[0])) {
+        diag_arr[i][k] = arr[i][k];
+      }
+      DMDAVecRestoreArrayDOF(matctx->gridctx.da_xt, b, &arr); 
+    }
+  }
+  DMDAVecRestoreArrayDOF(matctx->gridctx.da_xt, diag, &diag_arr);
+
+  DMRestoreGlobalVector(matctx->gridctx.da_xt,&v);
+  DMRestoreGlobalVector(matctx->gridctx.da_xt,&b);
+
+  VecAssemblyBegin(diag);
+  VecAssemblyEnd(diag);
 
   return 0;
 }
