@@ -2,7 +2,8 @@
 #include "appctx.h"
 #include "imp_timestepping.h"
 #include "IO_utils.h"
-#include "ref_1D.h"
+// #include "ref_1D.h"
+#include "aco_2D.h"
 // #include "adv_1D.h"
 
 static PetscErrorCode shell2diag(Mat& D_shell, Vec& diag);
@@ -32,7 +33,7 @@ PetscErrorCode standard_solver(Mat &A, Vec& v)
 
 	KSPCreate(PETSC_COMM_WORLD, &ksp);
 	KSPSetOperators(ksp, A, A);
-	KSPSetTolerances(ksp, 1e-8, PETSC_DEFAULT, PETSC_DEFAULT, 1e5);
+	KSPSetTolerances(ksp, 1e-12, PETSC_DEFAULT, PETSC_DEFAULT, 1e5);
 	KSPSetPCSide(ksp, PC_RIGHT);
 	KSPSetType(ksp, KSPPIPEFGMRES);
 	KSPGMRESSetRestart(ksp, 10);
@@ -50,7 +51,7 @@ PetscErrorCode standard_solver(Mat &A, Vec& v)
 	// PCShellSetContext(pc, &jacctx);
 	// PCShellSetSetUp(pc, jacsetup);
 	// PCShellSetApply(pc, jacapply);
-	// PCSetUp(pc);
+	PCSetUp(pc);
 
 	/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	Solve system
@@ -59,8 +60,6 @@ PetscErrorCode standard_solver(Mat &A, Vec& v)
 	DMCreateGlobalVector(matctx->gridctx.da_xt,&b);
 
 	set_initial_condition(matctx->gridctx, v_curr);
-
-	// VecView(v_curr, PETSC_VIEWER_STDOUT_WORLD);
 
 	PetscBarrier((PetscObject) v);
 	if (rank == 0) {
@@ -82,14 +81,13 @@ PetscErrorCode standard_solver(Mat &A, Vec& v)
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"Elapsed time: %f seconds\n",elapsed_time);
 
-	 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	// Compute and print error
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 	DMCreateGlobalVector(matctx->gridctx.da_x, &v_error);
 	DMCreateGlobalVector(matctx->gridctx.da_x, &v_analytic);
 
 	analytic_solution(matctx->gridctx, matctx->timectx.Tend, v_analytic);
-	// VecView(v_analytic, PETSC_VIEWER_STDOUT_WORLD);
 
 	get_solution(v_curr, v, matctx->gridctx, matctx->timectx); 
 	get_error(matctx->gridctx, v_curr, v_analytic, &v_error, &H_error, &l2_error, &max_error);

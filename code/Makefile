@@ -23,11 +23,11 @@ include ${PETSC_DIR}/lib/petsc/conf/variables
 include ${PETSC_DIR}/lib/petsc/conf/rules
 include ${PETSC_DIR}/lib/petsc/conf/test
 
-all: init $(BIN_PATH)main_adv $(BIN_PATH)main_ref $(BIN_PATH)acowave_2D
+all: init $(BIN_PATH)main_adv $(BIN_PATH)main_ref $(BIN_PATH)main_aco
 
 # Link object files to create binaries in BIN_PATH/
 
-$(BIN_PATH)acowave_2D: $(OBJ_PATH)acowave_2D.o $(OBJ_PATH)create_layout.o $(OBJ_PATH)IO_utils.o $(OBJ_PATH)scatter_ctx.o
+$(BIN_PATH)main_aco: $(OBJ_PATH)main_aco.o $(OBJ_PATH)create_layout.o $(OBJ_PATH)IO_utils.o $(OBJ_PATH)scatter_ctx.o $(OBJ_PATH)multigrid.o $(OBJ_PATH)standard.o $(OBJ_PATH)imp_timestepping.o $(OBJ_PATH)aco_2D.o
 	-${CXX} -o $@ $^ ${PETSC_SYS_LIB}
 
 $(BIN_PATH)main_adv: $(OBJ_PATH)main_adv.o $(OBJ_PATH)create_layout.o $(OBJ_PATH)IO_utils.o $(OBJ_PATH)scatter_ctx.o $(OBJ_PATH)multigrid.o $(OBJ_PATH)standard.o $(OBJ_PATH)imp_timestepping.o $(OBJ_PATH)adv_1D.o
@@ -37,13 +37,7 @@ $(BIN_PATH)main_ref: $(OBJ_PATH)main_ref.o $(OBJ_PATH)create_layout.o $(OBJ_PATH
 	-${CXX} -o $@ $^ ${PETSC_SYS_LIB}
 
 # Compile object files to OBJ_PATH/
-$(OBJ_PATH)first_order_ode.o: $(SRC_PATH)first_order_ode.cpp
-	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
-
-$(OBJ_PATH)build_mat_test.o: $(SRC_PATH)build_mat_test.cpp
-	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
-	
-$(OBJ_PATH)acowave_2D.o: $(SRC_PATH)acowave_2D.cpp
+$(OBJ_PATH)main_aco.o: $(SRC_PATH)main_aco.cpp
 	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
 	
 $(OBJ_PATH)main_adv.o: $(SRC_PATH)main_adv.cpp
@@ -70,10 +64,13 @@ $(OBJ_PATH)standard.o: $(SRC_PATH)standard.cpp
 $(OBJ_PATH)imp_timestepping.o: $(SRC_PATH)imp_timestepping.cpp
 	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
 
+$(OBJ_PATH)adv_1D.o: $(SRC_PATH)adv_1D.cpp
+	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
+
 $(OBJ_PATH)ref_1D.o: $(SRC_PATH)ref_1D.cpp
 	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
 
-$(OBJ_PATH)adv_1D.o: $(SRC_PATH)adv_1D.cpp
+$(OBJ_PATH)aco_2D.o: $(SRC_PATH)aco_2D.cpp
 	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
 
 

@@ -2,6 +2,6 @@
 make clean
 make init
 
-make bin/main_ref
+make bin/main_aco
 
-mpirun -n 2 bin/main_ref  -ksp_converged_reason 	-ksp_view_final_residual
+mpirun -n 8 bin/main_aco -ksp_monitor_true_residual 	-ksp_converged_reason 	-ksp_view_final_residual 
