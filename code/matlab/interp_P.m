@@ -33,19 +33,21 @@ Efc = kr(Imf,Imc);
 
 [IC2F,IF2C] = MC_orders2to2(mc);
 
+P = kr(IC2F,IC2F,eye(12));
 R = kr(IF2C,IF2C,eye(12));
 % Rx = kr(Imf,IF2C);
 
-vf = zeros(mf*mf*12,1);
+vc = zeros(mc*mc*12,1);
 
-for idxx = 0:mf-1
-    for idxy = 0:mf-1
-        x = xvecf(idxx+1);
-        y = yvecf(idxy+1);
+for idxx = 0:mc-1
+    for idxy = 0:mc-1
+        x = xvecc(idxx+1);
+        y = yvecc(idxy+1);
         val = x*x*y + y*x + 1;
         for dof = 1:12
-            vf(12*(idxy*mf + idxx) + dof) = val + dof - 1;
-            vf_mat(idxx+1,idxy+1,dof) = val + dof - 1;
+%             dof = 1;
+            vc(12*(idxy*mc + idxx) + dof) = val + dof - 1;
+            vc_mat(idxx+1,idxy+1,dof) = val + dof - 1;
         end
         
         %         vf(12*(idxy*mf + idxx) + 1) = 0*x - 0*y;
@@ -71,31 +73,47 @@ end
 % end
 % vf = ones(mf*mf,1);
 % vc = R*vf;
-
+% 
 addpath('/usr/local/Cellar/petsc/3.14.0//share/petsc/matlab/')
-Rvp = PetscBinaryRead('../data/aco2D/Rv');
-vp = PetscBinaryRead('../data/aco2D/v');
+Pvp = PetscBinaryRead('../data/aco2D/Pvcoar');
+vp = PetscBinaryRead('../data/aco2D/vcoar');
 
-vp = reshape(vp,[3,4,mf,mf]);
-% vp = permute(vp,[2,1,3,4]);
-vp = reshape(vp,[12*mf*mf,1]);
-
-Rvp = reshape(Rvp,[3,4,mc,mc]);
-% Rvp = permute(Rvp,[2,1,3,4]);
-Rvp = reshape(Rvp,[12*mc*mc,1]);
-
-max(max(abs(vp - vf)))
-max(max(abs(Rvp - R*vf)))
-
+max(abs(vc - vp))
+max(abs(Pvp - P*vc))
+% 
+% Pvp = reshape(Pvp,[12,mf,mf]);
+% Pv = reshape(P*vc,[12,mf,mf]);
+% 
+% diff = squeeze(Pvp(1,:,:) - Pv(1,:,:));
+% max(max(abs(diff)))
+% figure
+% surf(Xf,Yf,diff)
+% view(2)
+% colorbar
+% Rvp = permute(Rvp,[1,2,3,4]);
+% RUp = squeeze(Rvp(1,1,:,:));
+% 
 % vp = reshape(vp,[3,4,mf,mf]);
-% vp = permute(vp,[1,2,4,3]);
+% % vp = permute(vp,[1,2,4,3]);
+% Up = squeeze(vp(1,1,:,:));
+% % vp = reshape(vp,[3,4,mf,mf]);
+% % Rvp = reshape(Rvp,[3,4,mc,mc]);
+% % 
+% % vp = permute(vp,[1,2,4,3]);
+% % Rvp = permute(Rvp,[1,2,4,3]);
+% 
+% % vp = reshape(vp,[12*mf^2,1]);
+% % Rvp = reshape(Rvp,[12*mc^2,1]);
+% % 
 
-% Rv = reshape(R*vf,[3,4,mc,mc]);
+% 
+% 
+% RU = reshape(R*vf,[mc,mc]);
 % U = reshape(vf,[mf,mf]);
-%
+% 
 % diff = RU - RUp;
 % surf(Xc,Yc,diff*100)
 % view(2)
 % colorbar
-
-% max(abs((RU - RUp
+% 
+% RU - RUp

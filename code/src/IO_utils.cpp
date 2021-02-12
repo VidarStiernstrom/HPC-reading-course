@@ -1,12 +1,12 @@
 #include<petsc.h>
 #include <filesystem>
 
-PetscErrorCode write_vector_to_binary(const Vec& v, const std::string folder, const std::string file)
+PetscErrorCode write_vector_to_binary(const Vec& v, const std::string folder, const std::string file, MPI_Comm comm)
 { 
   std::filesystem::create_directories(folder);
   PetscErrorCode ierr;
   PetscViewer viewer;
-  ierr = PetscViewerBinaryOpen(PETSC_COMM_WORLD,(folder+"/"+file).c_str(),FILE_MODE_WRITE,&viewer);
+  ierr = PetscViewerBinaryOpen(comm,(folder+"/"+file).c_str(),FILE_MODE_WRITE,&viewer);
   ierr = VecView(v,viewer);
   ierr = PetscViewerDestroy(&viewer);
   CHKERRQ(ierr);

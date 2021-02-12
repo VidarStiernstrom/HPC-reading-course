@@ -26,13 +26,12 @@ static char help[] = "Solves advection 2D aco wave problem.\n";
 #include "sbpops/HI_central.h"
 #include "sbpops/ICF_central.h"
 #include "diffops/acowave.h"
-// #include "timestepping.h"
 #include "appctx.h"
 #include "grids/grid_function.h"
 #include "grids/create_layout.h"
 #include "IO_utils.h"
 #include "scatter_ctx.h"
-// #include "multigrid.h"
+#include "multigrid.h"
 #include "standard.h"
 #include "imp_timestepping.h"
 #include "aco_2D.h"
@@ -43,9 +42,10 @@ int main(int argc,char **argv)
   Mat            Dfine;
   PetscInt       stencil_radius, i_xstart, i_xend, i_ystart, i_yend, Nx, Ny, nx, ny, Nt, dofs, tblocks;
   PetscScalar    xl, xr, yl, yr, dx, dxi, dy, dyi, dt, dti, t0, Tend, Tpb, tau;
+  std::string    filename_reshist;
+  PetscBool      use_MG;
   
   MatCtx         F_matctx;
-  PetscInt       nlevels;
 
   PetscErrorCode ierr;
   PetscMPIInt    size, rank;
@@ -64,15 +64,15 @@ int main(int argc,char **argv)
   tau = 1.0; // Initial condition SAT parameter
 
   // Fine space grid
-  Nx = 501;
-  Ny = 501;
+  Nx = 384;
+  Ny = 384;
   dx = (xr - xl)/(Nx-1);
   dxi = 1./dx;
   dy = (yr - yl)/(Ny-1);
   dyi = 1./dy;
 
   // Time
-  tblocks = 10;
+  tblocks = 1;
   t0 = 0;
   Tend = 0.1;
   Tpb = Tend/tblocks;
@@ -80,9 +80,14 @@ int main(int argc,char **argv)
   dt = Tpb/(Nt-1);
   dti = 1./dt;
 
-  nlevels = 4;
-
   dofs = 3;
+
+  use_MG = (PetscBool) atoi(argv[1]);
+
+  filename_reshist.assign(argv[3]);
+  filename_reshist.append("_Nx"); filename_reshist.append(std::to_string(Nx));
+  filename_reshist.append("_Ny"); filename_reshist.append(std::to_string(Ny));
+  filename_reshist.append("_size"); filename_reshist.append(std::to_string(size));
 
   auto a = [xl,yl,dx,dy](const PetscInt i, const PetscInt j){  // 1/rho.
   PetscScalar x = xl + dx*i;
@@ -108,7 +113,7 @@ int main(int argc,char **argv)
 
   auto [stencil_width, nc, cw] = F_matctx.gridctx.D1.get_ranges();
   stencil_radius = (stencil_width-1)/2;
-  DMDACreate2d(PETSC_COMM_WORLD,DM_BOUNDARY_NONE,DM_BOUNDARY_NONE,DMDA_STENCIL_STAR,
+  DMDACreate2d(PETSC_COMM_WORLD,DM_BOUNDARY_NONE,DM_BOUNDARY_NONE,DMDA_STENCIL_BOX,
                Nx,Ny,PETSC_DECIDE,PETSC_DECIDE,Nt*dofs,stencil_radius,NULL,NULL,&F_matctx.gridctx.da_xt);
   
   DMSetFromOptions(F_matctx.gridctx.da_xt);
@@ -122,10 +127,12 @@ int main(int argc,char **argv)
   F_matctx.gridctx.i_end = {i_xend,i_yend};
   F_matctx.gridctx.sw = stencil_radius;
 
-  PetscPrintf(PETSC_COMM_WORLD,"System size: %d\n",dofs*Nt*Nx*Nx);
-  printf("Rank: %d, number of unknowns: %d\n",rank,dofs*Nt*nx*ny);
+  PetscInt nxprocs, nyprocs;
+  DMDAGetInfo(F_matctx.gridctx.da_xt, NULL, NULL, NULL, NULL, &nxprocs, &nyprocs, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 
-  DMDACreate2d(PETSC_COMM_WORLD,DM_BOUNDARY_NONE,DM_BOUNDARY_NONE,DMDA_STENCIL_STAR,
+  PetscPrintf(PETSC_COMM_WORLD,"System size: %d, core topology: [%d,%d]\n",dofs*Nt*Nx*Ny, nxprocs, nyprocs);
+
+  DMDACreate2d(PETSC_COMM_WORLD,DM_BOUNDARY_NONE,DM_BOUNDARY_NONE,DMDA_STENCIL_BOX,
                Nx,Ny,PETSC_DECIDE,PETSC_DECIDE,dofs,stencil_radius,NULL,NULL,&F_matctx.gridctx.da_x);
   DMSetFromOptions(F_matctx.gridctx.da_x);
   DMSetUp(F_matctx.gridctx.da_x);
@@ -136,17 +143,24 @@ int main(int argc,char **argv)
   MatShellSetContext(Dfine, &F_matctx);
   MatSetUp(Dfine);
 
+  // printf("---- Fine ---- Rank: %d, ixstart: %d, ixend: %d, iystart: %d, iyend: %d\n",rank,i_xstart,i_xend,i_ystart,i_yend);
+
   setup_timestepper(F_matctx.timectx, tau);
 
   DMCreateGlobalVector(F_matctx.gridctx.da_xt,&v);
 
-  // mgsolver(Dfine, v, nlevels);
-  standard_solver(Dfine, v);
+  if (use_MG) {
+    mgsolver(Dfine, v, filename_reshist);
+  } else {
+    standard_solver(Dfine, v, filename_reshist);  
+  }
 
    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       // Free work space.  All PETSc objects should be destroyed when they
       // are no longer needed.
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+  DMDestroy(&F_matctx.gridctx.da_xt);
+  DMDestroy(&F_matctx.gridctx.da_x);
   VecDestroy(&v);
   MatDestroy(&Dfine);
   

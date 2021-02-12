@@ -4,7 +4,7 @@ close all
 Tend = 0.1;
 tblocks = 1;
 Tpb = Tend/tblocks;
-m = 21;
+m = 11;
 m2 = m*m;
 xvec = linspace(-1,1,m)';
 yvec = linspace(-1,1,m)';
@@ -56,26 +56,20 @@ taue = [1;0;0];
 taus = [0;-1;0];
 taun = [0;1;0];
 
-SATw = kr(Imy,HI,Imt,tauw)*kr(Imx,e_1,Imt)*kr(Imx,e_1',Imt,e3);
-SATe = kr(Imx,HI,Imt,taue)*kr(Imx,e_m,Imt)*kr(Imx,e_m',Imt,e3);
-SATs = kr(HI,Imx,Imt,taus)*kr(e_1,Imy,Imt)*kr(e_1',Imy,Imt,e3);
-SATn = kr(HI,Imx,Imt,taun)*kr(e_m,Imy,Imt)*kr(e_m',Imy,Imt,e3);
+% y -> x -> t -> k
+% SATw = kr(Imy,HI,Imt,tauw)*kr(Imx,e_1,Imt)*kr(Imx,e_1',Imt,e3);
+% SATe = kr(Imx,HI,Imt,taue)*kr(Imx,e_m,Imt)*kr(Imx,e_m',Imt,e3);
+% SATs = kr(HI,Imx,Imt,taus)*kr(e_1,Imy,Imt)*kr(e_1',Imy,Imt,e3);
+% SATn = kr(HI,Imx,Imt,taun)*kr(e_m,Imy,Imt)*kr(e_m',Imy,Imt,e3);
+% SAT = SATw + SATe + SATs + SATn;
+
+% y -> x -> k -> t
+SATw = kr(Imy,HI,tauw,Imt)*kr(Imx,e_1,Imt)*kr(Imx,e_1',e3,Imt);
+SATe = kr(Imx,HI,taue,Imt)*kr(Imx,e_m,Imt)*kr(Imx,e_m',e3,Imt);
+SATs = kr(HI,Imx,taus,Imt)*kr(e_1,Imy,Imt)*kr(e_1',Imy,e3,Imt);
+SATn = kr(HI,Imx,taun,Imt)*kr(e_m,Imy,Imt)*kr(e_m',Imy,e3,Imt);
 SAT = SATw + SATe + SATs + SATn;
 
-% L = [kr(e_1',Imt,e1);
-%      kr(e_m',Imt,e1)];
-
-% L = [kr(e_1',Imy,Imt,e3);
-%     kr(e_m',Imy,Imt,e3);
-%     kr(Imx,e_1',Imt,e3);
-%     kr(Imx,e_m',Imt,e3)];
-
-% L = [kr(e3,Imt,SBPx.e_1',Imy); % pw
-%      kr(e3,Imt,SBPx.e_m',Imy); % pe
-%      kr(e3,Imt,Imx,SBPy.e_1'); % ps
-%      kr(e3,Imt,Imx,SBPy.e_m')] % pn
-% P = speye(k*4*m*m) - sparse(HHI*L'*sparse(pinv(full(L*HHI*L')))*L);
-%
 tau = 1;
 
 A = [0,0,-1;
@@ -89,11 +83,11 @@ B = [0,0,0;
 % w_t + A*w_x + B*w_y = F
 %
 %
-D = kr(Imx,Imy,Dt + tau*HIt*e_l*e_l',Ik) - kr(Imy,Dxy,Imt,A) - kr(Dxy,Imx,Imt,B) - SAT;
-% D = - kr(Imy,Dxy,Imt,A) - kr(Dxy,Imx,Imt,B) - SAT;
+% D = kr(Imy,Imx,Dt + tau*HIt*e_l*e_l',Ik) - kr(Imy,Dxy,Imt,A) - kr(Dxy,Imx,Imt,B) - SAT;
+D = kr(Imy,Imx,Ik,Dt + tau*HIt*e_l*e_l') - kr(Imy,Dxy,A,Imt) - kr(Dxy,Imx,B,Imt) - SAT;
 
 v = zeros(size(D,1),1);
-addpath('/usr/local/Cellar/petsc/3.14.0//share/petsc/matlab/')
+addpath('/usr/local/Cellar/petsc/3.14.3/share/petsc/matlab/')
 %
 for idxx = 0:m-1
     for idxy = 0:m-1

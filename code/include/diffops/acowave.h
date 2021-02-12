@@ -4,7 +4,490 @@
 #include <array>
 #include "grids/grid_function.h"
 
+// TODO: remove conditionals in loops
+
 namespace sbp{
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode F2C_2D_LL(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const std::array<PetscInt,2>& N, const PetscInt F2C_nc)
+  {
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+    
+    for (jdst = 0; jdst < F2C_nc; jdst++) { 
+      for (idst = 0; idst < F2C_nc; idst++) { 
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[jdst][idst][dof] = ICF.F2C_apply_2D_LL(src, idst, jdst, dof);
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode C2F_2D_LL(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const std::array<PetscInt,2>& N, const PetscInt C2F_nc)
+  {
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+    
+    for (jdst = 0; jdst < C2F_nc; jdst++) { 
+      for (idst = 0; idst < C2F_nc; idst++) { 
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[jdst][idst][dof] = ICF.C2F_apply_2D_LL(src, idst, jdst, dof);
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode F2C_2D_CL(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const PetscInt & i_xstart, const PetscInt & i_xend, const std::array<PetscInt,2>& N, const PetscInt F2C_nc)
+  {
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+
+    for (jdst = 0; jdst < F2C_nc; jdst++) { 
+      for (idst = i_xstart; idst < i_xend; idst++) {
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[jdst][idst][dof] = ICF.F2C_apply_2D_CL(src, idst, jdst, dof);
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode C2F_2D_CL(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const PetscInt & i_xstart, const PetscInt & i_xend, const std::array<PetscInt,2>& N, const PetscInt C2F_nc)
+  {
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+
+    for (jdst = 0; jdst < C2F_nc; jdst++) { 
+      for (idst = i_xstart; idst < i_xend; idst++) {
+        if (idst % 2 == 0) {
+          for (dof = 0; dof < ndofs; dof++) {
+            dst[jdst][idst][dof] = ICF.C2F_even_apply_2D_CL(src, idst, jdst, dof);
+          }
+        } else {
+          for (dof = 0; dof < ndofs; dof++) {
+            dst[jdst][idst][dof] = ICF.C2F_odd_apply_2D_CL(src, idst, jdst, dof);
+          }
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode F2C_2D_LC(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const PetscInt & i_ystart, const PetscInt & i_yend, const std::array<PetscInt,2>& N, const PetscInt F2C_nc)
+  {
+
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+
+    for (jdst = i_ystart; jdst < i_yend; jdst++) {
+      for (idst = 0; idst < F2C_nc; idst++) {
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[jdst][idst][dof] = ICF.F2C_apply_2D_LC(src, idst, jdst, dof);
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode C2F_2D_LC(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const PetscInt & i_ystart, const PetscInt & i_yend, const std::array<PetscInt,2>& N, const PetscInt C2F_nc)
+  {
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+
+    for (jdst = i_ystart; jdst < i_yend; jdst++) {
+      if (jdst % 2 == 0) {
+        for (idst = 0; idst < C2F_nc; idst++) {
+          for (dof = 0; dof < ndofs; dof++) {
+            dst[jdst][idst][dof] = ICF.C2F_even_apply_2D_LC(src, idst, jdst, dof);
+          }
+        }
+      } else {
+        for (idst = 0; idst < C2F_nc; idst++) {
+          for (dof = 0; dof < ndofs; dof++) {
+            dst[jdst][idst][dof] = ICF.C2F_odd_apply_2D_LC(src, idst, jdst, dof);
+          }
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode F2C_2D_CC(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const PetscInt & i_xstart, const PetscInt & i_xend, const PetscInt & i_ystart, const PetscInt & i_yend, const std::array<PetscInt,2>& N, const PetscInt F2C_nc)
+  {
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+
+    for (jdst = i_ystart; jdst < i_yend; jdst++) {
+        for (idst = i_xstart; idst < i_xend; idst++) {
+          for (dof = 0; dof < ndofs; dof++) {
+            dst[jdst][idst][dof] = ICF.F2C_apply_2D_CC(src, idst, jdst, dof);
+          }
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode C2F_2D_CC(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const PetscInt & i_xstart, const PetscInt & i_xend, const PetscInt & i_ystart, const PetscInt & i_yend, const std::array<PetscInt,2>& N, const PetscInt C2F_nc)
+  {
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+
+    for (jdst = i_ystart; jdst < i_yend; jdst++) {
+      if (jdst % 2 == 0) {                                                                  // j even
+        for (idst = i_xstart; idst < i_xend; idst++) {
+          if (idst % 2 == 0) {                                                              // i even
+              for (dof = 0; dof < ndofs; dof++) {
+                dst[jdst][idst][dof] = ICF.C2F_even_even_apply_2D_CC(src, idst, jdst, dof);
+              }
+          } else {                                                                          // i odd        
+            for (dof = 0; dof < ndofs; dof++) {
+              dst[jdst][idst][dof] = ICF.C2F_odd_even_apply_2D_CC(src, idst, jdst, dof);
+            }
+          }
+        }
+      } else {                                                                              // j odd
+        for (idst = i_xstart; idst < i_xend; idst++) {
+          if (idst % 2 == 0) {                                                              // i even
+              for (dof = 0; dof < ndofs; dof++) {
+                dst[jdst][idst][dof] = ICF.C2F_even_odd_apply_2D_CC(src, idst, jdst, dof);
+              }
+          } else {                                                                          // i odd        
+            for (dof = 0; dof < ndofs; dof++) {
+              dst[jdst][idst][dof] = ICF.C2F_odd_odd_apply_2D_CC(src, idst, jdst, dof);
+            }
+          }
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode F2C_2D_RL(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const std::array<PetscInt,2>& N, const PetscInt F2C_nc)
+  {
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+
+    for (jdst = 0; jdst < F2C_nc; jdst++) { 
+      for (idst = N[0]-F2C_nc; idst < N[0]; idst++) {
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[jdst][idst][dof] = ICF.F2C_apply_2D_RL(src, idst, jdst, dof);
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode C2F_2D_RL(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const std::array<PetscInt,2>& N, const PetscInt C2F_nc)
+  {
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+
+    for (jdst = 0; jdst < C2F_nc; jdst++) { 
+      for (idst = N[0]-C2F_nc; idst < N[0]; idst++) {
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[jdst][idst][dof] = ICF.C2F_apply_2D_RL(src, idst, jdst, dof);
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode F2C_2D_RC(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const PetscInt & i_ystart, const PetscInt & i_yend, const std::array<PetscInt,2>& N, const PetscInt F2C_nc)
+  {
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+    
+    for (jdst = i_ystart; jdst < i_yend; jdst++) {
+      for (idst = N[0]-F2C_nc; idst < N[0]; idst++) {
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[jdst][idst][dof] = ICF.F2C_apply_2D_RC(src, idst, jdst, dof);
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode C2F_2D_RC(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const PetscInt & i_ystart, const PetscInt & i_yend, const std::array<PetscInt,2>& N, const PetscInt C2F_nc)
+  {
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+
+    for (jdst = i_ystart; jdst < i_yend; jdst++) {
+      if (jdst % 2 == 0) {
+        for (idst = N[0]-C2F_nc; idst < N[0]; idst++) {
+          for (dof = 0; dof < ndofs; dof++) {
+            dst[jdst][idst][dof] = ICF.C2F_even_apply_2D_RC(src, idst, jdst, dof);
+          }
+        }
+      } else {
+        for (idst = N[0]-C2F_nc; idst < N[0]; idst++) {
+          for (dof = 0; dof < ndofs; dof++) {
+            dst[jdst][idst][dof] = ICF.C2F_odd_apply_2D_RC(src, idst, jdst, dof);
+          }
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode F2C_2D_LR(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const std::array<PetscInt,2>& N, const PetscInt F2C_nc)
+  {
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+
+    for (jdst = N[1]-F2C_nc; jdst < N[1]; jdst++) {
+      for (idst = 0; idst < F2C_nc; idst++) { 
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[jdst][idst][dof] = ICF.F2C_apply_2D_LR(src, idst, jdst, dof);
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode C2F_2D_LR(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const std::array<PetscInt,2>& N, const PetscInt C2F_nc)
+  {
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+
+    for (jdst = N[1]-C2F_nc; jdst < N[1]; jdst++) {
+      for (idst = 0; idst < C2F_nc; idst++) { 
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[jdst][idst][dof] = ICF.C2F_apply_2D_LR(src, idst, jdst, dof);
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode F2C_2D_CR(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const PetscInt & i_xstart, const PetscInt & i_xend, const std::array<PetscInt,2>& N, const PetscInt F2C_nc)
+  {
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+
+    for (jdst = N[1]-F2C_nc; jdst < N[1]; jdst++) {
+      for (idst = i_xstart; idst < i_xend; idst++) {
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[jdst][idst][dof] = ICF.F2C_apply_2D_CR(src, idst, jdst, dof);
+        }
+      }
+    }
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode C2F_2D_CR(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const PetscInt & i_xstart, const PetscInt & i_xend, const std::array<PetscInt,2>& N, const PetscInt C2F_nc)
+  {
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+
+    for (jdst = N[1]-C2F_nc; jdst < N[1]; jdst++) {
+      for (idst = i_xstart; idst < i_xend; idst++) {
+        if (idst % 2 == 0) {
+          for (dof = 0; dof < ndofs; dof++) {
+            dst[jdst][idst][dof] = ICF.C2F_even_apply_2D_CR(src, idst, jdst, dof);
+          }
+        } else {
+          for (dof = 0; dof < ndofs; dof++) {
+            dst[jdst][idst][dof] = ICF.C2F_odd_apply_2D_CR(src, idst, jdst, dof);
+          }
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode F2C_2D_RR(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const std::array<PetscInt,2>& N, const PetscInt F2C_nc)
+  {
+
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+    
+    for (jdst = N[1]-F2C_nc; jdst < N[1]; jdst++) {
+      for (idst = N[0]-F2C_nc; idst < N[0]; idst++) {
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[jdst][idst][dof] = ICF.F2C_apply_2D_RR(src, idst, jdst, dof);
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode C2F_2D_RR(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const std::array<PetscInt,2>& N, const PetscInt C2F_nc)
+  {
+    int idst,jdst,dof;
+    const PetscInt ndofs = 12;
+
+    for (jdst = N[1]-C2F_nc; jdst < N[1]; jdst++) {
+      for (idst = N[0]-C2F_nc; idst < N[0]; idst++) {
+        for (dof = 0; dof < ndofs; dof++) {
+          dst[jdst][idst][dof] = ICF.C2F_apply_2D_RR(src, idst, jdst, dof);
+        }
+      }
+    }
+
+    return 0;
+  }
+ 
+  template <class SbpInterpolator>
+  inline PetscErrorCode apply_F2C(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const std::array<PetscInt,2>& i_start, const std::array<PetscInt,2>& i_end, const std::array<PetscInt,2>& N)
+  {
+    const PetscInt i_xstart = i_start[0]; 
+    const PetscInt i_ystart = i_start[1];
+    const PetscInt i_xend = i_end[0];
+    const PetscInt i_yend = i_end[1];
+    const auto [F2C_nc, C2F_nc] = ICF.get_ranges();
+
+    if (i_ystart == 0)  // BOTTOM
+    {
+      if (i_xstart == 0) // BOTTOM LEFT
+      {
+        F2C_2D_LL(ICF, src, dst, N, F2C_nc);
+        F2C_2D_CL(ICF, src, dst, F2C_nc, i_xend, N, F2C_nc);
+        F2C_2D_LC(ICF, src, dst, F2C_nc, i_yend, N, F2C_nc);
+        F2C_2D_CC(ICF, src, dst, F2C_nc, i_xend, F2C_nc, i_yend, N, F2C_nc); 
+      } else if (i_xend == N[0]) // BOTTOM RIGHT
+      { 
+        F2C_2D_RL(ICF, src, dst, N, F2C_nc);
+        F2C_2D_CL(ICF, src, dst, i_xstart, N[0]-F2C_nc, N, F2C_nc);
+        F2C_2D_RC(ICF, src, dst, F2C_nc, i_yend, N, F2C_nc);
+        F2C_2D_CC(ICF, src, dst, i_xstart, N[0]-F2C_nc, F2C_nc, i_yend, N, F2C_nc); 
+      } else // BOTTOM CENTER
+      { 
+        F2C_2D_CL(ICF, src, dst, i_xstart, i_xend, N, F2C_nc);
+        F2C_2D_CC(ICF, src, dst, i_xstart, i_xend, F2C_nc, i_yend, N, F2C_nc); 
+      }
+    } else if (i_yend == N[1]) // TOP
+    {
+      if (i_xstart == 0) // TOP LEFT
+      {
+        F2C_2D_LR(ICF, src, dst, N, F2C_nc);
+        F2C_2D_CR(ICF, src, dst, F2C_nc, i_xend, N, F2C_nc);
+        F2C_2D_LC(ICF, src, dst, i_ystart, N[1] - F2C_nc, N, F2C_nc);
+        F2C_2D_CC(ICF, src, dst, F2C_nc, i_xend, i_ystart, N[1]-F2C_nc, N, F2C_nc);  
+      } else if (i_xend == N[0]) // TOP RIGHT
+      { 
+        F2C_2D_RR(ICF, src, dst, N, F2C_nc);
+        F2C_2D_CR(ICF, src, dst, i_xstart, N[0]-F2C_nc, N, F2C_nc);
+        F2C_2D_RC(ICF, src, dst, i_ystart, N[1] - F2C_nc, N, F2C_nc);
+        F2C_2D_CC(ICF, src, dst, i_xstart, N[0]-F2C_nc, i_ystart, N[1] - F2C_nc, N, F2C_nc);
+      } else // TOP CENTER
+      { 
+        F2C_2D_CR(ICF, src, dst, i_xstart, i_xend, N, F2C_nc);
+        F2C_2D_CC(ICF, src, dst, i_xstart, i_xend, i_ystart,  N[1] - F2C_nc, N, F2C_nc);
+      }
+    } else if (i_xstart == 0) // LEFT NOT BOTTOM OR TOP
+    { 
+      F2C_2D_LC(ICF, src, dst, i_ystart, i_yend, N, F2C_nc);
+      F2C_2D_CC(ICF, src, dst, F2C_nc, i_xend, i_ystart, i_yend, N, F2C_nc);
+    } else if (i_xend == N[0]) // RIGHT NOT BOTTOM OR TOP
+    {
+      F2C_2D_RC(ICF, src, dst, i_ystart, i_yend, N, F2C_nc);
+      F2C_2D_CC(ICF, src, dst, i_xstart, N[0] - F2C_nc, i_ystart, i_yend, N, F2C_nc);
+    } else // CENTER
+    {
+      F2C_2D_CC(ICF, src, dst, i_xstart, i_xend, i_ystart, i_yend, N, F2C_nc);
+    }
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
+  inline PetscErrorCode apply_C2F(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const std::array<PetscInt,2>& i_start, const std::array<PetscInt,2>& i_end, const std::array<PetscInt,2>& N)
+  {
+    const PetscInt i_xstart = i_start[0]; 
+    const PetscInt i_ystart = i_start[1];
+    const PetscInt i_xend = i_end[0];
+    const PetscInt i_yend = i_end[1];
+    const auto [F2C_nc, C2F_nc] = ICF.get_ranges();
+
+    if (i_ystart == 0)  // BOTTOM
+    {
+      if (i_xstart == 0) // BOTTOM LEFT
+      {
+        C2F_2D_LL(ICF, src, dst, N, C2F_nc);
+        C2F_2D_CL(ICF, src, dst, C2F_nc, i_xend, N, C2F_nc);
+        C2F_2D_LC(ICF, src, dst, C2F_nc, i_yend, N, C2F_nc);
+        C2F_2D_CC(ICF, src, dst, C2F_nc, i_xend, C2F_nc, i_yend, N, C2F_nc); 
+      } else if (i_xend == N[0]) // BOTTOM RIGHT
+      { 
+        C2F_2D_RL(ICF, src, dst, N, C2F_nc);
+        C2F_2D_CL(ICF, src, dst, i_xstart, N[0]-C2F_nc, N, C2F_nc);
+        C2F_2D_RC(ICF, src, dst, C2F_nc, i_yend, N, C2F_nc);
+        C2F_2D_CC(ICF, src, dst, i_xstart, N[0]-C2F_nc, C2F_nc, i_yend, N, C2F_nc); 
+      } else // BOTTOM CENTER
+      { 
+        C2F_2D_CL(ICF, src, dst, i_xstart, i_xend, N, C2F_nc);
+        C2F_2D_CC(ICF, src, dst, i_xstart, i_xend, C2F_nc, i_yend, N, C2F_nc); 
+      }
+    } else if (i_yend == N[1]) // TOP
+    {
+      if (i_xstart == 0) // TOP LEFT
+      {
+        C2F_2D_LR(ICF, src, dst, N, C2F_nc);
+        C2F_2D_CR(ICF, src, dst, C2F_nc, i_xend, N, C2F_nc);
+        C2F_2D_LC(ICF, src, dst, i_ystart, N[1] - C2F_nc, N, C2F_nc);
+        C2F_2D_CC(ICF, src, dst, C2F_nc, i_xend, i_ystart, N[1]-C2F_nc, N, C2F_nc);  
+      } else if (i_xend == N[0]) // TOP RIGHT
+      { 
+        C2F_2D_RR(ICF, src, dst, N, C2F_nc);
+        C2F_2D_CR(ICF, src, dst, i_xstart, N[0]-C2F_nc, N, C2F_nc);
+        C2F_2D_RC(ICF, src, dst, i_ystart, N[1] - C2F_nc, N, C2F_nc);
+        C2F_2D_CC(ICF, src, dst, i_xstart, N[0]-C2F_nc, i_ystart, N[1] - C2F_nc, N, C2F_nc);
+      } else // TOP CENTER
+      { 
+        C2F_2D_CR(ICF, src, dst, i_xstart, i_xend, N, C2F_nc);
+        C2F_2D_CC(ICF, src, dst, i_xstart, i_xend, i_ystart,  N[1] - C2F_nc, N, C2F_nc);
+      }
+    } else if (i_xstart == 0) // LEFT NOT BOTTOM OR TOP
+    { 
+      C2F_2D_LC(ICF, src, dst, i_ystart, i_yend, N, C2F_nc);
+      C2F_2D_CC(ICF, src, dst, C2F_nc, i_xend, i_ystart, i_yend, N, C2F_nc);
+    } else if (i_xend == N[0]) // RIGHT NOT BOTTOM OR TOP
+    {
+      C2F_2D_RC(ICF, src, dst, i_ystart, i_yend, N, C2F_nc);
+      C2F_2D_CC(ICF, src, dst, i_xstart, N[0] - C2F_nc, i_ystart, i_yend, N, C2F_nc);
+    } else // CENTER
+    {
+      C2F_2D_CC(ICF, src, dst, i_xstart, i_xend, i_ystart, i_yend, N, C2F_nc);
+    }
+
+    return 0;
+  }
 
   inline PetscScalar aco_imp_apply_D_time(const PetscScalar D_time[4][4], PetscScalar ***src, PetscInt i, PetscInt j, PetscInt tcomp, PetscInt dof)
   {

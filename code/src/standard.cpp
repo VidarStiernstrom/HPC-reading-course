@@ -16,7 +16,7 @@ struct JACCtx {
 };
 
 
-PetscErrorCode standard_solver(Mat &A, Vec& v) 
+PetscErrorCode standard_solver(Mat &A, Vec& v, std::string filename_reshist) 
 {
 	KSP ksp;
 	PC pc;
@@ -25,7 +25,12 @@ PetscErrorCode standard_solver(Mat &A, Vec& v)
   	PetscReal      l2_error, max_error, H_error;
 	MatCtx *matctx;
 	JACCtx 		   	jacctx;
-	PetscInt rank, blockidx;
+	PetscInt rank, blockidx, ksp_maxit;
+
+  	ksp_maxit = 1e5;
+
+  	filename_reshist.insert(0,"stand_");
+  	PetscPrintf(PETSC_COMM_WORLD,"Output file: %s\n",filename_reshist.c_str());
 
 	MPI_Comm_rank(PETSC_COMM_WORLD,&rank);
 
@@ -33,14 +38,15 @@ PetscErrorCode standard_solver(Mat &A, Vec& v)
 
 	KSPCreate(PETSC_COMM_WORLD, &ksp);
 	KSPSetOperators(ksp, A, A);
-	KSPSetTolerances(ksp, 1e-12, PETSC_DEFAULT, PETSC_DEFAULT, 1e5);
+	KSPSetTolerances(ksp, 1e-12, PETSC_DEFAULT, PETSC_DEFAULT, ksp_maxit);
 	KSPSetPCSide(ksp, PC_RIGHT);
-	KSPSetType(ksp, KSPPIPEFGMRES);
 	KSPGMRESSetRestart(ksp, 10);
 	KSPSetInitialGuessNonzero(ksp, PETSC_TRUE);
 	KSPSetFromOptions(ksp);
 	KSPSetUp(ksp);
 	KSPGetPC(ksp,&pc);
+
+	KSPSetResidualHistory(ksp, NULL, ksp_maxit+10, PETSC_FALSE);
 
 	// none
 	PCSetType(pc,PCNONE);
@@ -80,6 +86,17 @@ PetscErrorCode standard_solver(Mat &A, Vec& v)
 		elapsed_time = v2 - v1; 
 	}
 	PetscPrintf(PETSC_COMM_WORLD,"Elapsed time: %f seconds\n",elapsed_time);
+
+  if (rank == 0) {
+    PetscReal *reshistarr;
+    PetscInt nits;
+    Vec reshist;
+    KSPGetResidualHistory(ksp, &reshistarr, &nits);
+    reshistarr[nits] = nits;
+    reshistarr[nits+1] = elapsed_time;
+    VecCreateSeqWithArray(PETSC_COMM_SELF,1,nits+2,reshistarr, &reshist);
+    write_vector_to_binary(reshist, "data/aco2D", filename_reshist.c_str(), PETSC_COMM_SELF);
+  }
 
 	// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 	// Compute and print error
