@@ -2,6 +2,10 @@
 #include<petscsystypes.h>
 #include "grids/grid_function.h"
 
+//=============================================================================
+// 1D functions
+//=============================================================================
+
 template <typename ApplyLBoundary, 
           typename ApplyLInterior, 
           typename ApplyCInterior, 
@@ -97,4 +101,51 @@ inline PetscErrorCode partitioned_apply_1D_single_core(const ApplyLBoundary& app
   return 0;
 };
 
+//=============================================================================
+// 2D functions
+//=============================================================================
+
+template <typename ApplyLLCorner,
+          typename ApplyLLWest,
+          typename ApplyLLSouth,
+          typename ApplyLLInterior,
+          typename... Args,
+          class SbpDerivative>
+inline PetscErrorCode partitioned_apply_LL(ApplyLLCorner apply_LL_corner,
+                                           ApplyLLWest apply_LL_west,
+                                           ApplyLLSouth apply_LL_south,
+                                           ApplyLLInterior apply_LL_interior,
+                                           grid::grid_function_2d<PetscScalar> dst,
+                                           const grid::grid_function_2d<PetscScalar> src,
+                                           const std::array<PetscInt,2>& N,
+                                           const SbpDerivative& D1,
+                                           const std::array<PetscScalar,2>& hi,
+                                           Args args...)
+{
+    int i,j;
+    const auto n_closures = D1.closure_size();
+    // Apply corner point
+    apply_LL_corner(dst,src,N,D1,hi,args...);
+
+    // Apply points on west boundary (exluding corner)
+    for (j = 1; j < n_closures; j++)
+    { 
+      apply_LL_west(dst,src,N,D1,hi,j,args...);
+    }
+    // Apply points on south boundary (exluding corner)
+    for (i = 1; i < n_closures; i++) 
+    { 
+      apply_LL_south(dst,src,N,D1,hi,i,args...);
+    }
+
+    // Apply remaining interior closure points
+    for (j = 1; j < n_closures; j++)
+    { 
+      for (i = 1; i < n_closures; i++) 
+      { 
+        apply_LL_south(dst,src,N,D1,hi,i,j,args...);
+      }
+    }
+    return 0;
+  }
 
