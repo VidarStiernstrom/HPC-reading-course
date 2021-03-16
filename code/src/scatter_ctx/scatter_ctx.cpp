@@ -2,6 +2,28 @@
 #include <petsc/private/dmdaimpl.h> 
 #include "scatter_ctx/scatter_ctx.h"
 
+PetscErrorCode build_ltol_1D(DM da, VecScatter *ltol);
+PetscErrorCode build_ltol_2D(DM da, VecScatter *ltol);
+
+
+PetscErrorCode scatter_ctx_ltol(DM da, VecScatter *ltol)
+{
+  PetscInt dim;
+  DMDAGetInfo(da,&dim,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+  switch (dim)
+  {
+    case 1:
+      return build_ltol_1D(da, ltol);
+      break;
+    case 2:
+      return build_ltol_2D(da, ltol);
+      break;
+    default:
+      return -1;
+      break;
+  }
+}
+
 /**
 * Build local to local scatter context containing only ghost point communications
 * Inputs: da        - DMDA object
