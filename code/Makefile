@@ -15,7 +15,7 @@ INCLUDES = $(INCLUDE_PATH) $(EXTERNAL_INCLUDE)
 
 IFLAGS			= $(foreach d, $(INCLUDES), -I$d)
 DEBUG_MODULES	= -Wall
-COPTFLAGS		= -std=c++17 -O3 -march=native -mtune=native
+COPTFLAGS		= -std=c++17 -O3 -march=native -mtune=native -ffast-math
 CPPFLAGS		= -DVERSION=${PETSC_VERSION_NUM}
 
 CXX 			= mpicc 
