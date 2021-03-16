@@ -28,7 +28,7 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 #include "sbpops/H_central.h"
 #include "sbpops/HI_central.h"
 #include "acoustic_wave_eq/acowave.h"
-#include "timestepping.h"
+#include "timestepping/timestepping.h"
 #include "appctx.h"
 #include "grids/grid_function.h"
 #include "grids/create_layout.h"
@@ -50,7 +50,7 @@ int main(int argc,char **argv)
   PetscReal      l2_error, max_error, H_error;
 
   AppCtx         appctx;
-  PetscBool      write_data, use_custom_ts, use_custom_sc;
+  PetscBool      write_data, use_custom_sc;
   PetscLogDouble v1,v2,elapsed_time = 0;
 
   PetscErrorCode ierr;
@@ -60,7 +60,7 @@ int main(int argc,char **argv)
   ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
 
-  if (get_inputs_2d(argc, argv, &Nx, &Ny, &Tend, &CFL, &use_custom_ts, &use_custom_sc) == -1) {
+  if (get_inputs(argc, argv, &Nx, &Ny, &Tend, &CFL, &use_custom_sc) == -1) {
     PetscFinalize();
     return -1;
   }
@@ -156,12 +156,8 @@ int main(int argc,char **argv)
     PetscTime(&v1);
   }
 
-  if (use_custom_ts) {
-    RK4_custom(da, appctx, Tend, dt, vlocal, rhs);  
-  } else {
-    RK4_petsc(da, appctx, Tend, dt, vlocal, rhs_TS);  
-  }
-  
+  time_integrate_rk4(da, Tend, dt, vlocal, rhs_TS, (void *)&appctx);  
+
   PetscBarrier((PetscObject) v);
   if (rank == 0) {
     PetscTime(&v2);

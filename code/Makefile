@@ -4,6 +4,8 @@ OBJ_PATH = obj/
 INCLUDE_PATH = include/
 EXTERNAL_PATH = external/
 
+all: init $(BIN_PATH)acowave_2D
+
 # External include paths
 MDSPAN_INCLUDE = $(EXTERNAL_PATH)mdspan/include
 PETSC_INCLUDE = ${PETSC_DIR}include
@@ -23,10 +25,8 @@ include ${PETSC_DIR}/lib/petsc/conf/variables
 include ${PETSC_DIR}/lib/petsc/conf/rules
 include ${PETSC_DIR}/lib/petsc/conf/test
 
-all: init $(BIN_PATH)acowave_2D
-
 # Link object files to create binaries in BIN_PATH/
-$(BIN_PATH)acowave_2D: $(OBJ_PATH)acowave_2D.o $(OBJ_PATH)create_layout.o $(OBJ_PATH)IO_utils.o $(OBJ_PATH)scatter_ctx.o
+$(BIN_PATH)acowave_2D: $(OBJ_PATH)acowave_2D.o $(OBJ_PATH)create_layout.o $(OBJ_PATH)IO_utils.o $(OBJ_PATH)scatter_ctx.o $(OBJ_PATH)timestepping.o
 	-${CXX} -o $@ $^ ${PETSC_SYS_LIB}
 
 # Compile object files to OBJ_PATH/
@@ -40,6 +40,9 @@ $(OBJ_PATH)IO_utils.o: $(SRC_PATH)io/IO_utils.cpp
 	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
 
 $(OBJ_PATH)scatter_ctx.o: $(SRC_PATH)scatter_ctx/scatter_ctx.cpp
+	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
+
+$(OBJ_PATH)timestepping.o: $(SRC_PATH)timestepping/timestepping.cpp
 	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
 
 

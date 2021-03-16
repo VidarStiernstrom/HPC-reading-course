@@ -1,5 +1,6 @@
-#include<petsc.h>
+#include <petsc.h>
 #include <petsc/private/dmdaimpl.h> 
+#include "scatter_ctx/scatter_ctx.h"
 
 /**
 * Build local to local scatter context containing only ghost point communications
