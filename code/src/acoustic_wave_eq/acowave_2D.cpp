@@ -27,13 +27,13 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 #include "sbpops/D1_central.h"
 #include "sbpops/H_central.h"
 #include "sbpops/HI_central.h"
-#include "diffops/acowave.h"
+#include "acoustic_wave_eq/acowave.h"
 #include "timestepping.h"
 #include "appctx.h"
 #include "grids/grid_function.h"
 #include "grids/create_layout.h"
-#include "IO_utils.h"
-#include "scatter_ctx.h"
+#include "io/IO_utils.h"
+#include "scatter_ctx/scatter_ctx.h"
 
 extern PetscErrorCode analytic_solution(DM, PetscScalar, AppCtx&, Vec&);
 extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
