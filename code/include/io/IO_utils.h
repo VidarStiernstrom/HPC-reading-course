@@ -8,4 +8,4 @@ PetscErrorCode write_data_to_file(const std::string data_string, const std::stri
 
 void print_usage(char* exec_name);
 
-int get_inputs(int argc, char *argv[], PetscInt *Nx, PetscInt *Ny, PetscScalar *Tend, PetscScalar *CFL, PetscBool *use_custom_sc);
+int get_inputs(int argc, char *argv[], PetscInt *Nx, PetscInt *Ny, PetscScalar *Tend, PetscScalar *CFL);
