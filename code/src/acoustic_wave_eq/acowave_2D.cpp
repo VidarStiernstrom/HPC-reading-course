@@ -50,7 +50,7 @@ int main(int argc,char **argv)
   PetscReal      l2_error, max_error, H_error;
 
   AppCtx         appctx;
-  PetscBool      write_data, use_custom_sc;
+  PetscBool      write_data;
   PetscLogDouble v1,v2,elapsed_time = 0;
 
   PetscErrorCode ierr;
@@ -60,7 +60,7 @@ int main(int argc,char **argv)
   ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
 
-  if (get_inputs(argc, argv, &Nx, &Ny, &Tend, &CFL, &use_custom_sc) == -1) {
+  if (get_inputs(argc, argv, &Nx, &Ny, &Tend, &CFL) == -1) {
     PetscFinalize();
     return -1;
   }
@@ -125,11 +125,8 @@ int main(int argc,char **argv)
   appctx.layout = grid::create_layout_2d(da);
 
   // Extract local to local scatter context
-  if (use_custom_sc) {
-    build_ltol_2D(da, &appctx.scatctx);
-  } else {
-    DMDAGetScatter(da, NULL, &appctx.scatctx);
-  }
+  scatter_ctx_ltol(da, &appctx.scatctx);
+
   
   /*  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       Extract global vectors from DMDA; then duplicate for remaining
