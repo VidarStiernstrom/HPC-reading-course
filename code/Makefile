@@ -4,7 +4,7 @@ OBJ_PATH = obj/
 INCLUDE_PATH = include/
 EXTERNAL_PATH = external/
 
-all: init $(BIN_PATH)acowave_2D
+all: init $(BIN_PATH)acoustic_wave_eq
 
 # External include paths
 MDSPAN_INCLUDE = $(EXTERNAL_PATH)mdspan/include
@@ -26,11 +26,11 @@ include ${PETSC_DIR}/lib/petsc/conf/rules
 include ${PETSC_DIR}/lib/petsc/conf/test
 
 # Link object files to create binaries in BIN_PATH/
-$(BIN_PATH)acowave_2D: $(OBJ_PATH)acowave_2D.o $(OBJ_PATH)create_layout.o $(OBJ_PATH)IO_utils.o $(OBJ_PATH)scatter_ctx.o $(OBJ_PATH)timestepping.o
+$(BIN_PATH)acoustic_wave_eq: $(OBJ_PATH)acoustic_wave_eq.o $(OBJ_PATH)create_layout.o $(OBJ_PATH)IO_utils.o $(OBJ_PATH)scatter_ctx.o $(OBJ_PATH)timestepping.o
 	-${CXX} -o $@ $^ ${PETSC_SYS_LIB}
 
 # Compile object files to OBJ_PATH/
-$(OBJ_PATH)acowave_2D.o: $(SRC_PATH)acoustic_wave_eq/acowave_2D.cpp
+$(OBJ_PATH)acoustic_wave_eq.o: $(SRC_PATH)acoustic_wave_eq/acowave_2D.cpp
 	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
 	
 $(OBJ_PATH)create_layout.o: $(SRC_PATH)grids/create_layout.cpp
