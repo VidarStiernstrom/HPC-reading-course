@@ -27,61 +27,6 @@
     int i,j;
 
     /**
-    * BC using projection, vt = P*D*P*v. Pressure zero on every boundary.
-    **/
-
-      // // Set src to Pv
-      // i = 0; 
-      // j = 0;
-      // src(j,i,2) = 0.0;
-
-      // i = 0;
-      // for (j = 1; j < n_closures; j++)
-      // { 
-      //   src(j,i,2) = 0.0;
-      // }
-
-      // j = 0;
-      // for (i = 1; i < n_closures; i++) 
-      // { 
-      //   src(j,i,2) = 0.0;
-      // }
-
-      // // Set dst to Dv on inner points
-      // for (j = 1; j < n_closures; j++)
-      // { 
-      //   for (i = 1; i < n_closures; i++) 
-      //   { 
-      //     dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
-      //     dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
-      //     dst[j][i][2] = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
-      //   }
-      // }
-
-      // // Set dst to PDv on boundary points
-      // i = 0; 
-      // j = 0;
-      // dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
-      // dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
-      // dst[j][i][2] = 0.0;
-
-      // i = 0;
-      // for (j = 1; j < n_closures; j++)
-      // { 
-      //   dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
-      //   dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
-      //   dst[j][i][2] = 0.0;
-      // }
-
-      // j = 0;
-      // for (i = 1; i < n_closures; i++) 
-      // { 
-      //   dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
-      //   dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
-      //   dst[j][i][2] = 0.0;
-      // }
-
-    /**
     * BC using SAT, vt = D*v + SATw*v + SATe*v + SATs*v + SATn*v.
     * SATw = kron(tauw,HIx) ew kron(e3,ew'), tauw = [-1;0;0]
     * SATe = kron(taue,HIx) ee kron(e3,ee'), taue = [1;0;0]
@@ -138,35 +83,6 @@
   {
     int i,j;
 
-    /**
-    * BC using projection, vt = P*D*P*v. Pressure zero on every boundary.
-    **/
-      // // Set src to Pv
-      // j = 0;
-      // for (i = i_xstart; i < i_xend; i++)
-      // {
-      //   src(j,i,2) = 0;
-      // }
-
-      // // Set dst to DPv on unaffected points
-      // for (j = 1; j < n_closures; j++)
-      // { 
-      //   for (i = i_xstart; i < i_xend; i++)
-      //   {
-      //     dst[j][i][0] = -D1.apply_x_interior(src,hi[0],i,j,2);
-      //     dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
-      //     dst[j][i][2] = -D1.apply_x_interior(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
-      //   }
-      // }
-
-      // // Set dst to PDPv on affected points
-      // j = 0;
-      // for (i = i_xstart; i < i_xend; i++)
-      // {
-      //   dst[j][i][0] = -D1.apply_x_interior(src,hi[0],i,j,2);
-      //   dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
-      //   dst[j][i][2] = 0;
-      // }
 
     /**
     * BC using SAT, vt = D*v + SATw*v + SATe*v + SATs*v + SATn*v.
@@ -211,36 +127,6 @@
   {
     int i,j;
 
-    /**
-    * BC using projection, vt = P*D*P*v. Pressure zero on every boundary.
-    **/
-
-    // // Set src to Pv
-    // i = 0;
-    // for (j = i_ystart; j < i_yend; j++)
-    // { 
-    //   src(j,i,2) = 0;
-    // }
-
-    // // Set dst to DPv on unaffected points
-    // for (j = i_ystart; j < i_yend; j++)
-    // { 
-    //   for (i = 1; i < n_closures; i++)
-    //   {
-    //     dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
-    //     dst[j][i][1] = -D1.apply_y_interior(src,hi[1],i,j,2);
-    //     dst[j][i][2] = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_interior(src,hi[1],i,j,1);
-    //   }
-    // }
-
-    // // Set dst to PDPv on affected points
-    // i = 0;
-    // for (j = i_ystart; j < i_yend; j++)
-    // { 
-    //   dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
-    //   dst[j][i][1] = -D1.apply_y_interior(src,hi[1],i,j,2);
-    //   dst[j][i][2] = 0;
-    // }
 
     /**
     * BC using SAT, vt = D*v + SATw*v + SATe*v + SATs*v + SATn*v.
@@ -308,71 +194,6 @@
   {
     int i,j;
 
-    /**
-    * BC using projection, vt = P*D*P*v. Pressure zero on every boundary.
-    **/
-
-    // // Set src to Pv
-    // i = N[0]-1; 
-    // j = 0;
-    // src(j,i,2) = 0.0;
-
-    // i = N[0]-1;
-    // for (j = 1; j < n_closures; j++)
-    // { 
-    //   src(j,i,2) = 0.0;
-    // }
-
-    // j = 0;
-    // for (i = N[0]-n_closures; i < N[0]-1; i++) 
-    // { 
-    //   src(j,i,2) = 0.0;
-    // }
-
-    // // Set dst to DPv on unaffected points
-    // for (j = 1; j < n_closures; j++)
-    // { 
-    //   for (i = N[0]-n_closures; i < N[0]-1; i++) 
-    //   { 
-    //     dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    //     dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
-    //     dst[j][i][2] = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
-    //   }
-    // }
-
-    // // Set dst to PDPv on affected points
-    // i = N[0]-1; 
-    // j = 0;
-    // dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    // dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
-    // dst[j][i][2] = 0;
-
-
-    // i = N[0]-1;
-    // for (j = 1; j < n_closures; j++)
-    // { 
-    //   dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    //   dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
-    //   dst[j][i][2] = 0;
-    // }
-
-    // j = 0;
-    // for (i = N[0]-n_closures; i < N[0]-1; i++) 
-    // { 
-    //   dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    //   dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
-    //   dst[j][i][2] = 0;
-    // }
-
-    /**
-    * BC using SAT, vt = D*v + SATw*v + SATe*v + SATs*v + SATn*v.
-    * SATw = kron(tauw,HIx) ew kron(e3,ew'), tauw = [-1;0;0]
-    * SATe = kron(taue,HIx) ee kron(e3,ee'), taue = [1;0;0]
-    * SATs = kron(taus,HIy) es kron(e3,es'), taus = [0;-1;0]
-    * SATn = kron(taun,HIy) en kron(e3,en'), taun = [0;1;0]
-    **/ 
-
-
     // Set dst on unaffected points
     for (j = 1; j < n_closures; j++)
     { 
@@ -421,36 +242,6 @@
   {
     int i,j;
 
-    /**
-    * BC using projection, vt = P*D*P*v. Pressure zero on every boundary.
-    **/
-
-    // // Set src to Pv
-    // i = N[0]-1;
-    // for (j = i_ystart; j < i_yend; j++)
-    // { 
-    //   src(j,i,2) = 0;
-    // }
-
-    // // Set dst to DPv on unaffected points
-    // for (j = i_ystart; j < i_yend; j++)
-    // { 
-    //   for (i = N[0]-n_closures; i < N[0]-1; i++) 
-    //   {
-    //     dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    //     dst[j][i][1] = -D1.apply_y_interior(src,hi[1],i,j,2);
-    //     dst[j][i][2] = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_interior(src,hi[1],i,j,1);
-    //   }
-    // }
-
-    // // Set dst to PDPv on affected points
-    // i = N[0]-1;
-    // for (j = i_ystart; j < i_yend; j++)
-    // { 
-    //   dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    //   dst[j][i][1] = -D1.apply_y_interior(src,hi[1],i,j,2);
-    //   dst[j][i][2] = 0;
-    // }
 
     /**
     * BC using SAT, vt = D*v + SATw*v + SATe*v + SATs*v + SATn*v.
@@ -493,60 +284,6 @@
   {
     int i,j;
 
-    /**
-    * BC using projection, vt = P*D*P*v. Pressure zero on every boundary.
-    **/
-
-    // // Set src to Pv
-    // i = 0; 
-    // j = N[1]-1;
-    // src(j,i,2) = 0.0;
-
-    // i = 0;
-    // for (j = N[1]-n_closures; j < N[1]-1; j++) 
-    // { 
-    //   src(j,i,2) = 0.0;
-    // }
-
-    // j = N[1]-1;
-    // for (i = 1; i < n_closures; i++) 
-    // { 
-    //   src(j,i,2) = 0.0;
-    // }
-
-    // // Set dst to DPv on unaffected points
-    // for (j = N[1]-n_closures; j < N[1]-1; j++) 
-    // { 
-    //   for (i = 1; i < n_closures; i++) 
-    //   { 
-    //     dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
-    //     dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    //     dst[j][i][2] = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
-    //   }
-    // }
-
-    // // Set dst to PDPv on affected points
-    // i = 0; 
-    // j = N[1]-1;
-    // dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
-    // dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    // dst[j][i][2] = 0.0;
-
-    // i = 0;
-    // for (j = N[1]-n_closures; j < N[1]-1; j++) 
-    // { 
-    //   dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
-    //   dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    //   dst[j][i][2] = 0.0;
-    // }
-
-    // j = N[1]-1;
-    // for (i = 1; i < n_closures; i++) 
-    // { 
-    //   dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
-    //   dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    //   dst[j][i][2] = 0.0;
-    // }
 
     /**
     * BC using SAT, vt = D*v + SATw*v + SATe*v + SATs*v + SATn*v.
@@ -605,37 +342,6 @@
     int i,j;
 
     /**
-    * BC using projection, vt = P*D*P*v. Pressure zero on every boundary.
-    **/
-
-    // // Set src to Pv
-    // j = N[1]-1;
-    // for (i = i_xstart; i < i_xend; i++)
-    // {
-    //   src(j,i,2) = 0;
-    // }
-
-    // // Set dst to DPv on unaffected points
-    // for (j = N[1]-n_closures; j < N[1]-1; j++)
-    // { 
-    //   for (i = i_xstart; i < i_xend; i++)
-    //   {
-    //     dst[j][i][0] = -D1.apply_x_interior(src,hi[0],i,j,2);
-    //     dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    //     dst[j][i][2] = -D1.apply_x_interior(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
-    //   }
-    // }
-
-    // // Set dst to PDPv on affected points
-    // j = N[1]-1;
-    // for (i = i_xstart; i < i_xend; i++)
-    // {
-    //   dst[j][i][0] = -D1.apply_x_interior(src,hi[0],i,j,2);
-    //   dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    //   dst[j][i][2] = 0;
-    // }
-
-    /**
     * BC using SAT, vt = D*v + SATw*v + SATe*v + SATs*v + SATn*v.
     * SATw = kron(tauw,HIx) ew kron(e3,ew'), tauw = [-1;0;0]
     * SATe = kron(taue,HIx) ee kron(e3,ee'), taue = [1;0;0]
@@ -675,61 +381,6 @@
                                            const std::array<PetscScalar,2>& hi, const PetscInt sw, const PetscInt n_closures)
   {
     int i,j;
-
-    /**
-    * BC using projection, vt = P*D*P*v. Pressure zero on every boundary.
-    **/
-
-    // Set src to Pv
-    // i = N[0]-1; 
-    // j = N[1]-1;
-    // src(j,i,2) = 0.0;
-
-    // i = N[0]-1; 
-    // for (j = N[1]-n_closures; j < N[1]-1; j++)
-    // { 
-    //   src(j,i,2) = 0.0;
-    // }
-
-    // j = N[1]-1;
-    // for (i = N[0]-n_closures; i < N[0]-1; i++) 
-    // { 
-    //   src(j,i,2) = 0.0;
-    // }
-
-    // // Set dst to DPv on unaffected points
-    // for (j = N[1]-n_closures; j < N[1]-1; j++)
-    // { 
-    //   for (i = N[0]-n_closures; i < N[0]-1; i++) 
-    //   { 
-    //     dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    //     dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    //     dst[j][i][2] = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
-    //   }
-    // }
-
-    // // Set dst to PDPv on affected points
-    // i = N[0]-1; 
-    // j = N[1]-1;
-    // dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    // dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    // dst[j][i][2] = 0.0;
-
-    // i = N[0]-1; 
-    // for (j = N[1]-n_closures; j < N[1]-1; j++)
-    // { 
-    //   dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    //   dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    //   dst[j][i][2] = 0.0;
-    // }
-
-    // j = N[1]-1;
-    // for (i = N[0]-n_closures; i < N[0]-1; i++) 
-    // { 
-    //   dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    //   dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    //   dst[j][i][2] = 0.0;
-    // }
 
     /**
     * BC using SAT, vt = D*v + SATw*v + SATe*v + SATs*v + SATn*v.
