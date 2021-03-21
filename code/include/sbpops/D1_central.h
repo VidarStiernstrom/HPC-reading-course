@@ -24,74 +24,9 @@ namespace sbp {
       return std::make_tuple(interior_width,n_closures,closure_width);
     };
 
-    //TODO: The pointer to pointer layout may prevent compiler optimization for e.g vectorization since it is not clear whether
-    //      the memory is contiguous or not. We should switch to a flat array layout, once we get something running for systems in 2D.
-    
-    //=============================================================================
-    // 1D functions
-    //=============================================================================
-
-    /**
-    * Computes the derivative in x-direction of a multicomponent 1D grid function v[i][comp] for an index i within the set of left closure points.
-    * Input:  v     - Multicomponent 1D grid function v (typically obtained via DMDAVecGetArrayDOF)
-    *         hi    - inverse grid spacing
-    *         i     - Grid index in x-direction. Index must be within the set of left closure points
-    *         comp  - grid function component.
-    *
-    * Output: derivative v_x[i][comp]
-    **/
-    inline PetscScalar apply_left(const grid::grid_function_1d<PetscScalar> v, const PetscScalar hi, const PetscInt i, const PetscInt comp) const
-    {
-      PetscScalar u = 0;
-      for (PetscInt is = 0; is<closure_width; is++)
-      {
-        u += static_cast<const Stencils&>(*this).closure_stencils[i][is]*v(is, comp);
-      }
-      return hi*u;
-    };
-
-    /**
-    * Computes the derivative in x-direction of a multicomponent 1D grid function v[i][comp] for an index i within the set of interior points.
-    * Input:  v     - Multicomponent 1D grid function v (typically obtained via DMDAVecGetArrayDOF)
-    *         hi    - inverse grid spacing
-    *         i     - Grid index in x-direction. Index must be within the set of interior points
-    *         comp  - grid function component.
-    *
-    * Output: derivative v_x[i][comp]
-    **/
-    inline PetscScalar apply_interior(const grid::grid_function_1d<PetscScalar> v, const PetscScalar hi, const PetscInt i, const PetscInt comp) const
-    {
-      PetscScalar u = 0;
-      for (PetscInt is = 0; is<interior_width; is++)
-      {
-        u += static_cast<const Stencils&>(*this).interior_stencil[is]*v(i-(interior_width-1)/2+is, comp);
-      }
-      return hi*u;
-    };
-
-    /**
-    * Computes the derivative in x-direction of a multicomponent 1D grid function v[i][comp] for an index i within the set of right closure points.
-    * Input:  v     - Multicomponent 1D grid function v (typically obtained via DMDAVecGetArrayDOF)
-    *         hi    - inverse grid spacing
-    *         i     - Grid index in x-direction. Index must be within the set of right closure points.
-    *         comp  - grid function component.
-    *
-    * Output: derivative v_x[i][comp]
-    **/
-    inline PetscScalar apply_right(const grid::grid_function_1d<PetscScalar> v, const PetscScalar hi, const PetscInt N, const PetscInt i, const PetscInt comp) const
-    {
-      PetscScalar u = 0;
-      for (PetscInt is = 0; is < closure_width; is++)
-      {
-        u -= static_cast<const Stencils&>(*this).closure_stencils[N-i-1][closure_width-is-1]*v(N-closure_width+is, comp);
-      }
-      return hi*u;
-    };
-
     //=============================================================================
     // 2D functions
     //=============================================================================
-
 
     /**
     * Computes the derivative in x-direction of a multicomponent 2D grid function v[j][i][comp] for an index i within the set of left closure points.
@@ -103,7 +38,7 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_2D_x_left(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_x_left(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<closure_width; is++)
@@ -123,7 +58,7 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_2D_y_left(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_y_left(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<closure_width; is++)
@@ -143,7 +78,7 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_2D_x_interior(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_x_interior(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<interior_width; is++)
@@ -163,7 +98,7 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_2D_y_interior(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_y_interior(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<interior_width; is++)
@@ -184,7 +119,7 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_2D_x_right(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hix, const PetscInt Nx, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_x_right(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hix, const PetscInt Nx, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is < closure_width; is++)
@@ -205,7 +140,7 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_2D_y_right(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hiy, const PetscInt Ny, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_y_right(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hiy, const PetscInt Ny, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is < closure_width; is++)

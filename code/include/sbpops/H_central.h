@@ -24,85 +24,6 @@ namespace sbp {
     };
 
     //=============================================================================
-    // 1D functions
-    //=============================================================================
-
-    /**
-    * Returns H_ii * v_i for i within left closure points.
-    * Input:  v     - Multicomponent 1D grid function v (typically obtained via DMDAVecGetArrayDOF)
-    *         h     - Grid spacing
-    *         i     - Grid index. Index must be within the set of left closure points.
-    *         comp  - Grid function component.
-    *
-    * Output: H[i][i]*v[i][comp]
-    **/
-    inline PetscScalar apply_left(const PetscScalar *const *const v, const PetscScalar h, const PetscInt i, const PetscInt comp) const
-    {
-      return h*static_cast<const Quadrature&>(*this).closure_quad[i]*v[i][comp];
-    };
-
-    /**
-    * Returns H_ii * v_i for i within right closure points.
-    * Input:  v     - Multicomponent 1D grid function v (typically obtained via DMDAVecGetArrayDOF)
-    *         h     - Grid spacing
-    *         N     - Number of global grid points.
-    *         i     - Grid index. Index must be within the set of right closure points.
-    *         comp  - Grid function component.
-    *
-    * Output: H[i][i]*v[i][comp]
-    **/
-    inline PetscScalar apply_right(const PetscScalar *const *const v, const PetscScalar h, const PetscInt N, const PetscInt i, const PetscInt comp) const
-    {
-      return h*static_cast<const Quadrature&>(*this).closure_quad[N-i-1]*v[i][comp];
-    };
-
-    // *
-    // * Computes the H-norm of each component of v and adds them together.
-    // * Input:  v       - Multicomponent 1D grid function (typically obtained via DMDAVecGetArrayDOF).
-    // *         h       - grid spacing.
-    // *         N       - number of global grid points.
-    // *         i_start - current processors start index.
-    // *         i_end   - current processors end index.
-    // *         dofs    - number of degrees of freedom of v.
-    // *
-    // * Output: computed H-norm, sqrt(v1'*H*v1 + v2'*H*v2 + ...).
-    // *
-    inline PetscScalar get_norm_1D(const PetscScalar *const *const v, const PetscScalar h, const PetscInt N,
-                                   const PetscInt i_start, const PetscInt i_end, const PetscInt dofs) const
-    {
-      PetscInt is, comp;
-      PetscReal u = 0, sum;
-
-      for (comp = 0; comp < dofs; comp++) { // for each degree of freedom
-        if (i_start == 0) { // Left block
-          for (is = n_closures; is < i_end; is++) {
-            u += h*v[is][comp]*v[is][comp];  
-          }
-          for (is = 0; is < n_closures; is++) {
-            u += apply_left(v, h, is, comp)*v[is][comp];
-          }
-        } else if(i_end == N) { // Right block
-          for (is = i_start; is < N-n_closures; is++) {
-            u += h*v[is][comp]*v[is][comp];  
-          }
-          for (is = N-n_closures; is < N; is++) {
-            u += apply_right(v, h, N, is, comp)*v[is][comp];
-          }
-        } else { // center block
-          for (is = i_start; is < i_end; is++) {
-            u += h*v[is][comp]*v[is][comp];  
-          }
-        }
-      }
-
-      // Sum all blocks
-      MPIU_Allreduce(&u, &sum, 1, MPIU_REAL, MPIU_SUM, PETSC_COMM_WORLD);
-      sum = PetscSqrtReal(sum);
-
-      return sum;
-    };
-
-    //=============================================================================
     // 2D functions
     //=============================================================================
     /**
@@ -114,7 +35,7 @@ namespace sbp {
     *
     * Output: HI[i][i]*v[i][comp]
     **/
-    inline PetscScalar apply_2D_x_left(const PetscScalar *const *const *const v, const PetscScalar h, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_x_left(const PetscScalar *const *const *const v, const PetscScalar h, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       return h*static_cast<const Quadrature&>(*this).closure_quad[i]*v[j][i][comp];
     };
@@ -128,7 +49,7 @@ namespace sbp {
     *
     * Output: HI[i][i]*v[i][comp]
     **/
-    inline PetscScalar apply_2D_y_left(const PetscScalar *const *const *const v, const PetscScalar h, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_y_left(const PetscScalar *const *const *const v, const PetscScalar h, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       return h*static_cast<const Quadrature&>(*this).closure_quad[j]*v[j][i][comp];
     };
@@ -143,7 +64,7 @@ namespace sbp {
     *
     * Output: HI[i][i]*v[i][comp]
     **/
-    inline PetscScalar apply_2D_x_right(const PetscScalar *const *const *const v, const PetscScalar h, const PetscInt N, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_x_right(const PetscScalar *const *const *const v, const PetscScalar h, const PetscInt N, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       return h*static_cast<const Quadrature&>(*this).closure_quad[N-i-1]*v[j][i][comp];
     };
@@ -158,22 +79,22 @@ namespace sbp {
     *
     * Output: HI[i][i]*v[i][comp]
     **/
-    inline PetscScalar apply_2D_y_right(const PetscScalar *const *const *const v, const PetscScalar h, const PetscInt N, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_y_right(const PetscScalar *const *const *const v, const PetscScalar h, const PetscInt N, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       return h*static_cast<const Quadrature&>(*this).closure_quad[N-j-1]*v[j][i][comp];
     };
 
-    // *
-    // * Computes the H-norm of v. 
-    // * Input:  v       - Multicomponent 2D grid function v (typically obtained via DMDAVecGetArrayDOF).
-    // *         h       - grid spacing.
-    // *         N       - number of global grid points.
-    // *         i_start - current processors start index.
-    // *         i_end   - current processors end index.
-    // *         comp    - grid function component.
-    // *
-    // * Output: computed H-norm, sqrt(v'*H*v).
-    // *
+   /**
+    * Computes the H-norm of v. 
+    * Input:  v       - Multicomponent 2D grid function v (typically obtained via DMDAVecGetArrayDOF).
+    *         h       - grid spacing.
+    *         N       - number of global grid points.
+    *         i_start - current processors start index.
+    *         i_end   - current processors end index.
+    *         comp    - grid function component.
+    *
+    * Output: computed H-norm, sqrt(v'*H*v).
+    **/
     inline PetscScalar get_norm_2D(const PetscScalar *const *const *const v, const std::array<PetscScalar,2>& h, 
                                    const std::array<PetscInt,2>& N, const std::array<PetscInt,2>& i_start, 
                                    const std::array<PetscInt,2>& i_end, const PetscInt dofs) const
