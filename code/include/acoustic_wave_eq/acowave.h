@@ -4,8 +4,6 @@
 #include <array>
 #include "grids/grid_function.h"
 
-namespace sbp{
-
   inline PetscScalar forcing_u(const PetscInt i, const PetscInt j, const PetscScalar t, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) {
     PetscScalar x = xl[0] + i/hi[0];
     PetscScalar y = xl[1] + j/hi[1];
@@ -778,104 +776,8 @@ namespace sbp{
     return 0;
   }
 
-
-template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode acowave_apply_1p(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
-                                           VelocityFunction&& a,
-                                           VelocityFunction&& b,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           grid::grid_function_2d<PetscScalar> dst,
-                                           const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl, 
-                                           const std::array<PetscScalar,2>& hi, const PetscInt sw)
-  {
-    const auto [iw, n_closures, closure_width] = D1.get_ranges();
-
-    acowave_apply_LL(t, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
-    acowave_apply_RL(t, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
-    acowave_apply_LR(t, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
-    acowave_apply_RR(t, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
-    acowave_apply_CL(t, D1, HI, a, b, src, dst, n_closures, N[0]-n_closures, N, xl, hi, sw, n_closures);
-    acowave_apply_CR(t, D1, HI, a, b, src, dst, n_closures, N[0]-n_closures, N, xl, hi, sw, n_closures);
-    acowave_apply_LC(t, D1, HI, a, b, src, dst, n_closures, N[1]-n_closures, N, xl, hi, sw, n_closures);
-    acowave_apply_RC(t, D1, HI, a, b, src, dst, n_closures, N[1]-n_closures, N, xl, hi, sw, n_closures);
-    acowave_apply_CC(t, D1, HI, a, b, src, dst, n_closures, N[0]-n_closures, n_closures, N[1]-n_closures, N, xl, hi, sw, n_closures);
-
-    return 0;
-  }
-
   template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode acowave_apply_all(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
-                                           VelocityFunction&& a,
-                                           VelocityFunction&& b,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           grid::grid_function_2d<PetscScalar> dst,
-                                           const std::array<PetscInt,2>& i_start, const std::array<PetscInt,2>& i_end,
-                                           const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl, 
-                                           const std::array<PetscScalar,2>& hi, const PetscInt sw)
-  {
-    const PetscInt i_xstart = i_start[0]; 
-    const PetscInt i_ystart = i_start[1];
-    const PetscInt i_xend = i_end[0];
-    const PetscInt i_yend = i_end[1];
-    const auto [iw, n_closures, closure_width] = D1.get_ranges();
-
-    if (i_ystart == 0)  // BOTTOM
-    {
-      if (i_xstart == 0) // BOTTOM LEFT
-      {
-        acowave_apply_LL(t, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
-        acowave_apply_CL(t, D1, HI, a, b, src, dst, n_closures, i_xend, N, xl, hi, sw, n_closures);
-        acowave_apply_LC(t, D1, HI, a, b, src, dst, n_closures, i_yend, N, xl, hi, sw, n_closures);
-        acowave_apply_CC(t, D1, HI, a, b, src, dst, n_closures, i_xend, n_closures, i_yend, N, xl, hi, sw, n_closures); 
-      } else if (i_xend == N[0]) // BOTTOM RIGHT
-      { 
-        acowave_apply_RL(t, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
-        acowave_apply_CL(t, D1, HI, a, b, src, dst, i_xstart, N[0]-n_closures, N, xl, hi, sw, n_closures);
-        acowave_apply_RC(t, D1, HI, a, b, src, dst, n_closures, i_yend, N, xl, hi, sw, n_closures);
-        acowave_apply_CC(t, D1, HI, a, b, src, dst, i_xstart, N[0]-n_closures, n_closures, i_yend, N, xl, hi, sw, n_closures); 
-      } else // BOTTOM CENTER
-      { 
-        acowave_apply_CL(t, D1, HI, a, b, src, dst, i_xstart, i_xend, N, xl, hi, sw, n_closures);
-        acowave_apply_CC(t, D1, HI, a, b, src, dst, i_xstart, i_xend, n_closures, i_yend, N, xl, hi, sw, n_closures); 
-      }
-    } else if (i_yend == N[1]) // TOP
-    {
-      if (i_xstart == 0) // TOP LEFT
-      {
-        acowave_apply_LR(t, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
-        acowave_apply_CR(t, D1, HI, a, b, src, dst, n_closures, i_xend, N, xl, hi, sw, n_closures);
-        acowave_apply_LC(t, D1, HI, a, b, src, dst, i_ystart, N[1] - n_closures, N, xl, hi, sw, n_closures);
-        acowave_apply_CC(t, D1, HI, a, b, src, dst, n_closures, i_xend, i_ystart, N[1]-n_closures, N, xl, hi, sw, n_closures);  
-      } else if (i_xend == N[0]) // TOP RIGHT
-      { 
-
-        acowave_apply_RR(t, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
-        acowave_apply_CR(t, D1, HI, a, b, src, dst, i_xstart, N[0]-n_closures, N, xl, hi, sw, n_closures);
-        acowave_apply_RC(t, D1, HI, a, b, src, dst, i_ystart, N[1] - n_closures, N, xl, hi, sw, n_closures);
-        acowave_apply_CC(t, D1, HI, a, b, src, dst, i_xstart, N[0]-n_closures, i_ystart, N[1] - n_closures, N, xl, hi, sw, n_closures);
-      } else // TOP CENTER
-      { 
-        acowave_apply_CR(t, D1, HI, a, b, src, dst, i_xstart, i_xend, N, xl, hi, sw, n_closures);
-        acowave_apply_CC(t, D1, HI, a, b, src, dst, i_xstart, i_xend, i_ystart,  N[1] - n_closures, N, xl, hi, sw, n_closures);
-      }
-    } else if (i_xstart == 0) // LEFT NOT BOTTOM OR TOP
-    { 
-      acowave_apply_LC(t, D1, HI, a, b, src, dst, i_ystart, i_yend, N, xl, hi, sw, n_closures);
-      acowave_apply_CC(t, D1, HI, a, b, src, dst, n_closures, i_xend, i_ystart, i_yend, N, xl, hi, sw, n_closures);
-    } else if (i_xend == N[0]) // RIGHT NOT BOTTOM OR TOP
-    {
-      acowave_apply_RC(t, D1, HI, a, b, src, dst, i_ystart, i_yend, N, xl, hi, sw, n_closures);
-      acowave_apply_CC(t, D1, HI, a, b, src, dst, i_xstart, N[0] - n_closures, i_ystart, i_yend, N, xl, hi, sw, n_closures);
-    } else // CENTER
-    {
-      acowave_apply_CC(t, D1, HI, a, b, src, dst, i_xstart, i_xend, i_ystart, i_yend, N, xl, hi, sw, n_closures);
-    }
-
-    return 0;
-  }
-
-  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode acowave_apply_inner(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
+  inline PetscErrorCode acowave_apply_interior(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
                                            VelocityFunction&& a,
                                            VelocityFunction&& b,
                                            const grid::grid_function_2d<PetscScalar> src,
@@ -945,14 +847,14 @@ template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
   }
 
   template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode acowave_apply_outer(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
-                                           VelocityFunction&& a,
-                                           VelocityFunction&& b,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           grid::grid_function_2d<PetscScalar> dst,
-                                           const std::array<PetscInt,2>& i_start, const std::array<PetscInt,2>& i_end,
-                                           const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl, 
-                                           const std::array<PetscScalar,2>& hi, const PetscInt sw)
+  inline PetscErrorCode acowave_apply_overlap(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
+                                               VelocityFunction&& a,
+                                               VelocityFunction&& b,
+                                               const grid::grid_function_2d<PetscScalar> src,
+                                               grid::grid_function_2d<PetscScalar> dst,
+                                               const std::array<PetscInt,2>& i_start, const std::array<PetscInt,2>& i_end,
+                                               const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl, 
+                                               const std::array<PetscScalar,2>& hi, const PetscInt sw)
   {
     const PetscInt i_xstart = i_start[0]; 
     const PetscInt i_ystart = i_start[1];
@@ -1029,5 +931,26 @@ template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
     return 0;
   }
 
+  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
+  inline PetscErrorCode acowave_apply_serial(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
+                                             VelocityFunction&& a,
+                                             VelocityFunction&& b,
+                                             const grid::grid_function_2d<PetscScalar> src,
+                                             grid::grid_function_2d<PetscScalar> dst,
+                                             const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl, 
+                                             const std::array<PetscScalar,2>& hi, const PetscInt sw)
+  {
+    const auto [iw, n_closures, closure_width] = D1.get_ranges();
 
-} //namespace sbp
+    acowave_apply_LL(t, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
+    acowave_apply_RL(t, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
+    acowave_apply_LR(t, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
+    acowave_apply_RR(t, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
+    acowave_apply_CL(t, D1, HI, a, b, src, dst, n_closures, N[0]-n_closures, N, xl, hi, sw, n_closures);
+    acowave_apply_CR(t, D1, HI, a, b, src, dst, n_closures, N[0]-n_closures, N, xl, hi, sw, n_closures);
+    acowave_apply_LC(t, D1, HI, a, b, src, dst, n_closures, N[1]-n_closures, N, xl, hi, sw, n_closures);
+    acowave_apply_RC(t, D1, HI, a, b, src, dst, n_closures, N[1]-n_closures, N, xl, hi, sw, n_closures);
+    acowave_apply_CC(t, D1, HI, a, b, src, dst, n_closures, N[0]-n_closures, n_closures, N[1]-n_closures, N, xl, hi, sw, n_closures);
+
+    return 0;
+  }
