@@ -21,17 +21,28 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 * 
 **/
 
-#define PROBLEM_TYPE_2D_O6
+#define SBP_OPERATOR_ORDER 2
 
 #include <petsc.h>
-#include "sbpops/D1_central.h"
-#include "sbpops/H_central.h"
-#include "sbpops/HI_central.h"
+#include "sbpops/op_defs.h"
 #include "acoustic_wave_eq/acowave.h"
 #include "timestepping/timestepping.h"
-#include "appctx.h"
 #include "io/IO_utils.h"
 #include "scatter_ctx/scatter_ctx.h"
+
+
+struct AppCtx{
+    std::array<PetscInt,2> N, i_start, i_end;
+    std::array<PetscScalar,2> hi, h, xl;
+    PetscInt dofs;
+    PetscScalar sw;
+    std::function<double(int, int)> a;
+    std::function<double(int, int)> b;
+    const DifferenceOp D1;
+    const NormOp H;
+    const InverseNormOp HI;
+    VecScatter scatctx;
+};
 
 extern PetscErrorCode analytic_solution(DM, PetscScalar, AppCtx&, Vec&);
 extern PetscErrorCode set_initial_condition(DM da, Vec v, AppCtx& appctx);
@@ -40,7 +51,6 @@ extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, AppCtx *);
 extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
 extern PetscErrorCode rhs_serial(DM, PetscReal, Vec, Vec, AppCtx *);
 extern PetscErrorCode rhs_TS_serial(TS, PetscReal, Vec, Vec, void *);
-
 
 int main(int argc,char **argv)
 { 

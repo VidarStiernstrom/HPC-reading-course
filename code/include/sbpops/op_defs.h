@@ -1,0 +1,21 @@
+#pragma once
+
+#include "sbpops/D1_central.h"
+#include "sbpops/H_central.h"
+#include "sbpops/HI_central.h"
+
+// TODO: In the future we can add a preprocessor flag for different
+// operator types. e.g #ifdef OPERATOR_TYPE_CENTRAL
+#if SBP_OPERATOR_ORDER == 2
+	typedef sbp::D1_central<sbp::Stencils_2nd,3,1,2> DifferenceOp;
+	typedef sbp::H_central<sbp::Quadrature_2nd,1> NormOp;
+	typedef sbp::HI_central<sbp::InverseQuadrature_2nd,1> InverseNormOp;
+#elif SBP_OPERATOR_ORDER == 4
+	typedef sbp::D1_central<sbp::Stencils_4th,5,4,6>; DifferenceOp;
+	typedef sbp::H_central<sbp::Quadrature_4th,4> NormOp;
+	typedef sbp::HI_central<sbp::InverseQuadrature_4th,4> InverseNormOp;
+#elif SBP_OPERATOR_ORDER == 6
+	typedef sbp::D1_central<sbp::Stencils_6th,7,6,9>; DifferenceOp;
+	typedef sbp::H_central<sbp::Quadrature_6th,6> NormOp;
+	typedef sbp::HI_central<sbp::InverseQuadrature_6th,6> InverseNormOp;
+#endif
