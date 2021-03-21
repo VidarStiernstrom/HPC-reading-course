@@ -2,7 +2,6 @@
 
 #include<petscsystypes.h>
 #include <array>
-#include "grids/grid_function.h"
 
   inline PetscScalar forcing_u(const PetscInt i, const PetscInt j, const PetscScalar t, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) {
     PetscScalar x = xl[0] + i/hi[0];
@@ -20,8 +19,8 @@
   inline PetscErrorCode acowave_apply_LL(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
                                            VelocityFunction&& a,
                                            VelocityFunction&& b,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           grid::grid_function_2d<PetscScalar> dst,
+                                           const PetscScalar *const *const *const src,
+                                           PetscScalar *const *const *const dst,
                                            const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl,
                                            const std::array<PetscScalar,2>& hi, const PetscInt sw, const PetscInt n_closures)
   {
@@ -53,33 +52,33 @@
       // { 
       //   for (i = 1; i < n_closures; i++) 
       //   { 
-      //     dst(j,i,0) = -D1.apply_x_left(src,hi[0],i,j,2);
-      //     dst(j,i,1) = -D1.apply_y_left(src,hi[1],i,j,2);
-      //     dst(j,i,2) = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
+      //     dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
+      //     dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
+      //     dst[j][i][2] = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
       //   }
       // }
 
       // // Set dst to PDv on boundary points
       // i = 0; 
       // j = 0;
-      // dst(j,i,0) = -D1.apply_x_left(src,hi[0],i,j,2);
-      // dst(j,i,1) = -D1.apply_y_left(src,hi[1],i,j,2);
-      // dst(j,i,2) = 0.0;
+      // dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
+      // dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
+      // dst[j][i][2] = 0.0;
 
       // i = 0;
       // for (j = 1; j < n_closures; j++)
       // { 
-      //   dst(j,i,0) = -D1.apply_x_left(src,hi[0],i,j,2);
-      //   dst(j,i,1) = -D1.apply_y_left(src,hi[1],i,j,2);
-      //   dst(j,i,2) = 0.0;
+      //   dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
+      //   dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
+      //   dst[j][i][2] = 0.0;
       // }
 
       // j = 0;
       // for (i = 1; i < n_closures; i++) 
       // { 
-      //   dst(j,i,0) = -D1.apply_x_left(src,hi[0],i,j,2);
-      //   dst(j,i,1) = -D1.apply_y_left(src,hi[1],i,j,2);
-      //   dst(j,i,2) = 0.0;
+      //   dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
+      //   dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
+      //   dst[j][i][2] = 0.0;
       // }
 
     /**
@@ -95,33 +94,33 @@
     { 
       for (i = 1; i < n_closures; i++) 
       { 
-        dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-        dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-        dst(j,i,2) = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
+        dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+        dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+        dst[j][i][2] = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
       }
     }
 
     // Set dst on affected points
     i = 0; 
     j = 0;
-    dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) - HI.apply_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
-    dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) - HI.apply_y_left(src, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-    dst(j,i,2) = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
+    dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) - HI.apply_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
+    dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) - HI.apply_y_left(src, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    dst[j][i][2] = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
 
     i = 0;
     for (j = 1; j < n_closures; j++)
     { 
-      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) - HI.apply_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
-      dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-      dst(j,i,2) = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
+      dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) - HI.apply_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
+      dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+      dst[j][i][2] = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
     }
 
     j = 0;
     for (i = 1; i < n_closures; i++) 
     { 
-      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);;
-      dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) - HI.apply_y_left(src, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-      dst(j,i,2) = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
+      dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);;
+      dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) - HI.apply_y_left(src, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+      dst[j][i][2] = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
     }
 
     return 0;
@@ -131,8 +130,8 @@
   inline PetscErrorCode acowave_apply_CL(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
                                            VelocityFunction&& a,
                                            VelocityFunction&& b,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           grid::grid_function_2d<PetscScalar> dst,
+                                           const PetscScalar *const *const *const src,
+                                           PetscScalar *const *const *const dst,
                                            const PetscInt & i_xstart, const PetscInt & i_xend,
                                            const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl,
                                            const std::array<PetscScalar,2>& hi, const PetscInt& sw, const PetscInt& n_closures)
@@ -154,9 +153,9 @@
       // { 
       //   for (i = i_xstart; i < i_xend; i++)
       //   {
-      //     dst(j,i,0) = -D1.apply_x_interior(src,hi[0],i,j,2);
-      //     dst(j,i,1) = -D1.apply_y_left(src,hi[1],i,j,2);
-      //     dst(j,i,2) = -D1.apply_x_interior(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
+      //     dst[j][i][0] = -D1.apply_x_interior(src,hi[0],i,j,2);
+      //     dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
+      //     dst[j][i][2] = -D1.apply_x_interior(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
       //   }
       // }
 
@@ -164,9 +163,9 @@
       // j = 0;
       // for (i = i_xstart; i < i_xend; i++)
       // {
-      //   dst(j,i,0) = -D1.apply_x_interior(src,hi[0],i,j,2);
-      //   dst(j,i,1) = -D1.apply_y_left(src,hi[1],i,j,2);
-      //   dst(j,i,2) = 0;
+      //   dst[j][i][0] = -D1.apply_x_interior(src,hi[0],i,j,2);
+      //   dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
+      //   dst[j][i][2] = 0;
       // }
 
     /**
@@ -182,9 +181,9 @@
     { 
       for (i = i_xstart; i < i_xend; i++)
       {
-        dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_interior(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);;
-        dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-        dst(j,i,2) = -D1.apply_x_interior(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
+        dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_interior(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);;
+        dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+        dst[j][i][2] = -D1.apply_x_interior(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
       }
     }
 
@@ -192,9 +191,9 @@
     j = 0;
     for (i = i_xstart; i < i_xend; i++)
     {
-      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_interior(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);;
-      dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) - HI.apply_y_left(src, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-      dst(j,i,2) = -D1.apply_x_interior(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
+      dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_interior(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);;
+      dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) - HI.apply_y_left(src, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+      dst[j][i][2] = -D1.apply_x_interior(src,hi[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
     }
 
     return 0;
@@ -204,8 +203,8 @@
   inline PetscErrorCode acowave_apply_LC(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
                                            VelocityFunction&& a,
                                            VelocityFunction&& b,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           grid::grid_function_2d<PetscScalar> dst,
+                                           const PetscScalar *const *const *const src,
+                                           PetscScalar *const *const *const dst,
                                            const PetscInt & i_ystart, const PetscInt & i_yend,
                                            const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl,
                                            const std::array<PetscScalar,2>& hi, const PetscInt& sw, const PetscInt& n_closures)
@@ -228,9 +227,9 @@
     // { 
     //   for (i = 1; i < n_closures; i++)
     //   {
-    //     dst(j,i,0) = -D1.apply_x_left(src,hi[0],i,j,2);
-    //     dst(j,i,1) = -D1.apply_y_interior(src,hi[1],i,j,2);
-    //     dst(j,i,2) = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_interior(src,hi[1],i,j,1);
+    //     dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
+    //     dst[j][i][1] = -D1.apply_y_interior(src,hi[1],i,j,2);
+    //     dst[j][i][2] = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_interior(src,hi[1],i,j,1);
     //   }
     // }
 
@@ -238,9 +237,9 @@
     // i = 0;
     // for (j = i_ystart; j < i_yend; j++)
     // { 
-    //   dst(j,i,0) = -D1.apply_x_left(src,hi[0],i,j,2);
-    //   dst(j,i,1) = -D1.apply_y_interior(src,hi[1],i,j,2);
-    //   dst(j,i,2) = 0;
+    //   dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
+    //   dst[j][i][1] = -D1.apply_y_interior(src,hi[1],i,j,2);
+    //   dst[j][i][2] = 0;
     // }
 
     /**
@@ -256,9 +255,9 @@
     { 
       for (i = 1; i < n_closures; i++)
       {
-        dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-        dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_interior(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-        dst(j,i,2) = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_interior(src,hi[1],i,j,1);
+        dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+        dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_interior(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+        dst[j][i][2] = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_interior(src,hi[1],i,j,1);
       }
     }
 
@@ -266,9 +265,9 @@
     i = 0;
     for (j = i_ystart; j < i_yend; j++)
     { 
-      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) - HI.apply_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
-      dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_interior(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-      dst(j,i,2) = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_interior(src,hi[1],i,j,1);;
+      dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) - HI.apply_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
+      dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_interior(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+      dst[j][i][2] = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_interior(src,hi[1],i,j,1);;
     }
 
     return 0;
@@ -278,8 +277,8 @@
   inline PetscErrorCode acowave_apply_CC(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
                                            VelocityFunction&& a,
                                            VelocityFunction&& b,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           grid::grid_function_2d<PetscScalar> dst,
+                                           const PetscScalar *const *const *const src,
+                                           PetscScalar *const *const *const dst,
                                            const PetscInt & i_xstart, const PetscInt & i_xend,
                                            const PetscInt & i_ystart, const PetscInt & i_yend,
                                            const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl,
@@ -290,9 +289,9 @@
     { 
       for (i = i_xstart; i < i_xend; i++)
       {
-        dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_interior(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-        dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_interior(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-        dst(j,i,2) = -D1.apply_x_interior(src,hi[0],i,j,0) - D1.apply_y_interior(src,hi[1],i,j,1);
+        dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_interior(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+        dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_interior(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+        dst[j][i][2] = -D1.apply_x_interior(src,hi[0],i,j,0) - D1.apply_y_interior(src,hi[1],i,j,1);
       }
     } 
     return 0;
@@ -302,8 +301,8 @@
   inline PetscErrorCode acowave_apply_RL(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
                                            VelocityFunction&& a,
                                            VelocityFunction&& b,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           grid::grid_function_2d<PetscScalar> dst,
+                                           const PetscScalar *const *const *const src,
+                                           PetscScalar *const *const *const dst,
                                            const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl, 
                                            const std::array<PetscScalar,2>& hi, const PetscInt& sw, const PetscInt& n_closures)
   {
@@ -335,34 +334,34 @@
     // { 
     //   for (i = N[0]-n_closures; i < N[0]-1; i++) 
     //   { 
-    //     dst(j,i,0) = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    //     dst(j,i,1) = -D1.apply_y_left(src,hi[1],i,j,2);
-    //     dst(j,i,2) = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
+    //     dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
+    //     dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
+    //     dst[j][i][2] = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
     //   }
     // }
 
     // // Set dst to PDPv on affected points
     // i = N[0]-1; 
     // j = 0;
-    // dst(j,i,0) = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    // dst(j,i,1) = -D1.apply_y_left(src,hi[1],i,j,2);
-    // dst(j,i,2) = 0;
+    // dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
+    // dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
+    // dst[j][i][2] = 0;
 
 
     // i = N[0]-1;
     // for (j = 1; j < n_closures; j++)
     // { 
-    //   dst(j,i,0) = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    //   dst(j,i,1) = -D1.apply_y_left(src,hi[1],i,j,2);
-    //   dst(j,i,2) = 0;
+    //   dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
+    //   dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
+    //   dst[j][i][2] = 0;
     // }
 
     // j = 0;
     // for (i = N[0]-n_closures; i < N[0]-1; i++) 
     // { 
-    //   dst(j,i,0) = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    //   dst(j,i,1) = -D1.apply_y_left(src,hi[1],i,j,2);
-    //   dst(j,i,2) = 0;
+    //   dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
+    //   dst[j][i][1] = -D1.apply_y_left(src,hi[1],i,j,2);
+    //   dst[j][i][2] = 0;
     // }
 
     /**
@@ -379,33 +378,33 @@
     { 
       for (i = N[0]-n_closures; i < N[0]-1; i++) 
       { 
-        dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-        dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-        dst(j,i,2) = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
+        dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+        dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+        dst[j][i][2] = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
       }
     }
 
     // Set dst on affected points
     i = N[0]-1; 
     j = 0;
-    dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + HI.apply_x_right(src, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-    dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) - HI.apply_y_left(src, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-    dst(j,i,2) = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
+    dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + HI.apply_x_right(src, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+    dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) - HI.apply_y_left(src, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    dst[j][i][2] = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
 
     i = N[0]-1;
     for (j = 1; j < n_closures; j++)
     { 
-      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + HI.apply_x_right(src, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-      dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-      dst(j,i,2) = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
+      dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + HI.apply_x_right(src, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+      dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+      dst[j][i][2] = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
     }
 
     j = 0;
     for (i = N[0]-n_closures; i < N[0]-1; i++) 
     { 
-      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) - HI.apply_y_left(src, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-      dst(j,i,2) = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
+      dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+      dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_left(src,hi[1],i,j,2) - HI.apply_y_left(src, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+      dst[j][i][2] = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_left(src,hi[1],i,j,1);
     }
     return 0;
   }
@@ -414,8 +413,8 @@
   inline PetscErrorCode acowave_apply_RC(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
                                            VelocityFunction&& a,
                                            VelocityFunction&& b,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           grid::grid_function_2d<PetscScalar> dst,
+                                           const PetscScalar *const *const *const src,
+                                           PetscScalar *const *const *const dst,
                                            const PetscInt & i_ystart, const PetscInt & i_yend,
                                            const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl, 
                                            const std::array<PetscScalar,2>& hi, const PetscInt& sw, const PetscInt& n_closures)
@@ -438,9 +437,9 @@
     // { 
     //   for (i = N[0]-n_closures; i < N[0]-1; i++) 
     //   {
-    //     dst(j,i,0) = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    //     dst(j,i,1) = -D1.apply_y_interior(src,hi[1],i,j,2);
-    //     dst(j,i,2) = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_interior(src,hi[1],i,j,1);
+    //     dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
+    //     dst[j][i][1] = -D1.apply_y_interior(src,hi[1],i,j,2);
+    //     dst[j][i][2] = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_interior(src,hi[1],i,j,1);
     //   }
     // }
 
@@ -448,9 +447,9 @@
     // i = N[0]-1;
     // for (j = i_ystart; j < i_yend; j++)
     // { 
-    //   dst(j,i,0) = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    //   dst(j,i,1) = -D1.apply_y_interior(src,hi[1],i,j,2);
-    //   dst(j,i,2) = 0;
+    //   dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
+    //   dst[j][i][1] = -D1.apply_y_interior(src,hi[1],i,j,2);
+    //   dst[j][i][2] = 0;
     // }
 
     /**
@@ -466,9 +465,9 @@
     { 
       for (i = N[0]-n_closures; i < N[0]-1; i++) 
       {
-        dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-        dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_interior(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-        dst(j,i,2) = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_interior(src,hi[1],i,j,1);
+        dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+        dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_interior(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+        dst[j][i][2] = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_interior(src,hi[1],i,j,1);
       }
     }
 
@@ -476,9 +475,9 @@
     i = N[0]-1;
     for (j = i_ystart; j < i_yend; j++)
     { 
-      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + HI.apply_x_right(src, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-      dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_interior(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-      dst(j,i,2) = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_interior(src,hi[1],i,j,1);
+      dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + HI.apply_x_right(src, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+      dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_interior(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+      dst[j][i][2] = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_interior(src,hi[1],i,j,1);
     }
     return 0;
   }
@@ -487,8 +486,8 @@
   inline PetscErrorCode acowave_apply_LR(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
                                            VelocityFunction&& a,
                                            VelocityFunction&& b,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           grid::grid_function_2d<PetscScalar> dst,
+                                           const PetscScalar *const *const *const src,
+                                           PetscScalar *const *const *const dst,
                                            const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl, 
                                            const std::array<PetscScalar,2>& hi, const PetscInt& sw, const PetscInt& n_closures)
   {
@@ -520,33 +519,33 @@
     // { 
     //   for (i = 1; i < n_closures; i++) 
     //   { 
-    //     dst(j,i,0) = -D1.apply_x_left(src,hi[0],i,j,2);
-    //     dst(j,i,1) = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    //     dst(j,i,2) = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
+    //     dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
+    //     dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
+    //     dst[j][i][2] = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
     //   }
     // }
 
     // // Set dst to PDPv on affected points
     // i = 0; 
     // j = N[1]-1;
-    // dst(j,i,0) = -D1.apply_x_left(src,hi[0],i,j,2);
-    // dst(j,i,1) = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    // dst(j,i,2) = 0.0;
+    // dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
+    // dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
+    // dst[j][i][2] = 0.0;
 
     // i = 0;
     // for (j = N[1]-n_closures; j < N[1]-1; j++) 
     // { 
-    //   dst(j,i,0) = -D1.apply_x_left(src,hi[0],i,j,2);
-    //   dst(j,i,1) = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    //   dst(j,i,2) = 0.0;
+    //   dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
+    //   dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
+    //   dst[j][i][2] = 0.0;
     // }
 
     // j = N[1]-1;
     // for (i = 1; i < n_closures; i++) 
     // { 
-    //   dst(j,i,0) = -D1.apply_x_left(src,hi[0],i,j,2);
-    //   dst(j,i,1) = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    //   dst(j,i,2) = 0.0;
+    //   dst[j][i][0] = -D1.apply_x_left(src,hi[0],i,j,2);
+    //   dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
+    //   dst[j][i][2] = 0.0;
     // }
 
     /**
@@ -562,33 +561,33 @@
     { 
       for (i = 1; i < n_closures; i++) 
       { 
-        dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-        dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-        dst(j,i,2) = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
+        dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+        dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+        dst[j][i][2] = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
       }
     }
 
     // Set dst on affected points
     i = 0; 
     j = N[1]-1;
-    dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) - HI.apply_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-    dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + HI.apply_y_right(src, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-    dst(j,i,2) = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
+    dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) - HI.apply_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+    dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + HI.apply_y_right(src, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    dst[j][i][2] = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
 
     i = 0;
     for (j = N[1]-n_closures; j < N[1]-1; j++) 
     { 
-      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) - HI.apply_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-      dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-      dst(j,i,2) = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
+      dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) - HI.apply_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+      dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+      dst[j][i][2] = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
     }
 
     j = N[1]-1;
     for (i = 1; i < n_closures; i++) 
     { 
-      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + HI.apply_y_right(src, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-      dst(j,i,2) = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
+      dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_left(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+      dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + HI.apply_y_right(src, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+      dst[j][i][2] = -D1.apply_x_left(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
     }
     return 0;
   }
@@ -597,8 +596,8 @@
   inline PetscErrorCode acowave_apply_CR(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
                                            VelocityFunction&& a,
                                            VelocityFunction&& b,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           grid::grid_function_2d<PetscScalar> dst,
+                                           const PetscScalar *const *const *const src,
+                                           PetscScalar *const *const *const dst,
                                            const PetscInt & i_xstart, const PetscInt & i_xend,
                                            const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl, 
                                            const std::array<PetscScalar,2>& hi, const PetscInt& sw, const PetscInt& n_closures)
@@ -621,9 +620,9 @@
     // { 
     //   for (i = i_xstart; i < i_xend; i++)
     //   {
-    //     dst(j,i,0) = -D1.apply_x_interior(src,hi[0],i,j,2);
-    //     dst(j,i,1) = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    //     dst(j,i,2) = -D1.apply_x_interior(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
+    //     dst[j][i][0] = -D1.apply_x_interior(src,hi[0],i,j,2);
+    //     dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
+    //     dst[j][i][2] = -D1.apply_x_interior(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
     //   }
     // }
 
@@ -631,9 +630,9 @@
     // j = N[1]-1;
     // for (i = i_xstart; i < i_xend; i++)
     // {
-    //   dst(j,i,0) = -D1.apply_x_interior(src,hi[0],i,j,2);
-    //   dst(j,i,1) = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    //   dst(j,i,2) = 0;
+    //   dst[j][i][0] = -D1.apply_x_interior(src,hi[0],i,j,2);
+    //   dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
+    //   dst[j][i][2] = 0;
     // }
 
     /**
@@ -649,9 +648,9 @@
     { 
       for (i = i_xstart; i < i_xend; i++)
       {
-        dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_interior(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-        dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-        dst(j,i,2) = -D1.apply_x_interior(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
+        dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_interior(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+        dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+        dst[j][i][2] = -D1.apply_x_interior(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
       }
     }
 
@@ -659,9 +658,9 @@
     j = N[1]-1;
     for (i = i_xstart; i < i_xend; i++)
     {
-      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_interior(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + HI.apply_y_right(src, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-      dst(j,i,2) = -D1.apply_x_interior(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
+      dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_interior(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+      dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + HI.apply_y_right(src, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+      dst[j][i][2] = -D1.apply_x_interior(src,hi[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
     }
     return 0;
   }
@@ -670,8 +669,8 @@
   inline PetscErrorCode acowave_apply_RR(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
                                            VelocityFunction&& a,
                                            VelocityFunction&& b,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           grid::grid_function_2d<PetscScalar> dst,
+                                           const PetscScalar *const *const *const src,
+                                           PetscScalar *const *const *const dst,
                                            const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl, 
                                            const std::array<PetscScalar,2>& hi, const PetscInt sw, const PetscInt n_closures)
   {
@@ -703,33 +702,33 @@
     // { 
     //   for (i = N[0]-n_closures; i < N[0]-1; i++) 
     //   { 
-    //     dst(j,i,0) = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    //     dst(j,i,1) = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    //     dst(j,i,2) = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
+    //     dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
+    //     dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
+    //     dst[j][i][2] = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
     //   }
     // }
 
     // // Set dst to PDPv on affected points
     // i = N[0]-1; 
     // j = N[1]-1;
-    // dst(j,i,0) = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    // dst(j,i,1) = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    // dst(j,i,2) = 0.0;
+    // dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
+    // dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
+    // dst[j][i][2] = 0.0;
 
     // i = N[0]-1; 
     // for (j = N[1]-n_closures; j < N[1]-1; j++)
     // { 
-    //   dst(j,i,0) = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    //   dst(j,i,1) = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    //   dst(j,i,2) = 0.0;
+    //   dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
+    //   dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
+    //   dst[j][i][2] = 0.0;
     // }
 
     // j = N[1]-1;
     // for (i = N[0]-n_closures; i < N[0]-1; i++) 
     // { 
-    //   dst(j,i,0) = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
-    //   dst(j,i,1) = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
-    //   dst(j,i,2) = 0.0;
+    //   dst[j][i][0] = -D1.apply_x_right(src,hi[0],N[0],i,j,2);
+    //   dst[j][i][1] = -D1.apply_y_right(src,hi[1],N[1],i,j,2);
+    //   dst[j][i][2] = 0.0;
     // }
 
     /**
@@ -745,33 +744,33 @@
     { 
       for (i = N[0]-n_closures; i < N[0]-1; i++) 
       { 
-        dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-        dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-        dst(j,i,2) = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
+        dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+        dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+        dst[j][i][2] = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
       }
     }
 
     // Set dst on affected points
     i = N[0]-1; 
     j = N[1]-1;
-    dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + HI.apply_x_right(src, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-    dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + HI.apply_y_right(src, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-    dst(j,i,2) = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
+    dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + HI.apply_x_right(src, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+    dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + HI.apply_y_right(src, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    dst[j][i][2] = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
 
     i = N[0]-1; 
     for (j = N[1]-n_closures; j < N[1]-1; j++)
     { 
-      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + HI.apply_x_right(src, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-      dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-      dst(j,i,2) = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
+      dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + HI.apply_x_right(src, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+      dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+      dst[j][i][2] = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
     }
 
     j = N[1]-1;
     for (i = N[0]-n_closures; i < N[0]-1; i++) 
     { 
-      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + HI.apply_y_right(src, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-      dst(j,i,2) = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
+      dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_x_right(src,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+      dst[j][i][1] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_y_right(src,hi[1],N[1],i,j,2) + HI.apply_y_right(src, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+      dst[j][i][2] = -D1.apply_x_right(src,hi[0],N[0],i,j,0) - D1.apply_y_right(src,hi[1],N[1],i,j,1);
     }
     return 0;
   }
@@ -780,8 +779,8 @@
   inline PetscErrorCode acowave_apply_interior(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
                                            VelocityFunction&& a,
                                            VelocityFunction&& b,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           grid::grid_function_2d<PetscScalar> dst,
+                                           const PetscScalar *const *const *const src,
+                                           PetscScalar *const *const *const dst,
                                            const std::array<PetscInt,2>& i_start, const std::array<PetscInt,2>& i_end,
                                            const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl, 
                                            const std::array<PetscScalar,2>& hi, const PetscInt sw)
@@ -850,8 +849,8 @@
   inline PetscErrorCode acowave_apply_overlap(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
                                                VelocityFunction&& a,
                                                VelocityFunction&& b,
-                                               const grid::grid_function_2d<PetscScalar> src,
-                                               grid::grid_function_2d<PetscScalar> dst,
+                                               const PetscScalar *const *const *const src,
+                                               PetscScalar *const *const *const dst,
                                                const std::array<PetscInt,2>& i_start, const std::array<PetscInt,2>& i_end,
                                                const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl, 
                                                const std::array<PetscScalar,2>& hi, const PetscInt sw)
@@ -935,8 +934,8 @@
   inline PetscErrorCode acowave_apply_serial(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
                                              VelocityFunction&& a,
                                              VelocityFunction&& b,
-                                             const grid::grid_function_2d<PetscScalar> src,
-                                             grid::grid_function_2d<PetscScalar> dst,
+                                             const PetscScalar *const *const *const src,
+                                             PetscScalar *const *const *const dst,
                                              const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl, 
                                              const std::array<PetscScalar,2>& hi, const PetscInt sw)
   {

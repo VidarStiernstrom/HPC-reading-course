@@ -13,7 +13,6 @@
 		const sbp::H_central<sbp::Quadrature_2nd,6> H;
 		const sbp::HI_central<sbp::InverseQuadrature_2nd,6> HI;
 		VecScatter scatctx;
-		grid::partitioned_layout_2d layout;
 		};
 	#elif defined PROBLEM_TYPE_2D_O4
 		struct AppCtx{
@@ -27,7 +26,6 @@
 		const sbp::H_central<sbp::Quadrature_4th,6> H;
 		const sbp::HI_central<sbp::InverseQuadrature_4th,6> HI;
 		VecScatter scatctx;
-		grid::partitioned_layout_2d layout;
 		};
 	#elif defined PROBLEM_TYPE_2D_O6
 		struct AppCtx{
@@ -41,7 +39,6 @@
 		const sbp::H_central<sbp::Quadrature_6th,6> H;
 		const sbp::HI_central<sbp::InverseQuadrature_6th,6> HI;
 		VecScatter scatctx;
-		grid::partitioned_layout_2d layout;
 		};
 	#endif	
 

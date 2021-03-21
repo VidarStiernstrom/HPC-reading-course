@@ -30,8 +30,6 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 #include "acoustic_wave_eq/acowave.h"
 #include "timestepping/timestepping.h"
 #include "appctx.h"
-#include "grids/grid_function.h"
-#include "grids/create_layout.h"
 #include "io/IO_utils.h"
 #include "scatter_ctx/scatter_ctx.h"
 
@@ -125,7 +123,6 @@ int main(int argc,char **argv)
   appctx.a = a;
   appctx.b = b;
   appctx.sw = stencil_radius;
-  appctx.layout = grid::create_layout_2d(da);
 
   // Extract local to local scatter context
   scatter_ctx_ltol(da, &appctx.scatctx);
@@ -257,22 +254,19 @@ PetscErrorCode analytic_solution(DM da, PetscScalar t, AppCtx &appctx, Vec& v) {
 
 PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
 {
-  PetscScalar       *array_src, *array_dst;
+  PetscScalar       ***array_src, ***array_dst;
 
-  VecGetArray(v_src,&array_src);
-  VecGetArray(v_dst,&array_dst);
-
-  auto gf_src = grid::grid_function_2d<PetscScalar>(array_src, appctx->layout);
-  auto gf_dst = grid::grid_function_2d<PetscScalar>(array_dst, appctx->layout);
+  DMDAVecGetArrayDOFRead(da,v_src,&array_src);
+  DMDAVecGetArrayDOF(da,v_dst,&array_dst);
 
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  acowave_apply_interior(t, appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  acowave_apply_interior(t, appctx->D1, appctx->HI, appctx->a, appctx->b, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  acowave_apply_overlap(t, appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  acowave_apply_overlap(t, appctx->D1, appctx->HI, appctx->a, appctx->b, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
   
   // Restore arrays
-  VecRestoreArray(v_src,&array_src);
-  VecRestoreArray(v_dst,&array_dst);
+  DMDAVecRestoreArrayDOFRead(da,v_src,&array_src);
+  DMDAVecRestoreArrayDOF(da,v_dst,&array_dst);
   return 0;
 }
 
@@ -292,18 +286,16 @@ PetscErrorCode rhs_TS(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx) // Fu
 
 PetscErrorCode rhs_serial(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
 {
-  PetscScalar       *array_src, *array_dst;
+  PetscScalar       ***array_src, ***array_dst;
 
-  VecGetArray(v_src,&array_src);
-  VecGetArray(v_dst,&array_dst);
+  DMDAVecGetArrayDOFRead(da,v_src,&array_src);
+  DMDAVecGetArrayDOF(da,v_dst,&array_dst);
 
-  auto gf_src = grid::grid_function_2d<PetscScalar>(array_src, appctx->layout);
-  auto gf_dst = grid::grid_function_2d<PetscScalar>(array_dst, appctx->layout);
-  acowave_apply_serial(t, appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  acowave_apply_serial(t, appctx->D1, appctx->HI, appctx->a, appctx->b, array_src, array_dst, appctx->N, appctx->xl, appctx->hi, appctx->sw);
 
   // Restore arrays
-  VecRestoreArray(v_src,&array_src);
-  VecRestoreArray(v_dst,&array_dst);
+  DMDAVecRestoreArrayDOFRead(da,v_src,&array_src);
+  DMDAVecRestoreArrayDOF(da,v_dst,&array_dst);
   return 0;
 }
 
