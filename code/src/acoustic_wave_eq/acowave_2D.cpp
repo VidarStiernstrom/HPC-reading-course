@@ -4,18 +4,18 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 /**
 * Solves 2D acoustic wave equation on first order form. See http://sepwww.stanford.edu/sep/prof/bei/fdm/paper_html/node40.html
 * Variables:
-* u - x-velocity
-* v - y-velocity
-* p - pressure
+* u(x,y) - x-velocity
+* v(x,y) - y-velocity
+* p(x,y) - pressure
 * 
 * Coefficients: 
-* rho - density
-* K - incompressibility
+* rho(x,y) - density
+* K(x,y) - incompressibility. At the moment K(x) is assumed to be 1
 * 
 * Equations:
-* ut = -1/rho(x) px + F1
-* vt = -1/rho(x) py + F2
-* pt = -K(x)*(ux + vy)
+* u_t = -1/rho(x,y) p_x + F1
+* v_t = -1/rho(x,y) p_y + F2
+* p_t = -K(x,y)*(u_x + v_y)
 * 
 * F1, F2 - velocity forcing data
 * 
@@ -36,8 +36,7 @@ struct AppCtx{
     std::array<PetscScalar,2> hi, h, xl;
     PetscInt dofs;
     PetscScalar sw;
-    std::function<double(int, int)> a;
-    std::function<double(int, int)> b;
+    std::function<PetscScalar(PetscInt, PetscInt)> rho_inv;
     const DifferenceOp D1;
     const NormOp H;
     const InverseNormOp HI;
@@ -93,12 +92,11 @@ int main(int argc,char **argv)
   dt = CFL/(std::min(hix,hiy));
 
   // Velocity field a(i,j) = 1
-  auto a = [xl,yl,hix,hiy](const PetscInt i, const PetscInt j){  // 1/rho.
+  auto rho_inv = [xl,yl,hix,hiy](const PetscInt i, const PetscInt j){  // 1/rho.
     PetscScalar x = xl + i/hix;
     PetscScalar y = yl + j/hiy;
     return 1.0/(2 + x*y);
   };
-  auto b = [](const PetscInt i, const PetscInt j){ return 1;}; // unused at the moment, K = 1.
 
   // Set if data should be written.
   write_data = PETSC_FALSE;
@@ -130,8 +128,7 @@ int main(int argc,char **argv)
   appctx.i_start = {i_xstart,i_ystart};
   appctx.i_end = {i_xend,i_yend};
   appctx.dofs = dofs;
-  appctx.a = a;
-  appctx.b = b;
+  appctx.rho_inv = rho_inv;
   appctx.sw = stencil_radius;
 
   // Extract local to local scatter context
@@ -270,9 +267,9 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
   DMDAVecGetArrayDOF(da,v_dst,&array_dst);
 
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  acowave_apply_interior(t, appctx->D1, appctx->HI, appctx->a, appctx->b, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  acowave_apply_interior(t, appctx->D1, appctx->HI, appctx->rho_inv, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  acowave_apply_overlap(t, appctx->D1, appctx->HI, appctx->a, appctx->b, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  acowave_apply_overlap(t, appctx->D1, appctx->HI, appctx->rho_inv, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
   
   // Restore arrays
   DMDAVecRestoreArrayDOFRead(da,v_src,&array_src);
@@ -301,7 +298,7 @@ PetscErrorCode rhs_serial(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appc
   DMDAVecGetArrayDOFRead(da,v_src,&array_src);
   DMDAVecGetArrayDOF(da,v_dst,&array_dst);
 
-  acowave_apply_serial(t, appctx->D1, appctx->HI, appctx->a, appctx->b, array_src, array_dst, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  acowave_apply_serial(t, appctx->D1, appctx->HI, appctx->rho_inv, array_src, array_dst, appctx->N, appctx->xl, appctx->hi, appctx->sw);
 
   // Restore arrays
   DMDAVecRestoreArrayDOFRead(da,v_src,&array_src);
