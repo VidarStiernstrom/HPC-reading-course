@@ -38,14 +38,13 @@ struct AppCtx{
     PetscScalar sw;
     std::function<PetscScalar(PetscInt, PetscInt)> rho_inv;
     const DifferenceOp D1;
-    const NormOp H;
     const InverseNormOp HI;
     VecScatter scatctx;
 };
 
 extern PetscErrorCode analytic_solution(DM, PetscScalar, AppCtx&, Vec&);
 extern PetscErrorCode set_initial_condition(DM da, Vec v, AppCtx& appctx);
-extern PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx);
+extern PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx);
 extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, AppCtx *);
 extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
 extern PetscErrorCode rhs_serial(DM, PetscReal, Vec, Vec, AppCtx *);
@@ -57,7 +56,7 @@ int main(int argc,char **argv)
   Vec            v, v_analytic, v_error, vlocal;
   PetscInt       stencil_radius, i_xstart, i_xend, i_ystart, i_yend, Nx, Ny, nx, ny, procx, procy, dofs;
   PetscScalar    xl, xr, yl, yr, hix, hiy, dt, t0, Tend, CFL;
-  PetscReal      l2_error, max_error, H_error;
+  PetscReal      l2_error, max_error;
 
   AppCtx         appctx;
   PetscBool      write_data;
@@ -177,8 +176,8 @@ int main(int argc,char **argv)
   DMLocalToGlobalEnd(da,vlocal,INSERT_VALUES,v);
 
   analytic_solution(da, Tend, appctx, v_analytic);
-  get_error(da, v, v_analytic, &v_error, &H_error, &l2_error, &max_error, appctx);
-  PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %g, the H-error is: %g and the maximum error is %g\n",l2_error,H_error,max_error);
+  get_error(da, v, v_analytic, &v_error, &l2_error, &max_error, appctx);
+  PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %g, and the maximum error is %g\n",l2_error,max_error);
 
   // Write solution to file
   if (write_data)
@@ -188,7 +187,7 @@ int main(int argc,char **argv)
 
     char tmp_str[200];
     std::string data_string;
-    sprintf(tmp_str,"%d\t%d\t%d\t%e\t%f\t%f\t%e\t%e\t%e\n",size,Nx,Ny,dt,Tend,elapsed_time,l2_error,H_error,max_error);
+    sprintf(tmp_str,"%d\t%d\t%d\t%e\t%f\t%f\t%e\t%e\n",size,Nx,Ny,dt,Tend,elapsed_time,l2_error,max_error);
     data_string.assign(tmp_str);
     write_data_to_file(data_string, "data/acowave_2D", "data.tsv");
   }
@@ -217,9 +216,7 @@ PetscErrorCode set_initial_condition(DM da, Vec v, AppCtx& appctx)
   return 0;
 }
 
-PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx) {
-  PetscScalar ***arr;
-
+PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx) {
   VecWAXPY(*v_error,-1,v1,v2);
 
   VecNorm(*v_error,NORM_2,l2_error);
@@ -227,11 +224,6 @@ PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_erro
 
   VecNorm(*v_error,NORM_INFINITY,max_error);
   
-  DMDAVecGetArrayDOF(da, *v_error, &arr);
-  *H_error = appctx.H.get_norm_2D(arr, appctx.h, appctx.N, appctx.i_start, appctx.i_end, appctx.dofs);
-
-  DMDAVecRestoreArrayDOF(da, *v_error, &arr);
-
   return 0;
 }
 
