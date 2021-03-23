@@ -21,8 +21,6 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 * 
 **/
 
-#define SBP_OPERATOR_ORDER 2
-
 #include <petsc.h>
 #include "sbpops/op_defs.h"
 #include "acoustic_wave_eq/wave_eq_rhs.h"

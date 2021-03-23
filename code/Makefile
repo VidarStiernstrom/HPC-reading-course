@@ -18,6 +18,12 @@ DEBUG_MODULES	= -Wall
 COPTFLAGS		= -std=c++17 -O3 -march=native -mtune=native -ffast-math
 CPPFLAGS		= -DVERSION=${PETSC_VERSION_NUM}
 
+ifeq ($(strip $(ORDERFLAG)),)
+ORDERFLAG		= -DSBP_OPERATOR_ORDER=4
+ORDEFLAG_MSG	= ORDEFLAG not set. Using $(ORDERFLAG)
+else
+ORDEFLAG_MSG	= Compiling acoustic_wave_sim with $(ORDERFLAG)
+endif
 CXX 			= mpicc 
 CXXFLAGS		= $(DEBUG_MODULES) $(COPTFLAGS) $(IFLAGS)
 
@@ -32,7 +38,8 @@ acoustic_wave_sim: acoustic_wave_sim.o IO_utils.o scatter_ctx.o timestepping.o
 
 # Compile object files to OBJ_PATH/
 acoustic_wave_sim.o: $(SRC_PATH)acoustic_wave_sim/acoustic_wave_sim.cpp $(INCLUDE_PATH)acoustic_wave_eq/wave_eq_rhs.h $(INCLUDE_PATH)$(wildcard sbpops/*.h)
-	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)acoustic_wave_sim/acoustic_wave_sim.cpp
+	echo $(ORDEFLAG_MSG)
+	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)acoustic_wave_sim/acoustic_wave_sim.cpp $(ORDERFLAG)
 	mv acoustic_wave_sim.o $(OBJ_PATH)acoustic_wave_sim.o
 	
 create_layout.o: $(SRC_PATH)grids/create_layout.cpp  $(INCLUDE_PATH)/grids/create_layout.h $(INCLUDE_PATH)/grids/layout.h
