@@ -6,98 +6,92 @@
 // 1D functions
 //=============================================================================
 
-template <typename ApplyLBoundary, 
-          typename ApplyLInterior, 
-          typename ApplyCInterior, 
-          typename ApplyRBoundary, 
-          typename ApplyRInterior, 
-          typename... Args, 
-          class SbpDerivative>
-inline PetscErrorCode partitioned_apply_1D_non_overlapping(const ApplyLBoundary& apply_L_boundary,
-                                                           const ApplyLInterior& apply_L_interior,
-                                                           const ApplyCInterior& apply_C_interior,
-                                                           const ApplyRInterior& apply_R_interior,
-                                                           const ApplyRBoundary& apply_R_boundary,                                                          
-                                                                 grid::grid_function_1d<PetscScalar> dst, 
-                                                           const grid::grid_function_1d<PetscScalar> src,
-                                                           const PetscInt N,
-                                                           const SbpDerivative& D1,
-                                                           const PetscScalar hi,
-                                                           const PetscInt i_start,
-                                                           const PetscInt i_end,
-                                                           Args... args)
+template <typename RhsLeftBoundary, 
+          typename RhsLeftClosure, 
+          typename RhsInterior, 
+          typename RhsRightClosure,
+          typename RhsRightBoundary,
+          typename... Args>
+inline PetscErrorCode rhs_1D_local(const RhsLeftBoundary& rhs_lb,
+                                     const RhsLeftClosure& rhs_lc,
+                                     const RhsInterior& rhs_int,
+                                     const RhsRightClosure& rhs_rc,
+                                     const RhsRightBoundary& rhs_rb,                                                          
+                                           grid::grid_function_1d<PetscScalar> dst, 
+                                     const grid::grid_function_1d<PetscScalar> src,
+                                     const PetscInt N,                                                           
+                                     const PetscInt cw,
+                                     const PetscInt sw,
+                                     const PetscInt i_start,
+                                     const PetscInt i_end,
+                                     Args... args)
 {
   PetscInt i;
-  const auto n_closures = D1.closure_size();
-  if (i_start == 0) 
-  {
-    apply_L_boundary(dst,src,N,D1,hi,args...);
-    for (i = 1; i < n_closures; i++) 
-    { 
-      apply_L_interior(dst,src,N,D1,hi,i,args...);
+  if (i_start == 0) { // Left region
+    rhs_lb(dst,src,N,args...); // Boundary point
+    for (i = 1; i < cw; i++) { 
+      rhs_lc(dst,src,N,i,args...); // Closure points
+    } 
+    for (i = cw; i < i_end-sw; i++) { 
+      rhs_int(dst,src,N,i,args...); // Local interior points
+    } 
+  }
+  else if (i_end == N) { // Right region
+    for (i = i_start+sw; i < N-cw; i++) { 
+      rhs_int(dst,src,N,i,args...); // Local interior points
+    } 
+    for (i = N-cw; i < N-1; i++) { 
+      rhs_rc(dst,src,N,i,args...); // Closure points
     }
-    for (i = n_closures; i < i_end; i++)
-    {
-      apply_C_interior(dst,src,N,D1,hi,i,args...);
-    }
-    
-  } else if (i_end == N) 
-  {
-    for (i = i_start; i < N-n_closures; i++)
-    {
-      apply_C_interior(dst,src,N,D1,hi,i,args...);
-    }
-    for (i = N-n_closures; i < N-1; i++)
-    {
-      apply_R_interior(dst,src,N,D1,hi,i,args...);
-    }
-    apply_R_boundary(dst,src,N,D1,hi,args...);
-  } else 
-  {
-    for (i = i_start; i < i_end; i++)
-    {
-      apply_C_interior(dst,src,N,D1,hi,i,args...);
+    rhs_rb(dst,src,N,args...); // Boundary point
+  }
+  else { // Interior region
+    for (i = i_start+sw; i < i_end-sw; i++){  
+      rhs_int(dst,src,N,i,args...); // local interior points
     }
   }
   return 0;
 };
 
-
-template <typename ApplyLBoundary, 
-          typename ApplyLInterior, 
-          typename ApplyCInterior, 
-          typename ApplyRBoundary, 
-          typename ApplyRInterior, 
-          typename... Args, 
-          class SbpDerivative>
-inline PetscErrorCode partitioned_apply_1D_single_core(const ApplyLBoundary& apply_L_boundary,
-                                                       const ApplyLInterior& apply_L_interior,
-                                                       const ApplyCInterior& apply_C_interior,
-                                                       const ApplyRInterior& apply_R_interior,
-                                                       const ApplyRBoundary& apply_R_boundary,                                                          
-                                                             grid::grid_function_1d<PetscScalar> dst, 
-                                                       const grid::grid_function_1d<PetscScalar> src,
-                                                       const PetscInt N,
-                                                       const SbpDerivative& D1,
-                                                       const PetscScalar hi,
-                                                       Args... args)
+template <typename RhsLeftBoundary, 
+          typename RhsLeftClosure, 
+          typename RhsInterior, 
+          typename RhsRightClosure,
+          typename RhsRightBoundary,
+          typename... Args>
+inline PetscErrorCode rhs_1D_overlap(const RhsLeftBoundary& rhs_lb,
+                                     const RhsLeftClosure& rhs_lc,
+                                     const RhsInterior& rhs_int,
+                                     const RhsRightClosure& rhs_rc,
+                                     const RhsRightBoundary& rhs_rb,                                                          
+                                           grid::grid_function_1d<PetscScalar> dst, 
+                                     const grid::grid_function_1d<PetscScalar> src,
+                                     const PetscInt N,                                                           
+                                     const PetscInt cw,
+                                     const PetscInt sw,
+                                     const PetscInt i_start,
+                                     const PetscInt i_end,
+                                     Args... args)
 {
   PetscInt i;
-  const auto n_closures = D1.closure_size();
-  apply_L_boundary(dst,src,N,D1,hi,args...);
-  for (i = 1; i < n_closures; i++) 
-  { 
-    apply_L_interior(dst,src,N,D1,hi,i,args...);
+  if (i_start == 0) { // Left region
+    for (i = i_end-sw; i < i_end; i++) { 
+      rhs_int(dst,src,N,i,args...); // Overlapping interior points
+    } 
   }
-  for (i = n_closures; i < N-n_closures; i++)
-  {
-    apply_C_interior(dst,src,N,D1,hi,i,args...);
+  else if (i_end == N) { // Right region
+    for (i = i_start; i < i_start+sw; i++) { 
+      rhs_int(dst,src,N,i,args...); // Overlapping interior points
+    } 
   }
-  for (i = N-n_closures; i < N-1; i++)
-  {
-    apply_R_interior(dst,src,N,D1,hi,i,args...);
+  else { // Interior region
+    for (i = i_start; i < i_start+sw; i++){  
+      rhs_int(dst,src,N,i,args...); // Left overlapping interior points
+    }
+    for (i = i_end-sw; i < i_end; i++){  
+      rhs_int(dst,src,N,i,args...); // Right overlapping interior points
+    }
   }
-  apply_R_boundary(dst,src,N,D1,hi,args...);
   return 0;
 };
 
@@ -105,47 +99,163 @@ inline PetscErrorCode partitioned_apply_1D_single_core(const ApplyLBoundary& app
 // 2D functions
 //=============================================================================
 
-template <typename ApplyLLCorner,
-          typename ApplyLLWest,
-          typename ApplyLLSouth,
-          typename ApplyLLInterior,
-          typename... Args,
-          class SbpDerivative>
-inline PetscErrorCode partitioned_apply_LL(ApplyLLCorner apply_LL_corner,
-                                           ApplyLLWest apply_LL_west,
-                                           ApplyLLSouth apply_LL_south,
-                                           ApplyLLInterior apply_LL_interior,
-                                           grid::grid_function_2d<PetscScalar> dst,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           const std::array<PetscInt,2>& N,
-                                           const SbpDerivative& D1,
-                                           const std::array<PetscScalar,2>& hi,
-                                           Args args...)
+// template <typename RhsCorner,
+//           typename RhsWestBoundary,
+//           typename RhsSouthBoundary,
+//           typename RhsClosure,
+//           typename... Args>
+// inline PetscErrorCode rhs_LL(RhsCorner rhs_corner,
+//                              RhsWestBoundary rhs_wb,
+//                              RhsSouthBoundary rhs_sb,
+//                              RhsClosure rhs_c,
+//                              grid::grid_function_2d<PetscScalar> dst,
+//                              const grid::grid_function_2d<PetscScalar> src,
+//                              const std::array<PetscInt,2>& N,
+//                              const PetscInt cw,
+//                              Args args...)
+// {
+//   PetscInt i,j;
+  
+//   rhs_corner(dst,src,N,args...); // Corner point
+//   for (i = 1; i < cw; i++) 
+//   { 
+//     rhs_sb(dst,src,N,i,args...); // south boundary (exluding corner)
+//   }
+//   for (j = 1; j < cw; j++)
+//   { 
+//     rhs_wb(dst,src,N,j,args...); // west boundary (exluding corner)
+//   }
+//   for (j = 1; j < cw; j++) { 
+//     for (i = 1; i < cw; i++) { 
+//       rhs_c(dst,src,N,i,j,args...); // remaining closure region
+//     }
+//   }
+//   return 0;
+// }
+
+// template <typename RhsCorner,
+//           typename RhsWestBoundary,
+//           typename RhsSouthBoundary,
+//           typename RhsClosure,
+//           typename... Args>
+// inline PetscErrorCode rhs_LI(RhsLLCorner rhs_corner,
+//                                            RhsCorner rhs_wb,
+//                                            RhsWestBoundary rhs_sb,
+//                                            RhsClosure rhs_c,
+//                                            grid::grid_function_2d<PetscScalar> dst,
+//                                            const grid::grid_function_2d<PetscScalar> src,
+//                                            const std::array<PetscInt,2>& N,
+//                                            const PetscInt cw,
+//                                            Args args...)
+// {
+//   PetscInt i,j;
+  
+//   rhs_corner(dst,src,N,args...); // Corner point
+//   for (i = 1; i < cw; i++) 
+//   { 
+//     rhs_sb(dst,src,N,i,args...); // south boundary (exluding corner)
+//   }
+//   for (j = 1; j < cw; j++)
+//   { 
+//     rhs_wb(dst,src,N,j,args...); // west boundary (exluding corner)
+//   }
+//   for (j = 1; j < cw; j++) { 
+//     for (i = 1; i < cw; i++) { 
+//       rhs_c(dst,src,N,i,j,args...); // remaining closure region
+//     }
+//   }
+//   return 0;
+// }
+
+
+//=============================================================================
+// Temporary functions
+//=============================================================================
+
+
+//=============================================================================
+// 1D functions
+//=============================================================================
+
+template <typename RhsLeftBoundary, 
+          typename RhsLeftClosure, 
+          typename RhsInterior, 
+          typename RhsRightClosure,
+          typename RhsRightBoundary,
+          typename... Args>
+inline PetscErrorCode rhs_1D(const RhsLeftBoundary& rhs_lb,
+                             const RhsLeftClosure& rhs_lc,
+                             const RhsInterior& rhs_int,
+                             const RhsRightClosure& rhs_rc,
+                             const RhsRightBoundary& rhs_rb,                                                          
+                                   grid::grid_function_1d<PetscScalar> dst, 
+                             const grid::grid_function_1d<PetscScalar> src,
+                             const PetscInt N,                                                           
+                             const PetscInt cw,
+                             const PetscInt i_start,
+                             const PetscInt i_end,
+                             Args... args)
 {
-    int i,j;
-    const auto n_closures = D1.closure_size();
-    // Apply corner point
-    apply_LL_corner(dst,src,N,D1,hi,args...);
-
-    // Apply points on west boundary (exluding corner)
-    for (j = 1; j < n_closures; j++)
-    { 
-      apply_LL_west(dst,src,N,D1,hi,j,args...);
+  PetscInt i;
+  if (i_start == 0) { // Left region
+    rhs_lb(dst,src,N,args...); // Boundary point
+    for (i = 1; i < cw; i++) { 
+      rhs_lc(dst,src,N,i,args...); // Closure points
     }
-    // Apply points on south boundary (exluding corner)
-    for (i = 1; i < n_closures; i++) 
-    { 
-      apply_LL_south(dst,src,N,D1,hi,i,args...);
+    for (i = cw; i < i_end; i++) {
+      rhs_int(dst,src,N,i,args...); // Interior points
     }
-
-    // Apply remaining interior closure points
-    for (j = 1; j < n_closures; j++)
-    { 
-      for (i = 1; i < n_closures; i++) 
-      { 
-        apply_LL_south(dst,src,N,D1,hi,i,j,args...);
-      }
-    }
-    return 0;
   }
+  else if (i_end == N) { // Right region
+    for (i = i_start; i < N-cw; i++) {
+      rhs_int(dst,src,N,i,args...); // Interior points
+    }
+    for (i = N-cw; i < N-1; i++) {
+      rhs_rc(dst,src,N,i,args...); // Closure points
+    }
+    rhs_rb(dst,src,N,args...); // Boundary point
+  }
+  else { // Interior region
+    for (i = i_start; i < i_end; i++) {
+      rhs_int(dst,src,N,i,args...); // Interior points
+    }
+  }
+  return 0;
+};
 
+
+template <typename RhsLeftBoundary, 
+          typename RhsLeftClosure, 
+          typename RhsInterior, 
+          typename RhsRightClosure,
+          typename RhsRightBoundary, 
+          typename... Args>
+inline PetscErrorCode rhs_1D_single_core(const RhsLeftBoundary& rhs_lb,
+                                                       const RhsLeftClosure& rhs_lc,
+                                                       const RhsInterior& rhs_int,
+                                                       const RhsRightClosure& rhs_rc,
+                                                       const RhsRightBoundary& rhs_rb,                                                          
+                                                             grid::grid_function_1d<PetscScalar> dst, 
+                                                       const grid::grid_function_1d<PetscScalar> src,
+                                                       const PetscInt N,
+                                                       const PetscInt cw,
+                                                       Args... args)
+{
+  PetscInt i;
+  rhs_lb(dst,src,N,args...); // Left boundary point
+  for (i = 1; i < cw; i++) { 
+    rhs_lc(dst,src,N,i,args...); // Left closure points
+  }
+  for (i = cw; i < N-cw; i++) {
+    rhs_int(dst,src,N,i,args...); // Interior points
+  }
+  for (i = N-cw; i < N-1; i++) {
+    rhs_rc(dst,src,N,i,args...); // Right closure points
+  }
+  rhs_rb(dst,src,N,args...); // Right boundary point
+  return 0;
+};
+
+//=============================================================================
+// 2D functions
+//=============================================================================

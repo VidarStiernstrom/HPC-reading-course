@@ -19,13 +19,72 @@ namespace sbp{
   }
 
   template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode acowave_apply_2D_LL(const PetscScalar t, const SbpDerivative& D1, const SbpInvQuad& HI,
-                                           VelocityFunction&& a,
-                                           VelocityFunction&& b,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           grid::grid_function_2d<PetscScalar> dst,
-                                           const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl,
-                                           const std::array<PetscScalar,2>& hi, const PetscInt sw, const PetscInt n_closures)
+  inline void apply_LL_interior(const SbpDerivative& D1, 
+                                const SbpInvQuad& HI,
+                                VelocityFunction&& a,
+                                const grid::grid_function_2d<PetscScalar> src,
+                                grid::grid_function_2d<PetscScalar> dst,
+                                const PetscInt i, const PetscInt j,
+                                const std::array<PetscScalar,2>& xl,
+                                const std::array<PetscScalar,2>& hi){
+    dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+    dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+    dst(j,i,2) = -D1.apply_2D_x_left(src,hi[0],i,j,0) - D1.apply_2D_y_left(src,hi[1],i,j,1);
+  }
+
+  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
+  inline void apply_LL_corner_point(const SbpDerivative& D1, 
+                                    const SbpInvQuad& HI,
+                                    VelocityFunction&& a,
+                                    const grid::grid_function_2d<PetscScalar> src,
+                                    grid::grid_function_2d<PetscScalar> dst,
+                                    const std::array<PetscScalar,2>& xl,
+                                    const std::array<PetscScalar,2>& hi){
+    const i = 0; 
+    const j = 0;
+    dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,2) - HI.apply_2D_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
+    dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,2) - HI.apply_2D_y_left(src, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    dst(j,i,2) = -D1.apply_2D_x_left(src,hi[0],i,j,0) - D1.apply_2D_y_left(src,hi[1],i,j,1);
+  }
+
+  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
+  inline void apply_LL_west_boundary(const SbpDerivative& D1, 
+                                     const SbpInvQuad& HI,
+                                     VelocityFunction&& a,
+                                     const grid::grid_function_2d<PetscScalar> src,
+                                     grid::grid_function_2d<PetscScalar> dst,
+                                     const PetscInt j,
+                                     const std::array<PetscScalar,2>& xl,
+                                     const std::array<PetscScalar,2>& hi){
+    const i = 0;
+    dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+    dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+    dst(j,i,2) = -D1.apply_2D_x_left(src,hi[0],i,j,0) - D1.apply_2D_y_left(src,hi[1],i,j,1);
+  }
+
+  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
+  inline void apply_LL_south_boundary(const SbpDerivative& D1, 
+                                     const SbpInvQuad& HI,
+                                     VelocityFunction&& a,
+                                     const grid::grid_function_2d<PetscScalar> src,
+                                     grid::grid_function_2d<PetscScalar> dst,
+                                     const PetscInt i,
+                                     const std::array<PetscScalar,2>& xl,
+                                     const std::array<PetscScalar,2>& hi){
+    const j = 0;
+    dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+    dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,2) - HI.apply_2D_y_left(src, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    dst(j,i,2) = -D1.apply_2D_x_left(src,hi[0],i,j,0) - D1.apply_2D_y_left(src,hi[1],i,j,1);
+  }
+
+  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction, typename... Args>
+  inline PetscErrorCode apply_2D_LL(const SbpDerivative& D1, 
+                                     const SbpInvQuad& HI,
+                                     VelocityFunction&& a,
+                                     const grid::grid_function_2d<PetscScalar> src,
+                                     grid::grid_function_2d<PetscScalar> dst
+                                     const PetscInt n_closures,
+                                     Args... args)
   {
     int i,j;
 
@@ -106,14 +165,14 @@ namespace sbp{
     // Set dst on affected points
     i = 0; 
     j = 0;
-    dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,2) - HI.apply_2D_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
+    dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,2) - HI.apply_2D_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
     dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,2) - HI.apply_2D_y_left(src, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
     dst(j,i,2) = -D1.apply_2D_x_left(src,hi[0],i,j,0) - D1.apply_2D_y_left(src,hi[1],i,j,1);
 
     i = 0;
     for (j = 1; j < n_closures; j++)
     { 
-      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,2) - HI.apply_2D_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
+      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,2) - HI.apply_2D_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
       dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
       dst(j,i,2) = -D1.apply_2D_x_left(src,hi[0],i,j,0) - D1.apply_2D_y_left(src,hi[1],i,j,1);
     }
@@ -121,7 +180,7 @@ namespace sbp{
     j = 0;
     for (i = 1; i < n_closures; i++) 
     { 
-      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);;
+      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
       dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,2) - HI.apply_2D_y_left(src, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
       dst(j,i,2) = -D1.apply_2D_x_left(src,hi[0],i,j,0) - D1.apply_2D_y_left(src,hi[1],i,j,1);
     }
@@ -184,7 +243,7 @@ namespace sbp{
     { 
       for (i = i_xstart; i < i_xend; i++)
       {
-        dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);;
+        dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
         dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
         dst(j,i,2) = -D1.apply_2D_x_interior(src,hi[0],i,j,0) - D1.apply_2D_y_left(src,hi[1],i,j,1);
       }
@@ -194,7 +253,7 @@ namespace sbp{
     j = 0;
     for (i = i_xstart; i < i_xend; i++)
     {
-      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);;
+      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
       dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,2) - HI.apply_2D_y_left(src, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
       dst(j,i,2) = -D1.apply_2D_x_interior(src,hi[0],i,j,0) - D1.apply_2D_y_left(src,hi[1],i,j,1);
     }
@@ -268,9 +327,9 @@ namespace sbp{
     i = 0;
     for (j = i_ystart; j < i_yend; j++)
     { 
-      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,2) - HI.apply_2D_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
+      dst(j,i,0) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,2) - HI.apply_2D_x_left(src, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
       dst(j,i,1) = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-      dst(j,i,2) = -D1.apply_2D_x_left(src,hi[0],i,j,0) - D1.apply_2D_y_interior(src,hi[1],i,j,1);;
+      dst(j,i,2) = -D1.apply_2D_x_left(src,hi[0],i,j,0) - D1.apply_2D_y_interior(src,hi[1],i,j,1);
     }
 
     return 0;
