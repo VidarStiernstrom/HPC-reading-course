@@ -10,7 +10,6 @@ namespace sbp{
 template <class SbpDerivative>
 inline void reflection_lb(grid::grid_function_1d<PetscScalar> dst,
                           const grid::grid_function_1d<PetscScalar> src, 
-                          const PetscInt N,
                           const SbpDerivative& D1, 
                           const PetscScalar hi)
 {
@@ -22,7 +21,6 @@ inline void reflection_lb(grid::grid_function_1d<PetscScalar> dst,
 template <class SbpDerivative>
 inline void reflection_lc(grid::grid_function_1d<PetscScalar> dst,
                           const grid::grid_function_1d<PetscScalar> src, 
-                          const PetscInt N,
                           const PetscInt i,
                           const SbpDerivative& D1, 
                           const PetscScalar hi)
@@ -35,7 +33,6 @@ inline void reflection_lc(grid::grid_function_1d<PetscScalar> dst,
 template <class SbpDerivative>
 inline void reflection_int(grid::grid_function_1d<PetscScalar> dst,
                           const grid::grid_function_1d<PetscScalar> src, 
-                          const PetscInt N,
                           const PetscInt i,
                           const SbpDerivative& D1, 
                           const PetscScalar hi)
@@ -47,24 +44,22 @@ inline void reflection_int(grid::grid_function_1d<PetscScalar> dst,
 template <class SbpDerivative>
 inline void reflection_rc(grid::grid_function_1d<PetscScalar> dst,
                           const grid::grid_function_1d<PetscScalar> src, 
-                          const PetscInt N,
                           const PetscInt i,
                           const SbpDerivative& D1, 
                           const PetscScalar hi)
 {
-  dst(i,1) = D1.apply_right(src,hi,N,i,0);
-  dst(i,0) = D1.apply_right(src,hi,N,i,1);
+  dst(i,1) = D1.apply_right(src,hi,i,0);
+  dst(i,0) = D1.apply_right(src,hi,i,1);
 };
 
 template <class SbpDerivative>
 inline void reflection_rb(grid::grid_function_1d<PetscScalar> dst,
                           const grid::grid_function_1d<PetscScalar> src, 
-                          const PetscInt N,
                           const SbpDerivative& D1, 
                           const PetscScalar hi)
 {
-  const PetscInt i = N-1;
-  dst(i,1) = D1.apply_right(src,hi,N,i,0);
+  const PetscInt i = src.mapping().nx()-1;
+  dst(i,1) = D1.apply_right(src,hi,i,0);
   dst(i,0) = 0.0;
 };
 
@@ -81,15 +76,13 @@ inline void reflection_rb(grid::grid_function_1d<PetscScalar> dst,
 template <class SbpDerivative>
 inline PetscErrorCode reflection_local(grid::grid_function_1d<PetscScalar> dst,
                                        const grid::grid_function_1d<PetscScalar> src,
-                                       const PetscInt N,
-                                       const PetscInt sw,
                                        const PetscInt i_start,
                                        const PetscInt i_end,
                                        const SbpDerivative& D1,
                                        const PetscScalar hi)
 {
   return rhs_1D_local(reflection_lb<decltype(D1)>, reflection_lc<decltype(D1)>, reflection_int<decltype(D1)>, reflection_rc<decltype(D1)>, reflection_rb<decltype(D1)>,
-                dst, src, N, D1.closure_size(), sw, i_start, i_end, D1, hi);
+                      dst, src, D1.closure_size(), i_start, i_end, D1, hi);
 };
 
 /**
@@ -105,15 +98,13 @@ inline PetscErrorCode reflection_local(grid::grid_function_1d<PetscScalar> dst,
 template <class SbpDerivative>
 inline PetscErrorCode reflection_overlap(grid::grid_function_1d<PetscScalar> dst,
                                          const grid::grid_function_1d<PetscScalar> src,
-                                         const PetscInt N,
-                                         const PetscInt sw,
                                          const PetscInt i_start,
                                          const PetscInt i_end,
                                          const SbpDerivative& D1,
                                          const PetscScalar hi)
 {
   return rhs_1D_overlap(reflection_lb<decltype(D1)>, reflection_lc<decltype(D1)>, reflection_int<decltype(D1)>, reflection_rc<decltype(D1)>, reflection_rb<decltype(D1)>,
-                dst, src, N, D1.closure_size(), sw, i_start, i_end, D1, hi);
+                        dst, src, D1.closure_size(), i_start, i_end, D1, hi);
 };
 
 
@@ -130,14 +121,13 @@ inline PetscErrorCode reflection_overlap(grid::grid_function_1d<PetscScalar> dst
 template <class SbpDerivative>
 inline PetscErrorCode reflection(grid::grid_function_1d<PetscScalar> dst,
                                  const grid::grid_function_1d<PetscScalar> src,
-                                 const PetscInt N,
                                  const PetscInt i_start,
                                  const PetscInt i_end,
                                  const SbpDerivative& D1,
                                  const PetscScalar hi)
 {
   return rhs_1D(reflection_lb<decltype(D1)>, reflection_lc<decltype(D1)>, reflection_int<decltype(D1)>, reflection_rc<decltype(D1)>, reflection_rb<decltype(D1)>,
-                dst, src, N, D1.closure_size(), i_start, i_end, D1, hi);
+                dst, src, D1.closure_size(), i_start, i_end, D1, hi);
 };
 
 /**
@@ -147,12 +137,11 @@ inline PetscErrorCode reflection(grid::grid_function_1d<PetscScalar> dst,
 template <class SbpDerivative>
 inline PetscErrorCode reflection_single_core(grid::grid_function_1d<PetscScalar> dst,
                                              const grid::grid_function_1d<PetscScalar> src,
-                                             const PetscInt N,
                                              const SbpDerivative& D1,
                                              const PetscScalar hi)
 {
-  return rhs_1D(reflection_lb, reflection_lc, reflection_int,reflection_rc, reflection_rb,
-                dst, src, N, D1.closure_size(), D1, hi);
+  return rhs_1D_single_core(reflection_lb, reflection_lc, reflection_int,reflection_rc, reflection_rb,
+                            dst, src, D1.closure_size(), D1, hi);
 };
 
   /**
@@ -183,8 +172,8 @@ inline PetscErrorCode reflection_single_core(grid::grid_function_1d<PetscScalar>
     if (i_end == N) {
       for (i = N-n_closures; i < N; i++)
       {
-          dst(i,1) = D1.apply_right(src,hi,N,i,0);
-          dst(i,0) = D1.apply_right(src,hi,N,i,1);
+          dst(i,1) = D1.apply_right(src,hi,i,0);
+          dst(i,0) = D1.apply_right(src,hi,i,1);
       }
       i_end = N-n_closures;
     }

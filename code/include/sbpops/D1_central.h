@@ -83,8 +83,9 @@ namespace sbp {
     *
     * Output: derivative v_x[i][comp]
     **/
-    inline PetscScalar apply_right(const grid::grid_function_1d<PetscScalar> v, const PetscScalar hi, const PetscInt N, const PetscInt i, const PetscInt comp) const
+    inline PetscScalar apply_right(const grid::grid_function_1d<PetscScalar> v, const PetscScalar hi, const PetscInt i, const PetscInt comp) const
     {
+      const PetscInt N = v.mapping().nx();
       PetscScalar u = 0;
       for (PetscInt is = 0; is < closure_width; is++)
       {
@@ -189,8 +190,9 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_2D_x_right(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hix, const PetscInt Nx, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_2D_x_right(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
+      const PetscInt Nx = v.mapping().nx();
       PetscScalar u = 0;
       for (PetscInt is = 0; is < closure_width; is++)
       {
@@ -210,8 +212,9 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_2D_y_right(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hiy, const PetscInt Ny, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_2D_y_right(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
+      const PetscInt Ny = v.mapping().ny();
       PetscScalar u = 0;
       for (PetscInt is = 0; is < closure_width; is++)
       {

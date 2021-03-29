@@ -14,12 +14,14 @@ namespace grid{
       static_assert(Extents::rank() == 2, "PartitionedLayout1D is hard-coded for 1D layout with Dofs");
 
       // for convenience
-      using index_type = typename Extents::index_type;
+      using index_t = typename Extents::index_type;
 
       // constructor
-      mapping(Extents const& exts, index_type offset) noexcept
-        : extents(exts),
-          g2l_offset(offset)
+      mapping(Extents const& exts, index_t offset, index_t sw, index_t nx) noexcept
+        : _extents(exts),
+          _g2l_offset(offset),
+          _sw(sw),
+          _nx(nx)
       {
         assert(exts.extent(0) > 0);
         assert(exts.extent(1) > 0);
@@ -34,29 +36,26 @@ namespace grid{
 
       //------------------------------------------------------------
       // Helper members (not part of the layout concept)
-
-       // Computes the offset going from global to local indexing
-      constexpr index_type
-      global_to_local_offset() const noexcept {
-        return g2l_offset;
+      constexpr index_t
+      stencil_width() const noexcept {
+        return _sw;
       }
 
-      // Flattens a 2D index (i,comp) to a 1D index.
-      constexpr index_type
-      flatten(index_type i, index_type comp) const noexcept {
-        return extents.extent(1)*i+comp;
+      constexpr index_t
+      nx() const noexcept {
+        return _nx;
       }
 
       //------------------------------------------------------------
       // Required memberst.
-      constexpr index_type
-      operator()(index_type i, index_type comp) const noexcept {
-        return flatten(i, comp) + global_to_local_offset();
+      constexpr index_t
+      operator()(index_t i, index_t comp) const noexcept {
+        return _flatten(i, comp) + _g2l_offset;
       }
 
-      constexpr index_type
+      constexpr index_t
       required_span_size() const noexcept {
-        return extents.extent(1)*extents.extent(0);
+        return _extents.extent(1)*_extents.extent(0);
       }
 
       static constexpr bool is_always_unique() noexcept { return true; }
@@ -68,8 +67,16 @@ namespace grid{
 
      private:
 
-      Extents extents;
-      index_type g2l_offset;
+      // Flattens a 2D index (i,comp) to a 1D index.
+      constexpr index_t
+      _flatten(index_t i, index_t comp) const noexcept {
+        return _extents.extent(1)*i+comp;
+      }
+
+      Extents _extents;
+      index_t _g2l_offset;
+      index_t _sw;
+      index_t _nx;      
     };
   };
 
@@ -81,12 +88,15 @@ namespace grid{
       static_assert(Extents::rank() == 3, "PartitionedLayout2D is hard-coded for 2D layout with Dofs");
 
       // for convenience
-      using index_type = typename Extents::index_type;
+      using index_t = typename Extents::index_type;
 
       // constructor
-      mapping(Extents const& exts, index_type offset) noexcept
-        : extents(exts),
-          g2l_offset(offset)
+      mapping(Extents const& exts, index_t offset, index_t sw, index_t nx, index_t ny) noexcept
+        : _extents(exts),
+          _g2l_offset(offset),
+          _sw(sw),
+          _nx(nx),
+          _ny(ny)
       {
         assert(exts.extent(0) > 0);
         assert(exts.extent(1) > 0);
@@ -102,29 +112,43 @@ namespace grid{
 
       //------------------------------------------------------------
       // Helper members (not part of the layout concept)
+      constexpr index_t
+      stencil_width() const noexcept {
+        return _sw;
+      }
 
-       // Returns the offset going from global to local indexing
-      constexpr index_type
+      constexpr index_t
+      nx() const noexcept {
+        return _nx;
+      }
+
+      constexpr index_t
+      ny() const noexcept {
+        return _nx;
+      }
+
+      // Returns the offset going from global to local indexing
+      constexpr index_t
       global_to_local_offset() const noexcept {
-        return g2l_offset;
+        return _g2l_offset;
       }
 
       // Flattens a 3D index (j,i,comp) to a 1D index.
-      constexpr index_type
-      flatten(index_type j, index_type i, index_type comp) const noexcept {
-        return extents.extent(2)*(i + extents.extent(0)*j) + comp;
+      constexpr index_t
+      flatten(index_t j, index_t i, index_t comp) const noexcept {
+        return _extents.extent(2)*(i + _extents.extent(0)*j) + comp;
       }
 
       //------------------------------------------------------------
-      // Required memberst.
-      constexpr index_type
-      operator()(index_type j, index_type i, index_type comp) const noexcept {
+      // Required members.
+      constexpr index_t
+      operator()(index_t j, index_t i, index_t comp) const noexcept {
         return flatten(j,i,comp) + global_to_local_offset();
       }
 
-      constexpr index_type
+      constexpr index_t
       required_span_size() const noexcept {
-        return extents.extent(0)*extents.extent(1)*extents.extent(2);
+        return _extents.extent(0)*_extents.extent(1)*_extents.extent(2);
       }
 
       static constexpr bool is_always_unique() noexcept { return true; }
@@ -136,8 +160,10 @@ namespace grid{
 
      private:
 
-      Extents extents;
-      index_type g2l_offset;
+      Extents _extents;
+      index_t _g2l_offset;
+      index_t _sw;
+      index_t _nx,_ny;
     };
   };
 

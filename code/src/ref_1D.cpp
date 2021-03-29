@@ -263,9 +263,9 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, appctx->layout);
   auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, appctx->layout);
-  sbp::reflection_local(gf_dst, gf_src, appctx->N[0], appctx->sw, appctx->i_start[0], appctx->i_end[0], appctx->D1, appctx->hi[0]);
+  sbp::reflection_local(gf_dst, gf_src, appctx->i_start[0], appctx->i_end[0], appctx->D1, appctx->hi[0]);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::reflection_overlap(gf_dst, gf_src, appctx->N[0], appctx->sw, appctx->i_start[0], appctx->i_end[0], appctx->D1, appctx->hi[0]);
+  sbp::reflection_overlap(gf_dst, gf_src, appctx->i_start[0], appctx->i_end[0], appctx->D1, appctx->hi[0]);
 
   //sbp::reflection(gf_dst, gf_src, appctx->N[0], appctx->i_start[0], appctx->i_end[0], appctx->D1, appctx->hi[0]);
   //sbp::reflection_single_core(appctx->D1, gf_src, gf_dst, appctx->N[0], appctx->hi[0]);
