@@ -1,0 +1,6 @@
+code/bin/*
+code/obj/*
+code/data/*
+code/rack_data/*
+code/sample/*
+.DS_Store
