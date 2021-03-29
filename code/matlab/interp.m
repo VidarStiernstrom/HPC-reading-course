@@ -3,7 +3,7 @@ close all
 
 addpath("op_interpolation_operators/");
 
-mf = 21;
+mf = 9;
 xl = -1; yl = -1;
 xr = 1; yr = 1;
 mc = 0.5*(mf+1);

@@ -1,11 +1,10 @@
-% function [D,b,E_R] = build_system_ref(T,m,hx,v0)
 clear
 close all
 
-Tend = 0.01;
+Tend = 0.1;
 tblocks = 1;
 Tpb = Tend/tblocks;
-m = 15;
+m = 11;
 m2 = m*m;
 xvec = linspace(-1,1,m)';
 yvec = linspace(-1,1,m)';
@@ -62,83 +61,44 @@ SATs = kr(Imx,HI,Imt,taus)*kr(Imx,e_1,Imt)*kr(Imy,e_1',Imt,e3);
 SATn = kr(Imx,HI,Imt,taun)*kr(Imx,e_m,Imt)*kr(Imy,e_m',Imt,e3);
 SAT = SATw + SATe + SATs + SATn;
 
-
 tau = 1;
 
-A = [0,0,10^4;
+A = [0,0,1;
     0,0,0;
-    10^0,0,0];
+    1,0,0];
 
 B = [0,0,0;
-    0,0,10^4;
-    0,10^0,0];
-
-
+    0,0,1;
+    0,1,0];
 
 
 D = kr(Imx,Imy,Dt + tau*HIt*e_l*e_l',Ik) + kr(Dxy,Imy,Imt,A) + kr(Imx,Dxy,Imt,B) + SAT;
 
+eigD = eig(full(D));
 
-% D = kr(Imx,Imy,1,Ik) + kr(Dxy,Imy,Imt,A) + kr(Imx,Dxy,Imt,B) + SAT;
-% figure
-% eigD = eig(full(D));
-% scatter(real(eigD),imag(eigD))
-% cond(full(D))
+figure('pos',[288         820        1246         516])
+fs = 20;
 
-btmp = kr(Imy,Imx,tau*HIt*e_l,Ik);
-E_R = kr(Imy,Imx,e_r',Ik);
+subplot(1,2,1)
+spy(D)
+ax1 = get(gca);
+title('Sparsity pattern of A')
+set(gca,'Fontsize',fs)
+box on
 
-DDD = diag(diag(D));
-[L,U] = ilu(D);
-M1 = @(x) DDD\x;
-M2 = @(x) U\(L\x);
-M3 = @(x) x;
+subplot(1,2,2)
+scatter(real(eigD),imag(eigD))
+ax2 = get(gca);
+xlabel('Re(\lambda)')
+ylabel('Im(\lambda)')
+grid on
+box on
+title('Spectrum of A')
+set(gca,'Fontsize',fs)
 
-vcurr = v0;
-V = zeros(k*m*m,tblocks+1);
-for tblock = 1:tblocks
-    V(:,tblock) = vcurr;
-    b = btmp*vcurr;
-    
-%     v = D\b;
-    RESTART = 10;
-    TOL = 1e-12;
-    MAXIT = 100;
-    
-    [v,~,RELRES1,ITER1,RESVEC1] = gmres(D,b,RESTART,TOL,MAXIT,M1);
-    [v,~,RELRES2,ITER2,RESVEC2] = gmres(D,b,RESTART,TOL,MAXIT,M2);
-    [v,~,RELRES3,ITER3,RESVEC3] = gmres(D,b,RESTART,TOL,MAXIT,M3);
-    
-    vcurr = E_R*v;
-end
-V(:,tblock+1) = vcurr;
+% background color
+set(gcf,'color','white')
 
-
-Van_1 = reshape(uan(X,Y,Tend),[m*m,1]);
-Van_2 = reshape(van(X,Y,Tend),[m*m,1]);
-Van_3 = reshape(pan(X,Y,Tend),[m*m,1]);
-Van = [Van_1;Van_2;Van_3];
-
-Vapprox1 = E1*vcurr;
-err_diff1 = Vapprox1 - Van_1;
-err1 = sqrt(hx*hy)*norm(err_diff1)
-
-Vapprox2 = E2*vcurr;
-err_diff2 = Vapprox2 - Van_2;
-err2 = sqrt(hx*hy)*norm(err_diff2)
-
-Vapprox3 = E3*vcurr;
-err_diff3 = Vapprox3 - Van_3;
-err3 = sqrt(hx*hy)*norm(err_diff3)
-
-figure
-hold on
-semilogy(RESVEC1)
-semilogy(RESVEC2)
-semilogy(RESVEC3)
-set(gca,'YScale','log')
-legend('diag','lu','none')
-
-
-
-
+% save figure using export_fig, https://github.com/altmany/export_fig
+addpath('/Users/guser801/MATLAB/export_fig')
+export_fig 'sparsspec.pdf'

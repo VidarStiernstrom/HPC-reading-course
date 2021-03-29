@@ -1,14 +1,16 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% 4:de ordn. SBP Finita differens         %%%
-%%% operatorer framtagna av Ken Mattsson    %%%
-%%%                                         %%%
-%%% H           (Normen)                    %%%
-%%% D1          (approx f�rsta derivatan)   %%%
-%%% D2          (approx andra derivatan)    %%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% M�ste ange antal punkter (m) och stegl�ngd (h)
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %%% 4:de ordn. SBP Finita differens         %%%
+% %%% operatorer framtagna av Ken Mattsson    %%%
+% %%%                                         %%%
+% %%% H           (Normen)                    %%%
+% %%% D1          (approx f�rsta derivatan)   %%%
+% %%% D2          (approx andra derivatan)    %%%
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 
+% % M�ste ange antal punkter (m) och stegl�ngd (h)
 function [H,HI,D1,e_1,e_m,S_1,S_m] = SBP6_BV3(m,h)
+% h = 1;
+% m = 11;
 
 e_1=zeros(m,1);e_1(1)=1;
 e_m=zeros(m,1);e_m(m)=1;
@@ -58,5 +60,5 @@ S_m=zeros(1,m);
 S_m(m-4:m)=fliplr(-S_U);
 
 M=-H*D2-e_1*S_1+e_m*S_m;
-end
+% end
 
