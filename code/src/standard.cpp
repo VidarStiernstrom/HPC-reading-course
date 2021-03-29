@@ -40,9 +40,9 @@ PetscErrorCode standard_solver(Mat &A, Vec& v, std::string filename_reshist)
 	KSPSetOperators(ksp, A, A);
 	KSPSetTolerances(ksp, 1e-12, PETSC_DEFAULT, PETSC_DEFAULT, ksp_maxit);
 	KSPSetPCSide(ksp, PC_RIGHT);
+	KSPSetFromOptions(ksp);
 	KSPGMRESSetRestart(ksp, 10);
 	KSPSetInitialGuessNonzero(ksp, PETSC_TRUE);
-	KSPSetFromOptions(ksp);
 	KSPSetUp(ksp);
 	KSPGetPC(ksp,&pc);
 

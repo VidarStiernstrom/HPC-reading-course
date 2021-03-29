@@ -46,7 +46,7 @@ PetscErrorCode mgsolver(Mat& Afine, Vec& v, std::string filename_reshist)
   MatShellGetContext(Afine, &F_matctx);
   MatShellGetOperation(Afine, MATOP_MULT, &LHS);
 
-  // Check if number of grid points / number of multigrid levels / number of core are compatible
+  // Check if number of grid points / number of multigrid levels / number of cores are compatible
   PetscScalar nxcoarsest, nycoarsest;
   nxcoarsest = ((double) F_matctx->gridctx.n[0])/(1 << (nlevels-1));
   nycoarsest = ((double) F_matctx->gridctx.n[1])/(1 << (nlevels-1));
@@ -201,15 +201,26 @@ static PetscErrorCode setup_mgsolver(KSP& ksp_fine, PetscInt nlevels, Mat& Afine
   PCMGSetType(pcfine, PC_MG_MULTIPLICATIVE);
   PCMGSetCycleType(pcfine, PC_MG_CYCLE_W);
 
+  // Set interpolations
+  for (level = 1; level < nlevels; level++) {
+    PCMGSetRestriction(pcfine, level, R[level-1]);
+    PCMGSetInterpolation(pcfine, level, P[level-1]);    
+  }
+
+
   KSPSetResidualHistory(ksp_fine, NULL, ksp_outer_maxit+10, PETSC_FALSE);
+
+
 
   // Finest smoother
   PCMGGetSmoother(pcfine, nlevels-1, &ksp_fine_smoth);
   KSPSetOperators(ksp_fine_smoth, Afine, Afine);
   KSPSetTolerances(ksp_fine_smoth, 1e-8, PETSC_DEFAULT, PETSC_DEFAULT, ksp_smooth_iters);
   KSPSetType(ksp_fine_smoth, KSPGMRES);
+  KSPSetInitialGuessNonzero(ksp_fine, PETSC_TRUE);
   KSPGMRESSetRestart(ksp_fine_smoth, ksp_smooth_iters);
   KSPGetPC(ksp_fine_smoth, &pcfine_smoot);
+  // KSPSetNormType(ksp_fine_smoth, KSP_NORM_UNPRECONDITIONED);
   PCSetType(pcfine_smoot, PCNONE);
   PCSetUp(pcfine_smoot);
   KSPSetUp(ksp_fine_smoth);
@@ -218,7 +229,9 @@ static PetscErrorCode setup_mgsolver(KSP& ksp_fine, PetscInt nlevels, Mat& Afine
   PCMGGetCoarseSolve(pcfine, &ksp_coarse);
   KSPSetOperators(ksp_coarse, Acoarses[0], Acoarses[0]);
   KSPSetTolerances(ksp_coarse, 1e-8, PETSC_DEFAULT, PETSC_DEFAULT, ksp_inner_iters);
+  // KSPSetNormType(ksp_coarse, KSP_NORM_UNPRECONDITIONED);
   KSPSetType(ksp_coarse, KSPGMRES);
+  KSPSetInitialGuessNonzero(ksp_coarse, PETSC_FALSE);
   KSPGMRESSetRestart(ksp_coarse, ksp_inner_iters);
   KSPSetPCSide(ksp_coarse, PC_RIGHT);
   KSPGetPC(ksp_coarse, &pccoarse);
@@ -231,22 +244,21 @@ static PetscErrorCode setup_mgsolver(KSP& ksp_fine, PetscInt nlevels, Mat& Afine
       PCMGGetSmoother(pcfine, level, &ksp_mid_smoth[level-1]);
       KSPSetOperators(ksp_mid_smoth[level-1], Acoarses[level], Acoarses[level]);
       KSPSetTolerances(ksp_mid_smoth[level-1], 1e-8, PETSC_DEFAULT, PETSC_DEFAULT, ksp_smooth_iters);
+      // KSPSetNormType(ksp_mid_smoth[level-1], KSP_NORM_UNPRECONDITIONED);
       KSPSetType(ksp_mid_smoth[level-1], KSPGMRES);
-      KSPGetPC(ksp_mid_smoth[level-1], &pcmid_smoth[level-1]);
+      KSPSetInitialGuessNonzero(ksp_mid_smoth[level-1], PETSC_TRUE);
       KSPGMRESSetRestart(ksp_mid_smoth[level-1], ksp_smooth_iters);
+      KSPGetPC(ksp_mid_smoth[level-1], &pcmid_smoth[level-1]);
       PCSetType(pcmid_smoth[level-1], PCNONE);
       PCSetUp(pcmid_smoth[level-1]);
       KSPSetUp(ksp_mid_smoth[level-1]);
   }
 
-  // Set interpolations
-  for (level = 1; level < nlevels; level++) {
-    PCMGSetRestriction(pcfine, level, R[level-1]);
-    PCMGSetInterpolation(pcfine, level, P[level-1]);    
-  }
+
 
   PCSetFromOptions(pcfine);
   PCSetUp(pcfine);
+
 
   return 0;
 }
@@ -272,6 +284,7 @@ PetscErrorCode apply_P(Mat P, Vec xcoarse, Vec xfine)
   DMDAVecGetArrayDOF(dmda_coarse, xcoarse_local, &array_src);
 
   sbp::apply_C2F(prolctx->F_gridctx->ICF, array_src, array_dst, prolctx->F_gridctx->i_start, prolctx->F_gridctx->i_end, prolctx->F_gridctx->N);
+  // sbp::apply_C2F_1p(prolctx->F_gridctx->ICF, array_src, array_dst, prolctx->F_gridctx->i_start, prolctx->F_gridctx->i_end, prolctx->F_gridctx->N);
 
   DMDAVecRestoreArrayDOF(dmda_fine, xfine, &array_dst);
   DMDAVecRestoreArrayDOF(dmda_coarse, xcoarse_local, &array_src);
@@ -302,6 +315,7 @@ PetscErrorCode apply_R(Mat R, Vec xfine, Vec xcoarse)
   DMDAVecGetArrayDOF(dmda_fine, xfine_local, &array_src);
 
   sbp::apply_F2C(restctx->F_gridctx->ICF, array_src, array_dst, restctx->C_gridctx->i_start, restctx->C_gridctx->i_end, restctx->C_gridctx->N);
+  // sbp::apply_F2C_1p(restctx->F_gridctx->ICF, array_src, array_dst, restctx->C_gridctx->i_start, restctx->C_gridctx->i_end, restctx->C_gridctx->N);
 
   DMDAVecRestoreArrayDOF(dmda_coarse, xcoarse, &array_dst);
   DMDAVecRestoreArrayDOF(dmda_fine, xfine_local, &array_src);

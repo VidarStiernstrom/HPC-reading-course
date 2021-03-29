@@ -427,6 +427,26 @@ namespace sbp{
   }
 
   template <class SbpInterpolator>
+  inline PetscErrorCode apply_F2C_1p(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const std::array<PetscInt,2>& i_start, const std::array<PetscInt,2>& i_end, const std::array<PetscInt,2>& N)
+  {
+    const auto [F2C_nc, C2F_nc] = ICF.get_ranges();
+
+    F2C_2D_LL(ICF, src, dst, N, F2C_nc);
+    F2C_2D_RL(ICF, src, dst, N, F2C_nc);
+    F2C_2D_LR(ICF, src, dst, N, F2C_nc);
+    F2C_2D_RR(ICF, src, dst, N, F2C_nc);
+
+    F2C_2D_CL(ICF, src, dst, F2C_nc, N[0]-F2C_nc, N, F2C_nc);
+    F2C_2D_LC(ICF, src, dst, F2C_nc, N[1]-F2C_nc, N, F2C_nc);
+    F2C_2D_CR(ICF, src, dst, F2C_nc, N[0]-F2C_nc, N, F2C_nc);
+    F2C_2D_RC(ICF, src, dst, F2C_nc, N[1]-F2C_nc, N, F2C_nc);
+
+    F2C_2D_CC(ICF, src, dst, F2C_nc, N[0]-F2C_nc, F2C_nc, N[1]-F2C_nc, N, F2C_nc); 
+
+    return 0;
+  }
+
+  template <class SbpInterpolator>
   inline PetscErrorCode apply_C2F(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const std::array<PetscInt,2>& i_start, const std::array<PetscInt,2>& i_end, const std::array<PetscInt,2>& N)
   {
     const PetscInt i_xstart = i_start[0]; 
@@ -489,6 +509,26 @@ namespace sbp{
     return 0;
   }
 
+  template <class SbpInterpolator>
+  inline PetscErrorCode apply_C2F_1p(const SbpInterpolator& ICF, PetscScalar ***src, PetscScalar ***dst, const std::array<PetscInt,2>& i_start, const std::array<PetscInt,2>& i_end, const std::array<PetscInt,2>& N)
+  {
+    const auto [F2C_nc, C2F_nc] = ICF.get_ranges();
+
+    C2F_2D_LL(ICF, src, dst, N, C2F_nc);
+    C2F_2D_RL(ICF, src, dst, N, C2F_nc);
+    C2F_2D_LR(ICF, src, dst, N, C2F_nc);
+    C2F_2D_RR(ICF, src, dst, N, C2F_nc);
+
+    C2F_2D_CL(ICF, src, dst, C2F_nc, N[0]-C2F_nc, N, C2F_nc);
+    C2F_2D_LC(ICF, src, dst, C2F_nc, N[1]-C2F_nc, N, C2F_nc);
+    C2F_2D_CR(ICF, src, dst, C2F_nc, N[0]-C2F_nc, N, C2F_nc);
+    C2F_2D_RC(ICF, src, dst, C2F_nc, N[1]-C2F_nc, N, C2F_nc);
+
+    C2F_2D_CC(ICF, src, dst, C2F_nc, N[0]-C2F_nc, C2F_nc, N[1]-C2F_nc, N, C2F_nc); 
+
+    return 0;
+  }
+
   inline PetscScalar aco_imp_apply_D_time(const PetscScalar D_time[4][4], PetscScalar ***src, PetscInt i, PetscInt j, PetscInt tcomp, PetscInt dof)
   {
     return D_time[tcomp][0]*src[j][i][0+dof] + D_time[tcomp][1]*src[j][i][3+dof] + D_time[tcomp][2]*src[j][i][6+dof] + D_time[tcomp][3]*src[j][i][9+dof];
@@ -501,7 +541,7 @@ namespace sbp{
                                            PetscScalar ***src, 
                                            PetscScalar ***dst,
                                            const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl,
-                                           const std::array<PetscScalar,2>& hi, const PetscInt sw, const PetscInt n_closures, const PetscInt closure_width)
+                                           const std::array<PetscScalar,2>& hi, const PetscInt sw, const PetscInt n_closures)
   {
     int i,j,tcomp;
 
@@ -917,7 +957,7 @@ namespace sbp{
     {
       if (i_xstart == 0) // BOTTOM LEFT
       {
-        acowave_apply_2D_LL(D_time, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures, closure_width);
+        acowave_apply_2D_LL(D_time, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
         acowave_apply_2D_CL(D_time, D1, HI, a, b, src, dst, n_closures, i_xend, N, xl, hi, sw, n_closures, iw);
         acowave_apply_2D_LC(D_time, D1, HI, a, b, src, dst, n_closures, i_yend, N, xl, hi, sw, n_closures, iw);
         acowave_apply_2D_CC(D_time, D1, HI, a, b, src, dst, n_closures, i_xend, n_closures, i_yend, N, xl, hi, sw, n_closures); 
@@ -963,6 +1003,33 @@ namespace sbp{
     {
       acowave_apply_2D_CC(D_time, D1, HI, a, b, src, dst, i_xstart, i_xend, i_ystart, i_yend, N, xl, hi, sw, n_closures);
     }
+
+    return 0;
+  }
+
+  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
+  inline PetscErrorCode aco_imp_apply_1p(const PetscScalar D_time[4][4], const SbpDerivative& D1, const SbpInvQuad& HI,
+                                           VelocityFunction&& a,
+                                           VelocityFunction&& b,
+                                           PetscScalar ***src, 
+                                           PetscScalar ***dst,
+                                           const std::array<PetscInt,2>& i_start, const std::array<PetscInt,2>& i_end,
+                                           const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& xl, 
+                                           const std::array<PetscScalar,2>& hi, const PetscInt sw)
+  {
+    const auto [iw, n_closures, closure_width] = D1.get_ranges();
+
+    acowave_apply_2D_LL(D_time, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
+    acowave_apply_2D_RL(D_time, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
+    acowave_apply_2D_LR(D_time, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
+    acowave_apply_2D_RR(D_time, D1, HI, a, b, src, dst, N, xl, hi, sw, n_closures);
+
+    acowave_apply_2D_CL(D_time, D1, HI, a, b, src, dst, n_closures, N[0]-n_closures, N, xl, hi, sw, n_closures, iw);
+    acowave_apply_2D_LC(D_time, D1, HI, a, b, src, dst, n_closures, N[1] - n_closures, N, xl, hi, sw, n_closures, iw);
+    acowave_apply_2D_CR(D_time, D1, HI, a, b, src, dst, n_closures, N[0]-n_closures, N, xl, hi, sw, n_closures);
+    acowave_apply_2D_RC(D_time, D1, HI, a, b, src, dst, n_closures, N[1]-n_closures, N, xl, hi, sw, n_closures);
+
+    acowave_apply_2D_CC(D_time, D1, HI, a, b, src, dst, n_closures, N[0]-n_closures, n_closures, N[1]-n_closures, N, xl, hi, sw, n_closures); 
 
     return 0;
   }

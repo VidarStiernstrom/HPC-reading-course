@@ -54,6 +54,10 @@ int main(int argc,char **argv)
   MPI_Comm_size(PETSC_COMM_WORLD,&size);
   MPI_Comm_rank(PETSC_COMM_WORLD,&rank);
 
+  char version[100];
+  PetscGetVersion(version, 100);
+  PetscPrintf(PETSC_COMM_WORLD,"%s\n",version);
+
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Problem setup
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */ 

@@ -27,6 +27,9 @@ PetscErrorCode LHS(Mat D, Vec v_src, Vec v_dst)
   sbp::aco_imp_apply_all(matctx->timectx.D, matctx->gridctx.D1, matctx->gridctx.HI, matctx->gridctx.a, matctx->gridctx.a, 
     array_src, array_dst, matctx->gridctx.i_start, matctx->gridctx.i_end, matctx->gridctx.N, matctx->gridctx.xl, matctx->gridctx.hi, matctx->gridctx.sw);
 
+  // sbp::aco_imp_apply_1p(matctx->timectx.D, matctx->gridctx.D1, matctx->gridctx.HI, matctx->gridctx.a, matctx->gridctx.a, 
+    // array_src, array_dst, matctx->gridctx.i_start, matctx->gridctx.i_end, matctx->gridctx.N, matctx->gridctx.xl, matctx->gridctx.hi, matctx->gridctx.sw);
+
   DMDAVecRestoreArrayDOF(da,v_dst,&array_dst); 
   DMDAVecRestoreArrayDOF(da,v_src_local,&array_src); 
 
