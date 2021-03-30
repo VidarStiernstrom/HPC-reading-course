@@ -197,7 +197,7 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec q_src, Vec q_dst, AppCtx *appctx)
   // off-processor points needed for stencil update.
   DMGlobalToLocalBegin(da,q_src,INSERT_VALUES,appctx->q_local);
   // Apply stencil for local points.
-  acowave_apply_interior(t, appctx->D1, appctx->HI, appctx->rho_inv, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  acowave_apply_local(t, appctx->D1, appctx->HI, appctx->rho_inv, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
   // Wait for communcation of ghost points to finish.
   DMGlobalToLocalEnd(da,q_src,INSERT_VALUES,appctx->q_local);
   // Apply stencil for overlapping points.
@@ -234,7 +234,7 @@ PetscErrorCode rhs_serial(DM da, PetscReal t, Vec q_src, Vec q_dst, AppCtx *appc
   DMDAVecGetArrayDOFRead(da,q_src,&array_src);
   DMDAVecGetArrayDOF(da,q_dst,&array_dst);
 
-  acowave_apply_serial(t, appctx->D1, appctx->HI, appctx->rho_inv, array_src, array_dst, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  acowave_apply_serial(t, appctx->D1, appctx->HI, appctx->rho_inv, array_src, array_dst, appctx->N, appctx->xl, appctx->hi);
 
   // Restore arrays
   DMDAVecRestoreArrayDOFRead(da,q_src,&array_src);
