@@ -32,8 +32,8 @@ include ${PETSC_DIR}/lib/petsc/conf/rules
 include ${PETSC_DIR}/lib/petsc/conf/test
 
 # Link object files to create binaries in BIN_PATH/
-acoustic_wave_sim: acoustic_wave_sim.o IO_utils.o scatter_ctx.o timestepping.o 
-	-${CXX} -o $@ $(OBJ_PATH)acoustic_wave_sim.o $(OBJ_PATH)IO_utils.o $(OBJ_PATH)scatter_ctx.o $(OBJ_PATH)timestepping.o  ${PETSC_SYS_LIB}
+acoustic_wave_sim: acoustic_wave_sim.o IO_utils.o timestepping.o 
+	-${CXX} -o $@ $(OBJ_PATH)acoustic_wave_sim.o $(OBJ_PATH)IO_utils.o $(OBJ_PATH)timestepping.o  ${PETSC_SYS_LIB}
 	mv acoustic_wave_sim $(BIN_PATH)acoustic_wave_sim
 
 # Compile object files to OBJ_PATH/
