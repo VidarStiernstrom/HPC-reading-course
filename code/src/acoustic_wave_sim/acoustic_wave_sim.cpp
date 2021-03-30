@@ -176,35 +176,35 @@ int main(int argc,char **argv)
 }
 
 /**
-* Evaluate the righ-hand-side function in the ODE q_t = rhs(t,q), where rhs
+* Evaluate the righ-hand-side function in the ODE q_t = F(t,q), where rhs
 * is the rhs in the acoustic wave equation discretized using finite differeces.
 *
 * da - Distributed array context
 * t - evaluation time
-* q_src - global source vector (to read from)
-* q_dst - global destination vector (to store in)
+* q - global solution vector (to read from)
+* F - global rhs function vector (to store in)
 * 
 **/
-PetscErrorCode rhs(DM da, PetscReal t, Vec q_src, Vec q_dst, AppCtx *appctx)
+PetscErrorCode rhs(DM da, PetscReal t, Vec q, Vec F, AppCtx *appctx)
 {
-  PetscScalar ***array_src, ***array_dst;
+  PetscScalar ***array_q, ***array_F;
 
   // Get the underlying array for the local src vector
   // and the global dst vector.
-  DMDAVecGetArrayDOFRead(da,appctx->q_local,&array_src);
-  DMDAVecGetArrayDOF(da,q_dst,&array_dst);
+  DMDAVecGetArrayDOFRead(da,appctx->q_local,&array_q);
+  DMDAVecGetArrayDOF(da,F,&array_F);
   // Begin communicating ghost points, i.e.
   // off-processor points needed for stencil update.
-  DMGlobalToLocalBegin(da,q_src,INSERT_VALUES,appctx->q_local);
+  DMGlobalToLocalBegin(da,q,INSERT_VALUES,appctx->q_local);
   // Apply stencil for local points.
-  acowave_apply_local(t, appctx->D1, appctx->HI, appctx->rho_inv, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  wave_eq_rhs_local(t, appctx->D1, appctx->HI, appctx->rho_inv, array_q, array_F, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
   // Wait for communcation of ghost points to finish.
-  DMGlobalToLocalEnd(da,q_src,INSERT_VALUES,appctx->q_local);
+  DMGlobalToLocalEnd(da,q,INSERT_VALUES,appctx->q_local);
   // Apply stencil for overlapping points.
-  acowave_apply_overlap(t, appctx->D1, appctx->HI, appctx->rho_inv, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  wave_eq_rhs_overlap(t, appctx->D1, appctx->HI, appctx->rho_inv, array_q, array_F, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
   // Restore arrays
-  DMDAVecRestoreArrayDOFRead(da,appctx->q_local,&array_src);
-  DMDAVecRestoreArrayDOF(da,q_dst,&array_dst);
+  DMDAVecRestoreArrayDOFRead(da,appctx->q_local,&array_q);
+  DMDAVecRestoreArrayDOF(da,F,&array_F);
   return 0;
 }
 
@@ -212,43 +212,43 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec q_src, Vec q_dst, AppCtx *appctx)
 * Interface for the PETSc timestepping (TS) user-defined right-hand-side function.
 * ts - Timestepping context
 * t - current time
-* q_src - global source vector (read from)
-* q_dst - global dst vector (written to)
+* q - global source vector (read from)
+* F - global dst vector (written to)
 * ctx - user defined application context.
 **/
-PetscErrorCode rhs_TS(TS ts, PetscReal t, Vec q_src, Vec q_dst, void *ctx)
+PetscErrorCode rhs_TS(TS ts, PetscReal t, Vec q, Vec F, void *ctx)
 {
   AppCtx *appctx = (AppCtx*) ctx;
   DM                da;
 
   TSGetDM(ts,&da);
-  rhs(da, t, q_src, q_dst, appctx);
+  rhs(da, t, q, F, appctx);
   return 0;
 }
 
 /* Serial versions of the rhs - routines */
-PetscErrorCode rhs_serial(DM da, PetscReal t, Vec q_src, Vec q_dst, AppCtx *appctx)
+PetscErrorCode rhs_serial(DM da, PetscReal t, Vec q, Vec F, AppCtx *appctx)
 {
-  PetscScalar       ***array_src, ***array_dst;
+  PetscScalar       ***array_q, ***array_F;
 
-  DMDAVecGetArrayDOFRead(da,q_src,&array_src);
-  DMDAVecGetArrayDOF(da,q_dst,&array_dst);
+  DMDAVecGetArrayDOFRead(da,q,&array_q);
+  DMDAVecGetArrayDOF(da,F,&array_F);
 
-  acowave_apply_serial(t, appctx->D1, appctx->HI, appctx->rho_inv, array_src, array_dst, appctx->N, appctx->xl, appctx->hi);
+  wave_eq_rhs_serial(t, appctx->D1, appctx->HI, appctx->rho_inv, array_q, array_F, appctx->N, appctx->xl, appctx->hi);
 
   // Restore arrays
-  DMDAVecRestoreArrayDOFRead(da,q_src,&array_src);
-  DMDAVecRestoreArrayDOF(da,q_dst,&array_dst);
+  DMDAVecRestoreArrayDOFRead(da,q,&array_q);
+  DMDAVecRestoreArrayDOF(da,F,&array_F);
   return 0;
 }
 
-PetscErrorCode rhs_TS_serial(TS ts, PetscReal t, Vec q_src, Vec q_dst, void *ctx) // Function to utilize PETSc TS.
+PetscErrorCode rhs_TS_serial(TS ts, PetscReal t, Vec q, Vec F, void *ctx) // Function to utilize PETSc TS.
 {
   AppCtx *appctx = (AppCtx*) ctx;
   DM                da;
 
   TSGetDM(ts,&da);
-  rhs_serial(da, t, q_src, q_dst, appctx);
+  rhs_serial(da, t, q, F, appctx);
   return 0;
 }
 

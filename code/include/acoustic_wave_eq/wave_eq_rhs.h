@@ -78,14 +78,14 @@ inline PetscScalar forcing_v(const PetscInt i, const PetscInt j, const PetscScal
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
-inline PetscErrorCode acowave_apply_LL(const PetscScalar t, const SbpDerivative& D1,
-                                       const SbpInvQuad& HI,
-                                       CoefficientFunction&& rho_inv,
-                                       const PetscScalar *const *const *const q,
-                                       PetscScalar *const *const *const F,
-                                       const std::array<PetscScalar,2>& xl,
-                                       const std::array<PetscScalar,2>& hi, 
-                                       const PetscInt cl_sz)
+inline PetscErrorCode wave_eq_rhs_LL(const PetscScalar t, const SbpDerivative& D1,
+                                     const SbpInvQuad& HI,
+                                     CoefficientFunction&& rho_inv,
+                                     const PetscScalar *const *const *const q,
+                                     PetscScalar *const *const *const F,
+                                     const std::array<PetscScalar,2>& xl,
+                                     const std::array<PetscScalar,2>& hi, 
+                                     const PetscInt cl_sz)
 {
   PetscInt i,j;
 
@@ -166,16 +166,16 @@ inline PetscErrorCode acowave_apply_LL(const PetscScalar t, const SbpDerivative&
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
-inline PetscErrorCode acowave_apply_IL(const PetscScalar t, const SbpDerivative& D1, 
-                                       const SbpInvQuad& HI,
-                                       CoefficientFunction&& rho_inv,
-                                       const PetscScalar *const *const *const q,
-                                       PetscScalar *const *const *const F,
-                                       const PetscInt i_xstart, 
-                                       const PetscInt i_xend,
-                                       const std::array<PetscScalar,2>& xl,
-                                       const std::array<PetscScalar,2>& hi, 
-                                       const PetscInt cl_sz)
+inline PetscErrorCode wave_eq_rhs_IL(const PetscScalar t, const SbpDerivative& D1, 
+                                     const SbpInvQuad& HI,
+                                     CoefficientFunction&& rho_inv,
+                                     const PetscScalar *const *const *const q,
+                                     PetscScalar *const *const *const F,
+                                     const PetscInt i_xstart, 
+                                     const PetscInt i_xend,
+                                     const std::array<PetscScalar,2>& xl,
+                                     const std::array<PetscScalar,2>& hi, 
+                                     const PetscInt cl_sz)
 {
   PetscInt i,j;
 
@@ -240,16 +240,16 @@ inline PetscErrorCode acowave_apply_IL(const PetscScalar t, const SbpDerivative&
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
-inline PetscErrorCode acowave_apply_LI(const PetscScalar t, const SbpDerivative& D1,
-                                       const SbpInvQuad& HI,
-                                       CoefficientFunction&& rho_inv,
-                                       const PetscScalar *const *const *const q,
-                                       PetscScalar *const *const *const F,
-                                       const PetscInt i_ystart, 
-                                       const PetscInt i_yend,
-                                       const std::array<PetscScalar,2>& xl,
-                                       const std::array<PetscScalar,2>& hi, 
-                                       const PetscInt cl_sz)
+inline PetscErrorCode wave_eq_rhs_LI(const PetscScalar t, const SbpDerivative& D1,
+                                     const SbpInvQuad& HI,
+                                     CoefficientFunction&& rho_inv,
+                                     const PetscScalar *const *const *const q,
+                                     PetscScalar *const *const *const F,
+                                     const PetscInt i_ystart, 
+                                     const PetscInt i_yend,
+                                     const std::array<PetscScalar,2>& xl,
+                                     const std::array<PetscScalar,2>& hi, 
+                                     const PetscInt cl_sz)
 {
   PetscInt i,j;
 
@@ -313,18 +313,18 @@ inline PetscErrorCode acowave_apply_LI(const PetscScalar t, const SbpDerivative&
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, typename CoefficientFunction>
-inline PetscErrorCode acowave_apply_II(const PetscScalar t, 
-                                       const SbpDerivative& D1,
-                                       CoefficientFunction&& rho_inv,
-                                       const PetscScalar *const *const *const q,
-                                       PetscScalar *const *const *const F,
-                                       const PetscInt i_xstart, 
-                                       const PetscInt i_xend,
-                                       const PetscInt i_ystart, 
-                                       const PetscInt i_yend,
-                                       const std::array<PetscScalar,2>& xl,
-                                       const std::array<PetscScalar,2>& hi, 
-                                       const PetscInt cl_sz)
+inline PetscErrorCode wave_eq_rhs_II(const PetscScalar t, 
+                                     const SbpDerivative& D1,
+                                     CoefficientFunction&& rho_inv,
+                                     const PetscScalar *const *const *const q,
+                                     PetscScalar *const *const *const F,
+                                     const PetscInt i_xstart, 
+                                     const PetscInt i_xend,
+                                     const PetscInt i_ystart, 
+                                     const PetscInt i_yend,
+                                     const std::array<PetscScalar,2>& xl,
+                                     const std::array<PetscScalar,2>& hi, 
+                                     const PetscInt cl_sz)
 {
   PetscInt i,j;
   for (j = i_ystart; j < i_yend; j++)
@@ -376,16 +376,16 @@ inline PetscErrorCode acowave_apply_II(const PetscScalar t,
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
-inline PetscErrorCode acowave_apply_RL(const PetscScalar t, 
-                                       const SbpDerivative& D1, 
-                                       const SbpInvQuad& HI,
-                                       CoefficientFunction&& rho_inv,
-                                       const PetscScalar *const *const *const q,
-                                       PetscScalar *const *const *const F,
-                                       const std::array<PetscInt,2>& N,
-                                       const std::array<PetscScalar,2>& xl, 
-                                       const std::array<PetscScalar,2>& hi,
-                                       const PetscInt cl_sz)
+inline PetscErrorCode wave_eq_rhs_RL(const PetscScalar t, 
+                                     const SbpDerivative& D1, 
+                                     const SbpInvQuad& HI,
+                                     CoefficientFunction&& rho_inv,
+                                     const PetscScalar *const *const *const q,
+                                     PetscScalar *const *const *const F,
+                                     const std::array<PetscInt,2>& N,
+                                     const std::array<PetscScalar,2>& xl, 
+                                     const std::array<PetscScalar,2>& hi,
+                                     const PetscInt cl_sz)
 {
   PetscInt i,j;
 
@@ -466,18 +466,18 @@ inline PetscErrorCode acowave_apply_RL(const PetscScalar t,
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
-inline PetscErrorCode acowave_apply_RI(const PetscScalar t, 
-                                       const SbpDerivative& D1, 
-                                       const SbpInvQuad& HI,
-                                       CoefficientFunction&& rho_inv,
-                                       const PetscScalar *const *const *const q,
-                                       PetscScalar *const *const *const F,
-                                       const PetscInt i_ystart, 
-                                       const PetscInt i_yend,
-                                       const std::array<PetscInt,2>& N,
-                                       const std::array<PetscScalar,2>& xl, 
-                                       const std::array<PetscScalar,2>& hi,
-                                       const PetscInt cl_sz)
+inline PetscErrorCode wave_eq_rhs_RI(const PetscScalar t, 
+                                     const SbpDerivative& D1, 
+                                     const SbpInvQuad& HI,
+                                     CoefficientFunction&& rho_inv,
+                                     const PetscScalar *const *const *const q,
+                                     PetscScalar *const *const *const F,
+                                     const PetscInt i_ystart, 
+                                     const PetscInt i_yend,
+                                     const std::array<PetscInt,2>& N,
+                                     const std::array<PetscScalar,2>& xl, 
+                                     const std::array<PetscScalar,2>& hi,
+                                     const PetscInt cl_sz)
 {
   PetscInt i,j;
 
@@ -542,16 +542,16 @@ inline PetscErrorCode acowave_apply_RI(const PetscScalar t,
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
-inline PetscErrorCode acowave_apply_LR(const PetscScalar t,
-                                       const SbpDerivative& D1,
-                                       const SbpInvQuad& HI,
-                                       CoefficientFunction&& rho_inv,
-                                       const PetscScalar *const *const *const q,
-                                       PetscScalar *const *const *const F,
-                                       const std::array<PetscInt,2>& N, 
-                                       const std::array<PetscScalar,2>& xl, 
-                                       const std::array<PetscScalar,2>& hi, 
-                                       const PetscInt cl_sz)
+inline PetscErrorCode wave_eq_rhs_LR(const PetscScalar t,
+                                     const SbpDerivative& D1,
+                                     const SbpInvQuad& HI,
+                                     CoefficientFunction&& rho_inv,
+                                     const PetscScalar *const *const *const q,
+                                     PetscScalar *const *const *const F,
+                                     const std::array<PetscInt,2>& N, 
+                                     const std::array<PetscScalar,2>& xl, 
+                                     const std::array<PetscScalar,2>& hi, 
+                                     const PetscInt cl_sz)
 {
   PetscInt i,j;
 
@@ -630,18 +630,18 @@ inline PetscErrorCode acowave_apply_LR(const PetscScalar t,
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
-inline PetscErrorCode acowave_apply_IR(const PetscScalar t,
-                                       const SbpDerivative& D1, 
-                                       const SbpInvQuad& HI,
-                                       CoefficientFunction&& rho_inv,
-                                       const PetscScalar *const *const *const q,
-                                       PetscScalar *const *const *const F,
-                                       const PetscInt i_xstart,
-                                       const PetscInt i_xend,
-                                       const std::array<PetscInt,2>& N,
-                                       const std::array<PetscScalar,2>& xl, 
-                                       const std::array<PetscScalar,2>& hi,
-                                       const PetscInt cl_sz)
+inline PetscErrorCode wave_eq_rhs_IR(const PetscScalar t,
+                                     const SbpDerivative& D1, 
+                                     const SbpInvQuad& HI,
+                                     CoefficientFunction&& rho_inv,
+                                     const PetscScalar *const *const *const q,
+                                     PetscScalar *const *const *const F,
+                                     const PetscInt i_xstart,
+                                     const PetscInt i_xend,
+                                     const std::array<PetscInt,2>& N,
+                                     const std::array<PetscScalar,2>& xl, 
+                                     const std::array<PetscScalar,2>& hi,
+                                     const PetscInt cl_sz)
 {
   PetscInt i,j;
 
@@ -703,16 +703,16 @@ inline PetscErrorCode acowave_apply_IR(const PetscScalar t,
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
-inline PetscErrorCode acowave_apply_RR(const PetscScalar t,
-                                       const SbpDerivative& D1,
-                                       const SbpInvQuad& HI,
-                                       CoefficientFunction&& rho_inv,
-                                       const PetscScalar *const *const *const q,
-                                       PetscScalar *const *const *const F,
-                                       const std::array<PetscInt,2>& N,
-                                       const std::array<PetscScalar,2>& xl, 
-                                       const std::array<PetscScalar,2>& hi,
-                                       const PetscInt cl_sz)
+inline PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
+                                     const SbpDerivative& D1,
+                                     const SbpInvQuad& HI,
+                                     CoefficientFunction&& rho_inv,
+                                     const PetscScalar *const *const *const q,
+                                     PetscScalar *const *const *const F,
+                                     const std::array<PetscInt,2>& N,
+                                     const std::array<PetscScalar,2>& xl, 
+                                     const std::array<PetscScalar,2>& hi,
+                                     const PetscInt cl_sz)
 {
   PetscInt i,j;
 
@@ -785,18 +785,18 @@ inline PetscErrorCode acowave_apply_RR(const PetscScalar t,
   * sw        - Stencil width (i.e the number of ghost points)
   **/
 template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
-inline PetscErrorCode acowave_apply_local(const PetscScalar t,
-                                          const SbpDerivative& D1,
-                                          const SbpInvQuad& HI,
-                                          CoefficientFunction&& rho_inv,
-                                          const PetscScalar *const *const *const q,
-                                          PetscScalar *const *const *const F,
-                                          const std::array<PetscInt,2>& i_start,
-                                          const std::array<PetscInt,2>& i_end,
-                                          const std::array<PetscInt,2>& N,
-                                          const std::array<PetscScalar,2>& xl, 
-                                          const std::array<PetscScalar,2>& hi,
-                                          const PetscInt sw)
+inline PetscErrorCode wave_eq_rhs_local(const PetscScalar t,
+                                        const SbpDerivative& D1,
+                                        const SbpInvQuad& HI,
+                                        CoefficientFunction&& rho_inv,
+                                        const PetscScalar *const *const *const q,
+                                        PetscScalar *const *const *const F,
+                                        const std::array<PetscInt,2>& i_start,
+                                        const std::array<PetscInt,2>& i_end,
+                                        const std::array<PetscInt,2>& N,
+                                        const std::array<PetscScalar,2>& xl, 
+                                        const std::array<PetscScalar,2>& hi,
+                                        const PetscInt sw)
 {
   const PetscInt i_xstart = i_start[0] + sw; 
   const PetscInt i_ystart = i_start[1] + sw;
@@ -808,51 +808,51 @@ inline PetscErrorCode acowave_apply_local(const PetscScalar t,
   {
     if (i_start[0] == 0) // BOTTOM LEFT
     {
-      acowave_apply_LL(t, D1, HI, rho_inv, q, F, xl, hi, cl_sz);
-      acowave_apply_IL(t, D1, HI, rho_inv, q, F, cl_sz, i_xend, xl, hi, cl_sz);
-      acowave_apply_LI(t, D1, HI, rho_inv, q, F, cl_sz, i_yend, xl, hi, cl_sz);
-      acowave_apply_II(t, D1, rho_inv, q, F, cl_sz, i_xend, cl_sz, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_LL(t, D1, HI, rho_inv, q, F, xl, hi, cl_sz);
+      wave_eq_rhs_IL(t, D1, HI, rho_inv, q, F, cl_sz, i_xend, xl, hi, cl_sz);
+      wave_eq_rhs_LI(t, D1, HI, rho_inv, q, F, cl_sz, i_yend, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, cl_sz, i_xend, cl_sz, i_yend, xl, hi, cl_sz); 
     } else if (i_end[0] == N[0]) // BOTTOM RIGHT
     { 
-      acowave_apply_RL(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
-      acowave_apply_IL(t, D1, HI, rho_inv, q, F, i_xstart, N[0]-cl_sz, xl, hi, cl_sz);
-      acowave_apply_RI(t, D1, HI, rho_inv, q, F, cl_sz, i_yend, N, xl, hi, cl_sz);
-      acowave_apply_II(t, D1, rho_inv, q, F, i_xstart, N[0]-cl_sz, cl_sz, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_RL(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
+      wave_eq_rhs_IL(t, D1, HI, rho_inv, q, F, i_xstart, N[0]-cl_sz, xl, hi, cl_sz);
+      wave_eq_rhs_RI(t, D1, HI, rho_inv, q, F, cl_sz, i_yend, N, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, N[0]-cl_sz, cl_sz, i_yend, xl, hi, cl_sz); 
     } else // BOTTOM CENTER
     { 
-      acowave_apply_IL(t, D1, HI, rho_inv, q, F, i_xstart, i_xend, xl, hi, cl_sz);
-      acowave_apply_II(t, D1, rho_inv, q, F, i_xstart, i_xend, cl_sz, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_IL(t, D1, HI, rho_inv, q, F, i_xstart, i_xend, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xend, cl_sz, i_yend, xl, hi, cl_sz); 
     }
   } else if (i_end[1] == N[1]) // TOP
   {
     if (i_start[0] == 0) // TOP LEFT
     {
-      acowave_apply_LR(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
-      acowave_apply_IR(t, D1, HI, rho_inv, q, F, cl_sz, i_xend, N, xl, hi, cl_sz);
-      acowave_apply_LI(t, D1, HI, rho_inv, q, F, i_ystart, N[1] - cl_sz, xl, hi, cl_sz);
-      acowave_apply_II(t, D1, rho_inv, q, F, cl_sz, i_xend, i_ystart, N[1]-cl_sz, xl, hi, cl_sz);  
+      wave_eq_rhs_LR(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
+      wave_eq_rhs_IR(t, D1, HI, rho_inv, q, F, cl_sz, i_xend, N, xl, hi, cl_sz);
+      wave_eq_rhs_LI(t, D1, HI, rho_inv, q, F, i_ystart, N[1] - cl_sz, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, cl_sz, i_xend, i_ystart, N[1]-cl_sz, xl, hi, cl_sz);  
     } else if (i_end[0] == N[0]) // TOP RIGHT
     { 
-      acowave_apply_RR(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
-      acowave_apply_IR(t, D1, HI, rho_inv, q, F, i_xstart, N[0]-cl_sz, N, xl, hi, cl_sz);
-      acowave_apply_RI(t, D1, HI, rho_inv, q, F, i_ystart, N[1] - cl_sz, N, xl, hi, cl_sz);
-      acowave_apply_II(t, D1, rho_inv, q, F, i_xstart, N[0]-cl_sz, i_ystart, N[1] - cl_sz, xl, hi, cl_sz);
+      wave_eq_rhs_RR(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
+      wave_eq_rhs_IR(t, D1, HI, rho_inv, q, F, i_xstart, N[0]-cl_sz, N, xl, hi, cl_sz);
+      wave_eq_rhs_RI(t, D1, HI, rho_inv, q, F, i_ystart, N[1] - cl_sz, N, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, N[0]-cl_sz, i_ystart, N[1] - cl_sz, xl, hi, cl_sz);
     } else // TOP CENTER
     { 
-      acowave_apply_IR(t, D1, HI, rho_inv, q, F, i_xstart, i_xend, N, xl, hi, cl_sz);
-      acowave_apply_II(t, D1, rho_inv, q, F, i_xstart, i_xend, i_ystart,  N[1] - cl_sz, xl, hi, cl_sz);
+      wave_eq_rhs_IR(t, D1, HI, rho_inv, q, F, i_xstart, i_xend, N, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xend, i_ystart,  N[1] - cl_sz, xl, hi, cl_sz);
     }
   } else if (i_start[0] == 0) // LEFT NOT BOTTOM OR TOP
   { 
-    acowave_apply_LI(t, D1, HI, rho_inv, q, F, i_ystart, i_yend, xl, hi, cl_sz);
-    acowave_apply_II(t, D1, rho_inv, q, F, cl_sz, i_xend, i_ystart, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_LI(t, D1, HI, rho_inv, q, F, i_ystart, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, rho_inv, q, F, cl_sz, i_xend, i_ystart, i_yend, xl, hi, cl_sz);
   } else if (i_end[0] == N[0]) // RIGHT NOT BOTTOM OR TOP
   {
-    acowave_apply_RI(t, D1, HI, rho_inv, q, F, i_ystart, i_yend, N, xl, hi, cl_sz);
-    acowave_apply_II(t, D1, rho_inv, q, F, i_xstart, N[0] - cl_sz, i_ystart, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_RI(t, D1, HI, rho_inv, q, F, i_ystart, i_yend, N, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, N[0] - cl_sz, i_ystart, i_yend, xl, hi, cl_sz);
   } else // CENTER
   {
-    acowave_apply_II(t, D1, rho_inv, q, F, i_xstart, i_xend, i_ystart, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xend, i_ystart, i_yend, xl, hi, cl_sz);
   }
 
   return 0;
@@ -887,18 +887,18 @@ inline PetscErrorCode acowave_apply_local(const PetscScalar t,
   * sw        - Stencil width (i.e the number of ghost points)
   **/
 template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
-inline PetscErrorCode acowave_apply_overlap(const PetscScalar t,
-                                            const SbpDerivative& D1,
-                                            const SbpInvQuad& HI,
-                                            CoefficientFunction&& rho_inv,
-                                            const PetscScalar *const *const *const q,
-                                            PetscScalar *const *const *const F,
-                                            const std::array<PetscInt,2>& i_start,
-                                            const std::array<PetscInt,2>& i_end,
-                                            const std::array<PetscInt,2>& N,
-                                            const std::array<PetscScalar,2>& xl, 
-                                            const std::array<PetscScalar,2>& hi,
-                                            const PetscInt sw)
+inline PetscErrorCode wave_eq_rhs_overlap(const PetscScalar t,
+                                          const SbpDerivative& D1,
+                                          const SbpInvQuad& HI,
+                                          CoefficientFunction&& rho_inv,
+                                          const PetscScalar *const *const *const q,
+                                          PetscScalar *const *const *const F,
+                                          const std::array<PetscInt,2>& i_start,
+                                          const std::array<PetscInt,2>& i_end,
+                                          const std::array<PetscInt,2>& N,
+                                          const std::array<PetscScalar,2>& xl, 
+                                          const std::array<PetscScalar,2>& hi,
+                                          const PetscInt sw)
 {
   const PetscInt i_xstart = i_start[0]; 
   const PetscInt i_ystart = i_start[1];
@@ -910,66 +910,66 @@ inline PetscErrorCode acowave_apply_overlap(const PetscScalar t,
   {
     if (i_xstart == 0) // BOTTOM LEFT
     {
-      acowave_apply_IL(t, D1, HI, rho_inv, q, F, i_xend-sw, i_xend, xl, hi, cl_sz);
-      acowave_apply_LI(t, D1, HI, rho_inv, q, F, i_yend-sw, i_yend, xl, hi, cl_sz);
-      acowave_apply_II(t, D1, rho_inv, q, F, cl_sz, i_xend-sw, i_yend-sw, i_yend, xl, hi, cl_sz); 
-      acowave_apply_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, cl_sz, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_IL(t, D1, HI, rho_inv, q, F, i_xend-sw, i_xend, xl, hi, cl_sz);
+      wave_eq_rhs_LI(t, D1, HI, rho_inv, q, F, i_yend-sw, i_yend, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, cl_sz, i_xend-sw, i_yend-sw, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, cl_sz, i_yend, xl, hi, cl_sz); 
     } else if (i_xend == N[0]) // BOTTOM RIGHT
     { 
-      acowave_apply_IL(t, D1, HI, rho_inv, q, F, i_xstart, i_xstart+sw, xl, hi, cl_sz);
-      acowave_apply_RI(t, D1, HI, rho_inv, q, F, i_yend-sw, i_yend, N, xl, hi, cl_sz);
-      acowave_apply_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, cl_sz, i_yend, xl, hi, cl_sz); 
-      acowave_apply_II(t, D1, rho_inv, q, F, i_xstart+sw, N[0]-cl_sz, i_yend-sw, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_IL(t, D1, HI, rho_inv, q, F, i_xstart, i_xstart+sw, xl, hi, cl_sz);
+      wave_eq_rhs_RI(t, D1, HI, rho_inv, q, F, i_yend-sw, i_yend, N, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, cl_sz, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart+sw, N[0]-cl_sz, i_yend-sw, i_yend, xl, hi, cl_sz); 
     } else // BOTTOM CENTER
     { 
-      acowave_apply_IL(t, D1, HI, rho_inv, q, F, i_xstart, i_xstart+sw, xl, hi, cl_sz);
-      acowave_apply_IL(t, D1, HI, rho_inv, q, F, i_xend-sw, i_xend, xl, hi, cl_sz);
-      acowave_apply_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, cl_sz, i_yend-sw, xl, hi, cl_sz); 
-      acowave_apply_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, cl_sz, i_yend-sw, xl, hi, cl_sz); 
-      acowave_apply_II(t, D1, rho_inv, q, F, i_xstart, i_xend, i_yend-sw, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_IL(t, D1, HI, rho_inv, q, F, i_xstart, i_xstart+sw, xl, hi, cl_sz);
+      wave_eq_rhs_IL(t, D1, HI, rho_inv, q, F, i_xend-sw, i_xend, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, cl_sz, i_yend-sw, xl, hi, cl_sz); 
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, cl_sz, i_yend-sw, xl, hi, cl_sz); 
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xend, i_yend-sw, i_yend, xl, hi, cl_sz); 
     }
   } else if (i_yend == N[1]) // TOP
   {
     if (i_xstart == 0) // TOP LEFT
     {
-      acowave_apply_IR(t, D1, HI, rho_inv, q, F, i_xend-sw, i_xend, N, xl, hi, cl_sz);
-      acowave_apply_LI(t, D1, HI, rho_inv, q, F, i_ystart, i_ystart+sw, xl, hi, cl_sz);
-      acowave_apply_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, i_ystart, N[1]-cl_sz, xl, hi, cl_sz);  
-      acowave_apply_II(t, D1, rho_inv, q, F, cl_sz, i_xend-sw, i_ystart, i_ystart+sw, xl, hi, cl_sz);  
+      wave_eq_rhs_IR(t, D1, HI, rho_inv, q, F, i_xend-sw, i_xend, N, xl, hi, cl_sz);
+      wave_eq_rhs_LI(t, D1, HI, rho_inv, q, F, i_ystart, i_ystart+sw, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, i_ystart, N[1]-cl_sz, xl, hi, cl_sz);  
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, cl_sz, i_xend-sw, i_ystart, i_ystart+sw, xl, hi, cl_sz);  
     } else if (i_xend == N[0]) // TOP RIGHT
     { 
-      acowave_apply_IR(t, D1, HI, rho_inv, q, F, i_xstart, i_xstart+sw, N, xl, hi, cl_sz);
-      acowave_apply_RI(t, D1, HI, rho_inv, q, F, i_ystart, i_ystart+sw, N, xl, hi, cl_sz);
-      acowave_apply_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, i_ystart, N[1] - cl_sz, xl, hi, cl_sz);
-      acowave_apply_II(t, D1, rho_inv, q, F, i_xstart+sw, N[0]-cl_sz, i_ystart, i_ystart+sw, xl, hi, cl_sz);
+      wave_eq_rhs_IR(t, D1, HI, rho_inv, q, F, i_xstart, i_xstart+sw, N, xl, hi, cl_sz);
+      wave_eq_rhs_RI(t, D1, HI, rho_inv, q, F, i_ystart, i_ystart+sw, N, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, i_ystart, N[1] - cl_sz, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart+sw, N[0]-cl_sz, i_ystart, i_ystart+sw, xl, hi, cl_sz);
     } else // TOP CENTER
     { 
-      acowave_apply_IR(t, D1, HI, rho_inv, q, F, i_xstart, i_xstart+sw, N, xl, hi, cl_sz);
-      acowave_apply_IR(t, D1, HI, rho_inv, q, F, i_xend-sw, i_xend, N, xl, hi, cl_sz);
-      acowave_apply_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, i_ystart,  N[1] - cl_sz, xl, hi, cl_sz);
-      acowave_apply_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, i_ystart,  N[1] - cl_sz, xl, hi, cl_sz);
-      acowave_apply_II(t, D1, rho_inv, q, F, i_xstart+sw, i_xend-sw, i_ystart,  i_ystart+sw, xl, hi, cl_sz);
+      wave_eq_rhs_IR(t, D1, HI, rho_inv, q, F, i_xstart, i_xstart+sw, N, xl, hi, cl_sz);
+      wave_eq_rhs_IR(t, D1, HI, rho_inv, q, F, i_xend-sw, i_xend, N, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, i_ystart,  N[1] - cl_sz, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, i_ystart,  N[1] - cl_sz, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart+sw, i_xend-sw, i_ystart,  i_ystart+sw, xl, hi, cl_sz);
     }
   } else if (i_xstart == 0) // LEFT NOT BOTTOM OR TOP
   { 
-    acowave_apply_LI(t, D1, HI, rho_inv, q, F, i_ystart, i_ystart+sw, xl, hi, cl_sz);
-    acowave_apply_LI(t, D1, HI, rho_inv, q, F, i_yend-sw, i_yend, xl, hi, cl_sz);
-    acowave_apply_II(t, D1, rho_inv, q, F, cl_sz, i_xend, i_ystart, i_ystart+sw, xl, hi, cl_sz);
-    acowave_apply_II(t, D1, rho_inv, q, F, cl_sz, i_xend, i_yend-sw, i_yend, xl, hi, cl_sz);
-    acowave_apply_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, i_ystart+sw, i_yend-sw, xl, hi, cl_sz);
+    wave_eq_rhs_LI(t, D1, HI, rho_inv, q, F, i_ystart, i_ystart+sw, xl, hi, cl_sz);
+    wave_eq_rhs_LI(t, D1, HI, rho_inv, q, F, i_yend-sw, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, rho_inv, q, F, cl_sz, i_xend, i_ystart, i_ystart+sw, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, rho_inv, q, F, cl_sz, i_xend, i_yend-sw, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, i_ystart+sw, i_yend-sw, xl, hi, cl_sz);
   } else if (i_xend == N[0]) // RIGHT NOT BOTTOM OR TOP
   {
-    acowave_apply_RI(t, D1, HI, rho_inv, q, F, i_ystart, i_ystart+sw, N, xl, hi, cl_sz);
-    acowave_apply_RI(t, D1, HI, rho_inv, q, F, i_yend-sw, i_yend, N, xl, hi, cl_sz);
-    acowave_apply_II(t, D1, rho_inv, q, F, i_xstart, N[0] - cl_sz, i_ystart, i_ystart+sw, xl, hi, cl_sz);
-    acowave_apply_II(t, D1, rho_inv, q, F, i_xstart, N[0] - cl_sz, i_yend-sw, i_yend, xl, hi, cl_sz);
-    acowave_apply_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, i_ystart+sw, i_yend-sw, xl, hi, cl_sz);
+    wave_eq_rhs_RI(t, D1, HI, rho_inv, q, F, i_ystart, i_ystart+sw, N, xl, hi, cl_sz);
+    wave_eq_rhs_RI(t, D1, HI, rho_inv, q, F, i_yend-sw, i_yend, N, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, N[0] - cl_sz, i_ystart, i_ystart+sw, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, N[0] - cl_sz, i_yend-sw, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, i_ystart+sw, i_yend-sw, xl, hi, cl_sz);
   } else // CENTER
   {
-    acowave_apply_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, i_ystart, i_yend, xl, hi, cl_sz);
-    acowave_apply_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, i_ystart, i_yend, xl, hi, cl_sz);
-    acowave_apply_II(t, D1, rho_inv, q, F, i_xstart+sw, i_xend-sw, i_yend-sw, i_yend, xl, hi, cl_sz);
-    acowave_apply_II(t, D1, rho_inv, q, F, i_xstart+sw, i_xend-sw, i_ystart, i_ystart+sw, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, i_ystart, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, i_ystart, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart+sw, i_xend-sw, i_yend-sw, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart+sw, i_xend-sw, i_ystart, i_ystart+sw, xl, hi, cl_sz);
   }
 
   return 0;
@@ -1002,27 +1002,27 @@ inline PetscErrorCode acowave_apply_overlap(const PetscScalar t,
   * hi        - Inverse spacing spacing per coordinate direction
   **/
 template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
-inline PetscErrorCode acowave_apply_serial(const PetscScalar t,
-                                           const SbpDerivative& D1,
-                                           const SbpInvQuad& HI,
-                                           CoefficientFunction&& rho_inv,
-                                           const PetscScalar *const *const *const q,
-                                           PetscScalar *const *const *const F,
-                                           const std::array<PetscInt,2>& N,
-                                           const std::array<PetscScalar,2>& xl, 
-                                           const std::array<PetscScalar,2>& hi)
+inline PetscErrorCode wave_eq_rhs_serial(const PetscScalar t,
+                                         const SbpDerivative& D1,
+                                         const SbpInvQuad& HI,
+                                         CoefficientFunction&& rho_inv,
+                                         const PetscScalar *const *const *const q,
+                                         PetscScalar *const *const *const F,
+                                         const std::array<PetscInt,2>& N,
+                                         const std::array<PetscScalar,2>& xl, 
+                                         const std::array<PetscScalar,2>& hi)
 {
   const auto [iw, cl_sz, closure_width] = D1.get_ranges();
 
-  acowave_apply_LL(t, D1, HI, rho_inv, q, F, xl, hi, cl_sz);
-  acowave_apply_RL(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
-  acowave_apply_LR(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
-  acowave_apply_RR(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
-  acowave_apply_IL(t, D1, HI, rho_inv, q, F, cl_sz, N[0]-cl_sz, xl, hi, cl_sz);
-  acowave_apply_IR(t, D1, HI, rho_inv, q, F, cl_sz, N[0]-cl_sz, N, xl, hi, cl_sz);
-  acowave_apply_LI(t, D1, HI, rho_inv, q, F, cl_sz, N[1]-cl_sz, xl, hi, cl_sz);
-  acowave_apply_RI(t, D1, HI, rho_inv, q, F, cl_sz, N[1]-cl_sz, N, xl, hi, cl_sz);
-  acowave_apply_II(t, D1, rho_inv, q, F, cl_sz, N[0]-cl_sz, cl_sz, N[1]-cl_sz, xl, hi, cl_sz);
+  wave_eq_rhs_LL(t, D1, HI, rho_inv, q, F, xl, hi, cl_sz);
+  wave_eq_rhs_RL(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
+  wave_eq_rhs_LR(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
+  wave_eq_rhs_RR(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
+  wave_eq_rhs_IL(t, D1, HI, rho_inv, q, F, cl_sz, N[0]-cl_sz, xl, hi, cl_sz);
+  wave_eq_rhs_IR(t, D1, HI, rho_inv, q, F, cl_sz, N[0]-cl_sz, N, xl, hi, cl_sz);
+  wave_eq_rhs_LI(t, D1, HI, rho_inv, q, F, cl_sz, N[1]-cl_sz, xl, hi, cl_sz);
+  wave_eq_rhs_RI(t, D1, HI, rho_inv, q, F, cl_sz, N[1]-cl_sz, N, xl, hi, cl_sz);
+  wave_eq_rhs_II(t, D1, rho_inv, q, F, cl_sz, N[0]-cl_sz, cl_sz, N[1]-cl_sz, xl, hi, cl_sz);
 
   return 0;
 }
