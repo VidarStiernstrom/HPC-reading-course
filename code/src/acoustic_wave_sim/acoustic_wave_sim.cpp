@@ -15,50 +15,55 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 * Equations:
 * u_t = -1/rho(x,y) p_x + F1
 * v_t = -1/rho(x,y) p_y + F2
-* p_t = -K(x,y)*(u_x + v_y)
+* p_t = -K(x,y)*(u_x + q_y)
 * 
 * F1, F2 - velocity forcing data
+*
+* The unkowns are stored in a vector q = [u,v,p]^T.
 * 
 **/
-
+#include <functional>
 #include <petsc.h>
 #include "sbpops/op_defs.h"
 #include "acoustic_wave_eq/wave_eq_rhs.h"
 #include "timestepping/timestepping.h"
 #include "io/IO_utils.h"
-#include "scatter_ctx/scatter_ctx.h"
 
-
+/** 
+* A user defined application context, storing the relevant information used by
+* PETSc and application routines.
+**/
 struct AppCtx{
     std::array<PetscInt,2> N, i_start, i_end;
     std::array<PetscScalar,2> hi, h, xl;
-    PetscInt dofs;
-    PetscScalar sw;
+    PetscScalar sw; // Stencil width for DM-object, i.e. the number of overlapping points
     std::function<PetscScalar(PetscInt, PetscInt)> rho_inv;
-    const DifferenceOp D1;
-    const InverseNormOp HI;
-    VecScatter scatctx;
+    const DifferenceOp D1; // Difference operator
+    const InverseNormOp HI; // Inverse norm operator
+    Vec q_local;
 };
 
-extern PetscErrorCode analytic_solution(DM, PetscScalar, AppCtx&, Vec&);
-extern PetscErrorCode set_initial_condition(DM da, Vec v, AppCtx& appctx);
-extern PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx);
-extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, AppCtx *);
-extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
-extern PetscErrorCode rhs_serial(DM, PetscReal, Vec, Vec, AppCtx *);
-extern PetscErrorCode rhs_TS_serial(TS, PetscReal, Vec, Vec, void *);
+/* Functions used by the PETSc time stepping routines */
+PetscErrorCode rhs(DM, PetscReal, Vec, Vec, AppCtx *);
+PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
+PetscErrorCode rhs_serial(DM, PetscReal, Vec, Vec, AppCtx *);
+PetscErrorCode rhs_TS_serial(TS, PetscReal, Vec, Vec, void *);
+/* Utility functions used to initialize the problem and compute errors */
+PetscErrorCode analytic_solution(DM, PetscScalar, AppCtx&, Vec);
+PetscErrorCode set_initial_condition(DM, AppCtx& appctx, Vec);
+PetscScalar compute_l2_error(Vec, Vec, std::array<PetscScalar,2>&);
+PetscScalar compute_max_error(Vec, Vec);
 
 int main(int argc,char **argv)
 { 
   DM             da;
-  Vec            v, v_analytic, v_error, vlocal;
+  Vec            q, q_analytic;
   PetscInt       stencil_radius, i_xstart, i_xend, i_ystart, i_yend, Nx, Ny, nx, ny, procx, procy, dofs;
-  PetscScalar    xl, xr, yl, yr, hix, hiy, dt, t0, Tend, CFL;
+  PetscScalar    xl, xr, yl, yr, hix, hiy, dt, Tend, CFL;
   PetscReal      l2_error, max_error;
 
   AppCtx         appctx;
-  PetscBool      write_data;
-  PetscLogDouble v1,v2,elapsed_time = 0;
+  PetscLogDouble t1,t2,elapsed_time = 0;
 
   PetscErrorCode ierr;
   PetscMPIInt    size, rank;
@@ -75,7 +80,6 @@ int main(int argc,char **argv)
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Problem setup
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  // Space
   dofs = 3;
   xl = -1;
   xr = 1;
@@ -83,21 +87,13 @@ int main(int argc,char **argv)
   yr = 1;
   hix = (Nx-1)/(xr-xl);
   hiy = (Ny-1)/(yr-yl);
-  
-  // Time
-  t0 = 0;
-  dt = CFL/(std::min(hix,hiy));
-
-  // Velocity field a(i,j) = 1
-  auto rho_inv = [xl,yl,hix,hiy](const PetscInt i, const PetscInt j){  // 1/rho.
+  dt = CFL/(std::min(hix,hiy)); // Time step
+  // Create coefficient function 1/rho(x,y) = f(x,y) = 1/(2+x*y)
+  auto rho_inv = [xl,yl,hix,hiy](const PetscInt i, const PetscInt j){ 
     PetscScalar x = xl + i/hix;
     PetscScalar y = yl + j/hiy;
     return 1.0/(2 + x*y);
   };
-
-  // Set if data should be written.
-  write_data = PETSC_FALSE;
-
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Create distributed array (DMDA) to manage parallel grid and vectors
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
@@ -124,79 +120,55 @@ int main(int argc,char **argv)
   appctx.xl = {xl, yl};
   appctx.i_start = {i_xstart,i_ystart};
   appctx.i_end = {i_xend,i_yend};
-  appctx.dofs = dofs;
   appctx.rho_inv = rho_inv;
   appctx.sw = stencil_radius;
 
-  // Extract local to local scatter context
-  scatter_ctx_ltol(da, &appctx.scatctx);
-
-  
   /*  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       Extract global vectors from DMDA; then duplicate for remaining
       vectors that are the same types
     - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  DMCreateGlobalVector(da,&v);
-  VecDuplicate(v,&v_analytic);
-  VecDuplicate(v,&v_error);
+  DMCreateGlobalVector(da,&q);
+  VecDuplicate(q,&q_analytic);
   
-  // Initial solution, starting time and end time.
-  set_initial_condition(da, v, appctx);
-
-  if (write_data) write_vector_to_binary(v,"data/acowave_2D","v_init");
-
-  ierr = DMCreateLocalVector(da,&vlocal);CHKERRQ(ierr);
-  DMGlobalToLocalBegin(da,v,INSERT_VALUES,vlocal);  
-  DMGlobalToLocalEnd(da,v,INSERT_VALUES,vlocal);
+  /*  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      Set initial condition and create local vector used in the stencil computations
+    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+  set_initial_condition(da, appctx, q);
+  ierr = DMCreateLocalVector(da,&appctx.q_local);CHKERRQ(ierr);
+  DMGlobalToLocalBegin(da,q,INSERT_VALUES,appctx.q_local);  
+  DMGlobalToLocalEnd(da,q,INSERT_VALUES,appctx.q_local);
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Run simulation and compute the error
   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  PetscBarrier((PetscObject) v);
+  PetscBarrier((PetscObject) q);
   if (rank == 0) {
-    PetscTime(&v1);
+    PetscTime(&t1); // Start timer
   }
 
-  if (size == 1)
-    time_integrate_rk4(da, Tend, dt, vlocal, rhs_TS_serial, (void *)&appctx);  
+  if (size == 1) // If single processor, run the serial version
+    time_integrate_rk4(da, Tend, dt, q, rhs_TS_serial, (void *)&appctx);  
   else
-    time_integrate_rk4(da, Tend, dt, vlocal, rhs_TS, (void *)&appctx);  
+    time_integrate_rk4(da, Tend, dt, q, rhs_TS, (void *)&appctx);  
 
-  PetscBarrier((PetscObject) v);
+  PetscBarrier((PetscObject) q);
   if (rank == 0) {
-    PetscTime(&v2);
-    elapsed_time = v2 - v1; 
+    PetscTime(&t2); // Stop timer
+    elapsed_time = t2 - t1; 
   }
 
   PetscPrintf(PETSC_COMM_WORLD,"Elapsed time: %f seconds\n",elapsed_time);
-
-  DMLocalToGlobalBegin(da,vlocal,INSERT_VALUES,v);
-  DMLocalToGlobalEnd(da,vlocal,INSERT_VALUES,v);
-
-  analytic_solution(da, Tend, appctx, v_analytic);
-  get_error(da, v, v_analytic, &v_error, &l2_error, &max_error, appctx);
+  analytic_solution(da, Tend, appctx, q_analytic);
+  l2_error = compute_l2_error(q, q_analytic, appctx.h);
+  max_error = compute_max_error(q, q_analytic);
   PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %g, and the maximum error is %g\n",l2_error,max_error);
-
-  // Write solution to file
-  if (write_data)
-  {
-    write_vector_to_binary(v,"data/acowave_2D","v");
-    write_vector_to_binary(v_error,"data/acowave_2D","v_error");
-
-    char tmp_str[200];
-    std::string data_string;
-    sprintf(tmp_str,"%d\t%d\t%d\t%e\t%f\t%f\t%e\t%e\n",size,Nx,Ny,dt,Tend,elapsed_time,l2_error,max_error);
-    data_string.assign(tmp_str);
-    write_data_to_file(data_string, "data/acowave_2D", "data.tsv");
-  }
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       Free work space.  All PETSc objects should be destroyed when they
       are no longer needed.
     - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  VecDestroy(&v);
-  VecDestroy(&v_analytic);
-  VecDestroy(&v_error);
+  VecDestroy(&q);
+  VecDestroy(&q_analytic);
   DMDestroy(&da);
   
   ierr = PetscFinalize();
@@ -204,35 +176,96 @@ int main(int argc,char **argv)
 }
 
 /**
-* Set initial condition.
-* Inputs: v      - vector to place initial data
-*         appctx - application context, contains necessary information
+* Evaluate the righ-hand-side function in the ODE q_t = rhs(t,q), where rhs
+* is the rhs in the acoustic wave equation discretized using finite differeces.
+*
+* da - Distributed array context
+* t - evaluation time
+* q_src - global source vector (to read from)
+* q_dst - global destination vector (to store in)
+* 
 **/
-PetscErrorCode set_initial_condition(DM da, Vec v, AppCtx& appctx) 
+PetscErrorCode rhs(DM da, PetscReal t, Vec q_src, Vec q_dst, AppCtx *appctx)
 {
-  analytic_solution(da, 0, appctx, v);
+  PetscScalar ***array_src, ***array_dst;
+
+  // Get the underlying array for the local src vector
+  // and the global dst vector.
+  DMDAVecGetArrayDOFRead(da,appctx->q_local,&array_src);
+  DMDAVecGetArrayDOF(da,q_dst,&array_dst);
+  // Begin communicating ghost points, i.e.
+  // off-processor points needed for stencil update.
+  DMGlobalToLocalBegin(da,q_src,INSERT_VALUES,appctx->q_local);
+  // Apply stencil for local points.
+  acowave_apply_interior(t, appctx->D1, appctx->HI, appctx->rho_inv, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  // Wait for communcation of ghost points to finish.
+  DMGlobalToLocalEnd(da,q_src,INSERT_VALUES,appctx->q_local);
+  // Apply stencil for overlapping points.
+  acowave_apply_overlap(t, appctx->D1, appctx->HI, appctx->rho_inv, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  // Restore arrays
+  DMDAVecRestoreArrayDOFRead(da,appctx->q_local,&array_src);
+  DMDAVecRestoreArrayDOF(da,q_dst,&array_dst);
   return 0;
 }
 
-PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx) {
-  VecWAXPY(*v_error,-1,v1,v2);
+/**
+* Interface for the PETSc timestepping (TS) user-defined right-hand-side function.
+* ts - Timestepping context
+* t - current time
+* q_src - global source vector (read from)
+* q_dst - global dst vector (written to)
+* ctx - user defined application context.
+**/
+PetscErrorCode rhs_TS(TS ts, PetscReal t, Vec q_src, Vec q_dst, void *ctx)
+{
+  AppCtx *appctx = (AppCtx*) ctx;
+  DM                da;
 
-  VecNorm(*v_error,NORM_2,l2_error);
-  *l2_error = sqrt(appctx.h[0]*appctx.h[1])*(*l2_error);
-
-  VecNorm(*v_error,NORM_INFINITY,max_error);
-  
+  TSGetDM(ts,&da);
+  rhs(da, t, q_src, q_dst, appctx);
   return 0;
 }
 
-PetscErrorCode analytic_solution(DM da, PetscScalar t, AppCtx &appctx, Vec& v) {
+/* Serial versions of the rhs - routines */
+PetscErrorCode rhs_serial(DM da, PetscReal t, Vec q_src, Vec q_dst, AppCtx *appctx)
+{
+  PetscScalar       ***array_src, ***array_dst;
+
+  DMDAVecGetArrayDOFRead(da,q_src,&array_src);
+  DMDAVecGetArrayDOF(da,q_dst,&array_dst);
+
+  acowave_apply_serial(t, appctx->D1, appctx->HI, appctx->rho_inv, array_src, array_dst, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+
+  // Restore arrays
+  DMDAVecRestoreArrayDOFRead(da,q_src,&array_src);
+  DMDAVecRestoreArrayDOF(da,q_dst,&array_dst);
+  return 0;
+}
+
+PetscErrorCode rhs_TS_serial(TS ts, PetscReal t, Vec q_src, Vec q_dst, void *ctx) // Function to utilize PETSc TS.
+{
+  AppCtx *appctx = (AppCtx*) ctx;
+  DM                da;
+
+  TSGetDM(ts,&da);
+  rhs_serial(da, t, q_src, q_dst, appctx);
+  return 0;
+}
+
+/**
+* Computes the analytic (exact) solution to the problem at time t.
+* da - Distributed array context
+* appctx - application context, contains necessary information
+* q - vector to store analytic solution
+**/
+PetscErrorCode analytic_solution(DM da, PetscScalar t, AppCtx &appctx, Vec q) {
   PetscInt i, j, n, m; 
-  PetscScalar ***varr, x, y;
+  PetscScalar ***q_arr, x, y;
 
   n = 3; // n = 1,2,3,4,...
   m = 4; // m = 1,2,3,4,...
 
-  DMDAVecGetArrayDOF(da,v,&varr);    
+  DMDAVecGetArrayDOF(da,q,&q_arr);    
 
   for (j = appctx.i_start[1]; j < appctx.i_end[1]; j++)
   {
@@ -240,69 +273,53 @@ PetscErrorCode analytic_solution(DM da, PetscScalar t, AppCtx &appctx, Vec& v) {
     for (i = appctx.i_start[0]; i < appctx.i_end[0]; i++)
     {
       x = appctx.xl[0] + i/appctx.hi[0];
-      varr[j][i][0] = -n*cos(n*PETSC_PI*x)*sin(m*PETSC_PI*y)*sin(PETSC_PI*sqrt(n*n + m*m)*t)/sqrt(n*n + m*m);
-      varr[j][i][1] = -m*sin(n*PETSC_PI*x)*cos(m*PETSC_PI*y)*sin(PETSC_PI*sqrt(n*n + m*m)*t)/sqrt(n*n + m*m);
-      varr[j][i][2] = sin(PETSC_PI*n*x)*sin(PETSC_PI*m*y)*cos(PETSC_PI*sqrt(n*n + m*m)*t);
+      q_arr[j][i][0] = -n*cos(n*PETSC_PI*x)*sin(m*PETSC_PI*y)*sin(PETSC_PI*sqrt(n*n + m*m)*t)/sqrt(n*n + m*m);
+      q_arr[j][i][1] = -m*sin(n*PETSC_PI*x)*cos(m*PETSC_PI*y)*sin(PETSC_PI*sqrt(n*n + m*m)*t)/sqrt(n*n + m*m);
+      q_arr[j][i][2] = sin(PETSC_PI*n*x)*sin(PETSC_PI*m*y)*cos(PETSC_PI*sqrt(n*n + m*m)*t);
     }
   }
-  DMDAVecRestoreArrayDOF(da,v,&varr);  
+  DMDAVecRestoreArrayDOF(da,q,&q_arr);  
   return 0;
 }
 
-PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
+/**
+* Set initial condition. The inital condition is computed using the analytic solution at t = t0
+* da - Distributed array context
+* appctx - application context, contains necessary information
+* q - vector to store initial data
+**/
+PetscErrorCode set_initial_condition(DM da, AppCtx& appctx, Vec q) 
 {
-  PetscScalar       ***array_src, ***array_dst;
-
-  DMDAVecGetArrayDOFRead(da,v_src,&array_src);
-  DMDAVecGetArrayDOF(da,v_dst,&array_dst);
-
-  VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  acowave_apply_interior(t, appctx->D1, appctx->HI, appctx->rho_inv, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
-  VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  acowave_apply_overlap(t, appctx->D1, appctx->HI, appctx->rho_inv, array_src, array_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
-  
-  // Restore arrays
-  DMDAVecRestoreArrayDOFRead(da,v_src,&array_src);
-  DMDAVecRestoreArrayDOF(da,v_dst,&array_dst);
+  analytic_solution(da, 0, appctx, q);
   return 0;
 }
 
-PetscErrorCode rhs_TS(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx) // Function to utilize PETSc TS.
-{
-  AppCtx *appctx = (AppCtx*) ctx;
-  DM                da;
-
-  TSGetDM(ts,&da);
-  rhs(da, t, v_src, v_dst, appctx);
-  return 0;
+/**
+* Computes the l2 error between the vectors q1 and a2
+* q1, q2 - vectors being compared.
+* h - array storing grid spacings
+**/
+PetscScalar compute_l2_error(Vec q1, Vec q2, std::array<PetscScalar,2>& h) {
+  PetscScalar l2_error;
+  Vec q_error;
+  VecDuplicate(q1,&q_error);
+  VecWAXPY(q_error,-1,q1,q2);
+  VecNorm(q_error,NORM_2,&l2_error);
+  VecDestroy(&q_error);
+  return l2_error = sqrt(h[0]*h[1])*(l2_error);
 }
 
-//
-// Serial versions of rhs and rhs_TS used for single processor runs
-// 
-
-PetscErrorCode rhs_serial(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
-{
-  PetscScalar       ***array_src, ***array_dst;
-
-  DMDAVecGetArrayDOFRead(da,v_src,&array_src);
-  DMDAVecGetArrayDOF(da,v_dst,&array_dst);
-
-  acowave_apply_serial(t, appctx->D1, appctx->HI, appctx->rho_inv, array_src, array_dst, appctx->N, appctx->xl, appctx->hi, appctx->sw);
-
-  // Restore arrays
-  DMDAVecRestoreArrayDOFRead(da,v_src,&array_src);
-  DMDAVecRestoreArrayDOF(da,v_dst,&array_dst);
-  return 0;
-}
-
-PetscErrorCode rhs_TS_serial(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx) // Function to utilize PETSc TS.
-{
-  AppCtx *appctx = (AppCtx*) ctx;
-  DM                da;
-
-  TSGetDM(ts,&da);
-  rhs_serial(da, t, v_src, v_dst, appctx);
-  return 0;
+/**
+* Computes the max error between the vectors q1 and a2
+* q1, q2 - vectors being compared.
+**/
+PetscScalar compute_max_error(Vec q1, Vec q2) {
+  PetscScalar max_error;
+  Vec q_error;
+  VecDuplicate(q1,&q_error);
+  VecWAXPY(q_error,-1,q1,q2);
+  VecNorm(q_error,NORM_INFINITY,&max_error);
+  VecDestroy(&q_error);
+  return max_error;
 }
 
