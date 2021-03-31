@@ -99,73 +99,390 @@ inline PetscErrorCode rhs_1D_overlap(const RhsLeftBoundary& rhs_lb,
 // 2D functions
 // =============================================================================
 
-// template <typename RhsCorner,
-//           typename RhsWestBoundary,
-//           typename RhsSouthBoundary,
-//           typename RhsClosure,
-//           typename... Args>
-// inline PetscErrorCode rhs_LL(const RhsCorner& rhs_corner,
-//                              const RhsWestBoundary& rhs_wb,
-//                              const RhsSouthBoundary& rhs_sb,
-//                              const RhsClosure& rhs_c,
-//                              grid::grid_function_2d<PetscScalar> dst,
-//                              const grid::grid_function_2d<PetscScalar> src,
-//                              const std::array<PetscInt,2>& N,
-//                              const PetscInt cl_sz,
-//                              Args args...)
-// {
-//   PetscInt i,j;
-  
-//   rhs_corner(dst,src,args...); // Corner point
-//   for (i = 1; i < cl_sz; i++) 
-//   { 
-//     rhs_sb(dst,src,i,args...); // south boundary (exluding corner)
-//   }
-//   for (j = 1; j < cl_sz; j++)
-//   { 
-//     rhs_wb(dst,src,j,args...); // west boundary (exluding corner)
-//   }
-//   for (j = 1; j < cl_sz; j++) { 
-//     for (i = 1; i < cl_sz; i++) { 
-//       rhs_c(dst,src,i,j,args...); // remaining closure region
-//     }
-//   }
-//   return 0;
-// }
+/**
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   * LI *    *    *
+  *   ****************
+**/
+template <typename RhsWestBC,
+          typename RhsSouthBC,
+          typename RhsClosure,
+          typename... Args>
+inline PetscErrorCode rhs_LL(const RhsWestBC& rhs_wbc,
+                             const RhsSouthBC& rhs_sbc,
+                             const RhsClosure& rhs_cl,
+                             grid::grid_function_2d<PetscScalar> dst,
+                             const grid::grid_function_2d<PetscScalar> src,
+                             const PetscInt cl_sz,
+                             Args args...)
+{
+  PetscInt i,j;
+  // Corner point
+  rhs_wbc(dst,src,0,args...);
+  rhs_sbc(dst,src,0,args...);
+  rhs_cl(dst,src,0,0,args...);
+  // south boundary (exluding corner)
+  for (i = 1; i < cl_sz; i++) { 
+    rhs_cl(dst,src,i,0,args...);
+    rhs_sbc(dst,src,i,args...);
+  }
+  // west boundary (exluding corner)
+  for (j = 1; j < cl_sz; j++) { 
+    rhs_cl(dst,src,0,j,args...); 
+    rhs_wbc(dst,src,j,args...);
+  }
+  // remaining closure region
+  for (j = 1; j < cl_sz; j++) { 
+    for (i = 1; i < cl_sz; i++) { 
+      rhs_cl(dst,src,i,j,args...); 
+    }
+  }
+  return 0;
+}
 
-// template <typename RhsCorner,
-//           typename RhsWestBoundary,
-//           typename RhsSouthBoundary,
-//           typename RhsClosure,
-//           typename... Args>
-// inline PetscErrorCode rhs_LI(RhsLLCorner rhs_corner,
-//                                            RhsCorner rhs_wb,
-//                                            RhsWestBoundary rhs_sb,
-//                                            RhsClosure rhs_c,
-//                                            grid::grid_function_2d<PetscScalar> dst,
-//                                            const grid::grid_function_2d<PetscScalar> src,
-//                                            const std::array<PetscInt,2>& N,
-//                                            const PetscInt cl_sz,
-//                                            Args args...)
-// {
-//   PetscInt i,j;
-  
-//   rhs_corner(dst,src,args...); // Corner point
-//   for (i = 1; i < cl_sz; i++) 
-//   { 
-//     rhs_sb(dst,src,i,args...); // south boundary (exluding corner)
-//   }
-//   for (j = 1; j < cl_sz; j++)
-//   { 
-//     rhs_wb(dst,src,j,args...); // west boundary (exluding corner)
-//   }
-//   for (j = 1; j < cl_sz; j++) { 
-//     for (i = 1; i < cl_sz; i++) { 
-//       rhs_c(dst,src,i,j,args...); // remaining closure region
-//     }
-//   }
-//   return 0;
-// }
+/**
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   * LI *    *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+**/
+template <typename RhsWestBC,
+          typename RhsClosure,
+          typename RhsInterior,
+          typename... Args>
+inline PetscErrorCode rhs_LI(const RhsWestBC& rhs_wbc,
+                             const RhsClosure& rhs_cl,
+                             const RhsInterior& rhs_int,
+                             grid::grid_function_2d<PetscScalar> dst,
+                             const grid::grid_function_2d<PetscScalar> src,
+                             const std::array<PetscInt,2>& ind_j,
+                             const PetscInt cl_sz,
+                             Args args...)
+{
+  PetscInt i,j;
+  // west boundary
+  for (j = ind_j[0]; j < ind_j[1]; j++) {
+    rhs_wbc(dst,src,j,args...);
+    rhs_cl(dst,src,0,j,args...); 
+    rhs_int(dst,src,0,j,args...)
+  }
+  // remaining points
+  for (j = ind_j[0]; j < ind_j[1]; j++) { 
+    for (i = 1; i < cl_sz; i++) { 
+        rhs_cl(dst,src,i,j,args...); 
+        rhs_int(dst,src,i,j,args...)
+    }
+  }
+  return 0;
+}
+
+/**
+  *   ****************
+  *   * LR *    *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+**/
+template <typename RhsWestBC,
+          typename RhsNorthBC,
+          typename RhsClosure,
+          typename... Args>
+inline PetscErrorCode rhs_LR(const RhsWestBC& rhs_wbc,
+                             const RhsNorthBC& rhs_nbc,
+                             const RhsClosure& rhs_cl,
+                             grid::grid_function_2d<PetscScalar> dst,
+                             const grid::grid_function_2d<PetscScalar> src,
+                             const PetscInt cl_sz,
+                             Args args...)
+{
+  PetscInt i,j;
+  const PetscInt j_end = src.mapping().ny-1;
+  // Corner point
+  rhs_wbc(dst,src,j_end,args...);
+  rhs_nbc(dst,src,0,args...);
+  rhs_cl(dst,src,0,j_end,args...);
+  // north boundary (exluding corner)
+  for (i = 1; i < cl_sz; i++) { 
+    rhs_cl(dst,src,i,j_end,args...);
+    rhs_nbc(dst,src,i,args...);
+  }
+  // west boundary (exluding corner)
+  for (j = j_end-cl_sz+1; j < j_end; j++) { 
+    rhs_cl(dst,src,0,j,args...); 
+    rhs_wbc(dst,src,j,args...);
+  }
+  // remaining closure region
+  for (j = j_end-cl_sz+1; j < j_end; j++) { 
+    for (i = 1; i < cl_sz; i++) { 
+      rhs_cl(dst,src,i,j,args...); 
+    }
+  }
+  return 0;
+}
+
+
+/**
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    * IL *    *
+  *   ****************
+**/
+template <typename RhsInterior,
+          typename RhsSouthBC,
+          typename RhsClosure,
+          typename... Args>
+inline PetscErrorCode rhs_IL(const RhsInterior& rhs_int,
+                             const RhsSouthBC& rhs_sbc,
+                             const RhsClosure& rhs_cl,
+                             grid::grid_function_2d<PetscScalar> dst,
+                             const grid::grid_function_2d<PetscScalar> src,
+                             const std::array<PetscInt,2>& ind_i,
+                             const PetscInt cl_sz,
+                             Args args...)
+{
+  PetscInt i,j;
+  // south boundary
+  for (i = ind_i[0]; i < ind_i[1]; i++) {
+    rhs_sbc(dst,src,i,args...);
+    rhs_cl(dst,src,i,0,args...); 
+    rhs_int(dst,src,i,0,args...)
+  }
+  // remaining points
+  for (j = 1; j < cl_sz; j++) { 
+    for (i = ind_i[0]; i < ind_i[1]; i++) { 
+        rhs_cl(dst,src,i,j,args...); 
+        rhs_int(dst,src,i,j,args...)
+    }
+  }
+  return 0;
+}
+
+
+
+/**
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    * II *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+**/
+template <typename RhsInterior,
+          typename... Args>
+inline PetscErrorCode rhs_II(const RhsInterior& rhs_int,
+                             grid::grid_function_2d<PetscScalar> dst,
+                             const grid::grid_function_2d<PetscScalar> src,
+                             const std::array<PetscInt,2>& ind_i,
+                             const std::array<PetscInt,2>& ind_j,
+                             const PetscInt cl_sz,
+                             Args args...)
+{
+  PetscInt i,j;
+  // Interior points points
+  for (j = ind_j[0]; j < ind_j[1]; j++) { 
+    for (i = ind_i[0]; i < ind_i[1]; i++) { 
+        rhs_int(dst,src,i,j,args...)
+    }
+  }
+  return 0;
+}
+
+
+/**
+  *   ****************
+  *   *    * IR *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+**/
+template <typename RhsInterior,
+          typename RhsNorthBC,
+          typename RhsClosure,
+          typename... Args>
+inline PetscErrorCode rhs_IR(const RhsInterior& rhs_int,
+                             const RhsNorthBC& rhs_nbc,
+                             const RhsClosure& rhs_cl,
+                             grid::grid_function_2d<PetscScalar> dst,
+                             const grid::grid_function_2d<PetscScalar> src,
+                             const std::array<PetscInt,2>& ind_i,
+                             const PetscInt cl_sz,
+                             Args args...)
+{
+  PetscInt i,j;
+  const PetscInt j_end = src.mapping().ny-1;
+  // north boundary
+  for (i = ind_i[0]; i < ind_i[1]; i++) {
+    rhs_int(dst,src,i,j_end,args...); 
+    rhs_cl(dst,src,i,j_end,args...);
+    rhs_nbc(dst,src,i,args...);
+  }
+  // remaining points
+  for (j = j_end-cl_sz+1; j < j_end; j++) { 
+    for (i = ind_i[0]; i < ind_i[1]; i++) { 
+      rhs_int(dst,src,i,j,args...);
+      rhs_cl(dst,src,i,j,args...); 
+    }
+  }
+  return 0;
+}
+
+
+/**
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    *    * RL *
+  *   ****************
+**/
+template <typename RhsEastBC,
+          typename RhsSouthBC,
+          typename RhsClosure,
+          typename... Args>
+inline PetscErrorCode rhs_RL(const RhsEastBC& rhs_ebc,
+                             const RhsSouthBC& rhs_sbc,
+                             const RhsClosure& rhs_cl,
+                             grid::grid_function_2d<PetscScalar> dst,
+                             const grid::grid_function_2d<PetscScalar> src,
+                             const PetscInt cl_sz,
+                             Args args...)
+{
+  PetscInt i,j;
+  const PetscInt i_end = src.mapping().nx()-1;
+
+  // Corner point
+  rhs_ebc(dst,src,0,args...);
+  rhs_sbc(dst,src,i_end,args...);
+  rhs_cl(dst,src,i_end,0,args...);
+
+  // east boundary (exluding corner)
+  for (j = 1; j < cl_sz; j++) { 
+    rhs_cl(dst,src,i_end,j,args...); 
+    rhs_ebc(dst,src,j,args...);
+  }
+
+  // east boundary (exluding corner)
+  for (j = 1; j < cl_sz; j++) { 
+    rhs_cl(dst,src,i_end,j,args...); 
+    rhs_ebc(dst,src,j,args...);
+  }
+
+  // remaining closure region
+  for (j = 1; j < cl_sz; j++) { 
+    for (i = i_end-cl_sz+1; i < i_end; i++) { 
+      rhs_cl(dst,src,i,j,args...); 
+    }
+  }
+
+  return 0;
+}
+
+
+/**
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    *    * RI *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+**/
+template <typename RhsEastBC,
+          typename RhsClosure,
+          typename RhsInterior,
+          typename... Args>
+inline PetscErrorCode rhs_RI(const RhsEastBC& rhs_ebc,
+                             const RhsClosure& rhs_cl,
+                             const RhsInterior& rhs_int,
+                             grid::grid_function_2d<PetscScalar> dst,
+                             const grid::grid_function_2d<PetscScalar> src,
+                             const std::array<PetscInt,2>& ind_j,
+                             const PetscInt cl_sz,
+                             Args args...)
+{
+  PetscInt i,j;
+  const PetscInt i_end = src.mapping().nx()-1;
+
+  // east boundary
+  for (j = ind_j[0]; j < ind_j[1]; j++) { 
+    rhs_ebc(dst,src,j,args...);
+    rhs_cl(dst,src,i_end,j,args...); 
+    rhs_int(dst,src,i_end,j,args...);
+  }
+  // remaining points
+  for (j = ind_j[0]; j < ind_j[0]; j++) { 
+    for (i = i_end-cl_sz+1; i < i_end; i++) { 
+      rhs_int(dst,src,i,j,args...);
+      rhs_cl(dst,src,i,j,args...); 
+    }
+  }
+  return 0;
+}
+
+
+/**
+  *   ****************
+  *   *    *    * RR *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+**/
+template <typename RhsEastBC,
+          typename RhsNorthBC,
+          typename RhsClosure,
+          typename... Args>
+inline PetscErrorCode rhs_RR(const RhsEastBC& rhs_ebc,
+                             const RhsNorthBC& rhs_nbc,
+                             const RhsClosure& rhs_cl,
+                             grid::grid_function_2d<PetscScalar> dst,
+                             const grid::grid_function_2d<PetscScalar> src,
+                             const PetscInt cl_sz,
+                             Args args...)
+{
+  PetscInt i,j;
+  const PetscInt i_end = src.mapping().nx()-1;
+  const PetscInt j_end = src.mapping().ny()-1;
+
+  // Corner point
+  rhs_ebc(dst,src,j_end,args...);
+  rhs_nbc(dst,src,i_end,args...);
+  rhs_cl(dst,src,i_end,j_end,args...);
+  // north boundary (exluding corner)
+  for (i = i_end-cl_sz+1; i < i_end; i++) { 
+    rhs_cl(dst,src,i,j_end,args...);
+    rhs_nbc(dst,src,i,args...);
+  }
+  // east boundary (exluding corner)
+  for (j = j_end-cl_sz+1; j < j_end; j++) { 
+    rhs_cl(dst,src,i_end,j,args...); 
+    rhs_ebc(dst,src,j,args...);
+  }
+  // remaining closure region
+  for (j = j_end-cl_sz+1; j < j_end; j++) { 
+    for (i = i_end-cl_sz+1; i < i_end; i++) { 
+      rhs_cl(dst,src,i,j,args...); 
+    }
+  }
+  return 0;
+}
 
 
 //=============================================================================
@@ -255,7 +572,3 @@ inline PetscErrorCode rhs_1D_single_core(const RhsLeftBoundary& rhs_lb,
   rhs_rb(dst,src,args...); // Right boundary point
   return 0;
 };
-
-//=============================================================================
-// 2D functions
-//=============================================================================
