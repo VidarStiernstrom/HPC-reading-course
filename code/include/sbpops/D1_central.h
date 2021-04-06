@@ -15,12 +15,20 @@ namespace sbp {
   class D1_central{
   public:
     constexpr D1_central(){};
-    /**
-    * Convenience function returning the ranges (interior_width,n_closures,closure_width)
-    **/
-    constexpr std::tuple<PetscInt,PetscInt,PetscInt> get_ranges() const
+
+    constexpr PetscInt interior_stencil_size() const
     {
-      return std::make_tuple(interior_width,n_closures,closure_width);
+      return interior_width;
+    };
+
+    constexpr PetscInt closure_size() const
+    {
+      return n_closures;
+    };
+
+    constexpr PetscInt closure_stencil_size() const
+    {
+      return closure_width;
     };
 
     //=============================================================================

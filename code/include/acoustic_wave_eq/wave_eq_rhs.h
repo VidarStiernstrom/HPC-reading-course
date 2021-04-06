@@ -78,7 +78,6 @@ PetscScalar forcing_v(const PetscInt i, const PetscInt j, const PetscScalar t, c
   *             and where k is the component.
   * xl         - Lower-left grid points per coordinate direction
   * hi        - Inverse spacing spacing per coordinate direction
-  * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad>
 PetscErrorCode wave_eq_rhs_LL(const PetscScalar t, 
@@ -87,9 +86,9 @@ PetscErrorCode wave_eq_rhs_LL(const PetscScalar t,
                               const PetscScalar *const *const *const q,
                               PetscScalar *const *const *const F,
                               const std::array<PetscScalar,2>& xl,
-                              const std::array<PetscScalar,2>& hi, 
-                              const PetscInt cl_sz)
+                              const std::array<PetscScalar,2>& hi)
 {
+  const PetscInt cl_sz = D1.closure_size();
   PetscInt i,j;
 
   // Corner point
@@ -165,7 +164,6 @@ PetscErrorCode wave_eq_rhs_LL(const PetscScalar t,
   * i_xend    - End index for the process in the x-direction
   * xl        - Lower-left grid points per coordinate direction
   * hi        - Inverse spacing spacing per coordinate direction
-  * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad>
 PetscErrorCode wave_eq_rhs_IL(const PetscScalar t,
@@ -176,9 +174,9 @@ PetscErrorCode wave_eq_rhs_IL(const PetscScalar t,
                               const PetscInt i_xstart, 
                               const PetscInt i_xend,
                               const std::array<PetscScalar,2>& xl,
-                              const std::array<PetscScalar,2>& hi, 
-                              const PetscInt cl_sz)
+                              const std::array<PetscScalar,2>& hi)
 {
+  const PetscInt cl_sz = D1.closure_size();
   PetscInt i,j;
 
   // South boundary
@@ -238,7 +236,6 @@ PetscErrorCode wave_eq_rhs_IL(const PetscScalar t,
   * i_yend    - End index for the process in the y-direction
   * xl        - Lower-left grid points per coordinate direction
   * hi        - Inverse spacing spacing per coordinate direction
-  * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad>
 PetscErrorCode wave_eq_rhs_LI(const PetscScalar t,
@@ -249,9 +246,9 @@ PetscErrorCode wave_eq_rhs_LI(const PetscScalar t,
                               const PetscInt i_ystart, 
                               const PetscInt i_yend,
                               const std::array<PetscScalar,2>& xl,
-                              const std::array<PetscScalar,2>& hi, 
-                              const PetscInt cl_sz)
+                              const std::array<PetscScalar,2>& hi)
 {
+  const PetscInt cl_sz = D1.closure_size();
   PetscInt i,j;
 
   // West boundary
@@ -310,7 +307,6 @@ PetscErrorCode wave_eq_rhs_LI(const PetscScalar t,
   * i_yend    - End index for the process in the y-direction
   * xl        - Lower-left grid points per coordinate direction
   * hi        - Inverse spacing spacing per coordinate direction
-  * cl_sz     - Closure size
   **/
 template <class SbpDerivative>
 PetscErrorCode wave_eq_rhs_II(const PetscScalar t, 
@@ -322,8 +318,7 @@ PetscErrorCode wave_eq_rhs_II(const PetscScalar t,
                               const PetscInt i_ystart, 
                               const PetscInt i_yend,
                               const std::array<PetscScalar,2>& xl,
-                              const std::array<PetscScalar,2>& hi, 
-                              const PetscInt cl_sz)
+                              const std::array<PetscScalar,2>& hi)
 {
   PetscInt i,j;
   for (j = i_ystart; j < i_yend; j++)
@@ -371,7 +366,6 @@ PetscErrorCode wave_eq_rhs_II(const PetscScalar t,
   * N         - Grid points per coordinate direction
   * xl        - Lower-left grid points per coordinate direction
   * hi        - Inverse spacing spacing per coordinate direction
-  * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad>
 PetscErrorCode wave_eq_rhs_RL(const PetscScalar t, 
@@ -381,9 +375,9 @@ PetscErrorCode wave_eq_rhs_RL(const PetscScalar t,
                               PetscScalar *const *const *const F,
                               const std::array<PetscInt,2>& N,
                               const std::array<PetscScalar,2>& xl, 
-                              const std::array<PetscScalar,2>& hi,
-                              const PetscInt cl_sz)
+                              const std::array<PetscScalar,2>& hi)
 {
+  const PetscInt cl_sz = D1.closure_size();
   PetscInt i,j;
 
   // Corner point
@@ -459,7 +453,6 @@ PetscErrorCode wave_eq_rhs_RL(const PetscScalar t,
   * N         - Grid points per coordinate direction
   * xl        - Lower-left grid points per coordinate direction
   * hi        - Inverse spacing spacing per coordinate direction
-  * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad>
 PetscErrorCode wave_eq_rhs_RI(const PetscScalar t, 
@@ -471,9 +464,9 @@ PetscErrorCode wave_eq_rhs_RI(const PetscScalar t,
                               const PetscInt i_yend,
                               const std::array<PetscInt,2>& N,
                               const std::array<PetscScalar,2>& xl, 
-                              const std::array<PetscScalar,2>& hi,
-                              const PetscInt cl_sz)
+                              const std::array<PetscScalar,2>& hi)
 {
+  const PetscInt cl_sz = D1.closure_size();
   PetscInt i,j;
 
 
@@ -533,7 +526,6 @@ PetscErrorCode wave_eq_rhs_RI(const PetscScalar t,
   * N         - Grid points per coordinate direction
   * xl        - Lower-left grid points per coordinate direction
   * hi        - Inverse spacing spacing per coordinate direction
-  * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad>
 PetscErrorCode wave_eq_rhs_LR(const PetscScalar t,
@@ -543,9 +535,9 @@ PetscErrorCode wave_eq_rhs_LR(const PetscScalar t,
                               PetscScalar *const *const *const F,
                               const std::array<PetscInt,2>& N, 
                               const std::array<PetscScalar,2>& xl, 
-                              const std::array<PetscScalar,2>& hi, 
-                              const PetscInt cl_sz)
+                              const std::array<PetscScalar,2>& hi)
 {
+  const PetscInt cl_sz = D1.closure_size();
   PetscInt i,j;
 
   // Corner point 
@@ -619,7 +611,6 @@ PetscErrorCode wave_eq_rhs_LR(const PetscScalar t,
   * N         - Grid points per coordinate direction
   * xl        - Lower-left grid points per coordinate direction
   * hi        - Inverse spacing spacing per coordinate direction
-  * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad>
 PetscErrorCode wave_eq_rhs_IR(const PetscScalar t,
@@ -631,9 +622,9 @@ PetscErrorCode wave_eq_rhs_IR(const PetscScalar t,
                               const PetscInt i_xend,
                               const std::array<PetscInt,2>& N,
                               const std::array<PetscScalar,2>& xl, 
-                              const std::array<PetscScalar,2>& hi,
-                              const PetscInt cl_sz)
+                              const std::array<PetscScalar,2>& hi)
 {
+  const PetscInt cl_sz = D1.closure_size();
   PetscInt i,j;
 
 
@@ -690,7 +681,6 @@ PetscErrorCode wave_eq_rhs_IR(const PetscScalar t,
   * N         - Grid points per coordinate direction
   * xl        - Lower-left grid points per coordinate direction
   * hi        - Inverse spacing spacing per coordinate direction
-  * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad>
 PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
@@ -700,9 +690,9 @@ PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
                               PetscScalar *const *const *const F,
                               const std::array<PetscInt,2>& N,
                               const std::array<PetscScalar,2>& xl, 
-                              const std::array<PetscScalar,2>& hi,
-                              const PetscInt cl_sz)
+                              const std::array<PetscScalar,2>& hi)
 {
+  const PetscInt cl_sz = D1.closure_size();
   PetscInt i,j;
 
   // Interior points
@@ -770,7 +760,6 @@ PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
   * i_end     - End indices per coordinate direction for the process
   * xl        - Lower-left grid points per coordinate direction
   * hi        - Inverse spacing spacing per coordinate direction
-  * sw        - Stencil width (i.e the number of ghost points)
   **/
 template <class SbpDerivative, class SbpInvQuad>
 PetscErrorCode wave_eq_rhs_local(const PetscScalar t,
@@ -782,64 +771,64 @@ PetscErrorCode wave_eq_rhs_local(const PetscScalar t,
                                  const std::array<PetscInt,2>& i_end,
                                  const std::array<PetscInt,2>& N,
                                  const std::array<PetscScalar,2>& xl, 
-                                 const std::array<PetscScalar,2>& hi,
-                                 const PetscInt sw)
+                                 const std::array<PetscScalar,2>& hi)
 {
+  const PetscScalar sw = (D1.interior_stencil_size()-1)/2;
+  const PetscInt cl_sz = D1.closure_size();
   const PetscInt i_xstart = i_start[0] + sw; 
   const PetscInt i_ystart = i_start[1] + sw;
   const PetscInt i_xend = i_end[0] - sw;
   const PetscInt i_yend = i_end[1] - sw;
-  const auto [iw, cl_sz, closure_width] = D1.get_ranges();
 
   if (i_start[1] == 0)  // BOTTOM
   {
     if (i_start[0] == 0) // BOTTOM LEFT
     {
-      wave_eq_rhs_LL(t, D1, HI, q, F, xl, hi, cl_sz);
-      wave_eq_rhs_IL(t, D1, HI, q, F, cl_sz, i_xend, xl, hi, cl_sz);
-      wave_eq_rhs_LI(t, D1, HI, q, F, cl_sz, i_yend, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend, cl_sz, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_LL(t, D1, HI, q, F, xl, hi);
+      wave_eq_rhs_IL(t, D1, HI, q, F, cl_sz, i_xend, xl, hi);
+      wave_eq_rhs_LI(t, D1, HI, q, F, cl_sz, i_yend, xl, hi);
+      wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend, cl_sz, i_yend, xl, hi); 
     } else if (i_end[0] == N[0]) // BOTTOM RIGHT
     { 
-      wave_eq_rhs_RL(t, D1, HI, q, F, N, xl, hi, cl_sz);
-      wave_eq_rhs_IL(t, D1, HI, q, F, i_xstart, N[0]-cl_sz, xl, hi, cl_sz);
-      wave_eq_rhs_RI(t, D1, HI, q, F, cl_sz, i_yend, N, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, q, F, i_xstart, N[0]-cl_sz, cl_sz, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_RL(t, D1, HI, q, F, N, xl, hi);
+      wave_eq_rhs_IL(t, D1, HI, q, F, i_xstart, N[0]-cl_sz, xl, hi);
+      wave_eq_rhs_RI(t, D1, HI, q, F, cl_sz, i_yend, N, xl, hi);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, N[0]-cl_sz, cl_sz, i_yend, xl, hi); 
     } else // BOTTOM CENTER
     { 
-      wave_eq_rhs_IL(t, D1, HI, q, F, i_xstart, i_xend, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xend, cl_sz, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_IL(t, D1, HI, q, F, i_xstart, i_xend, xl, hi);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xend, cl_sz, i_yend, xl, hi); 
     }
   } else if (i_end[1] == N[1]) // TOP
   {
     if (i_start[0] == 0) // TOP LEFT
     {
-      wave_eq_rhs_LR(t, D1, HI, q, F, N, xl, hi, cl_sz);
-      wave_eq_rhs_IR(t, D1, HI, q, F, cl_sz, i_xend, N, xl, hi, cl_sz);
-      wave_eq_rhs_LI(t, D1, HI, q, F, i_ystart, N[1] - cl_sz, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend, i_ystart, N[1]-cl_sz, xl, hi, cl_sz);  
+      wave_eq_rhs_LR(t, D1, HI, q, F, N, xl, hi);
+      wave_eq_rhs_IR(t, D1, HI, q, F, cl_sz, i_xend, N, xl, hi);
+      wave_eq_rhs_LI(t, D1, HI, q, F, i_ystart, N[1] - cl_sz, xl, hi);
+      wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend, i_ystart, N[1]-cl_sz, xl, hi);  
     } else if (i_end[0] == N[0]) // TOP RIGHT
     { 
-      wave_eq_rhs_RR(t, D1, HI, q, F, N, xl, hi, cl_sz);
-      wave_eq_rhs_IR(t, D1, HI, q, F, i_xstart, N[0]-cl_sz, N, xl, hi, cl_sz);
-      wave_eq_rhs_RI(t, D1, HI, q, F, i_ystart, N[1] - cl_sz, N, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, q, F, i_xstart, N[0]-cl_sz, i_ystart, N[1] - cl_sz, xl, hi, cl_sz);
+      wave_eq_rhs_RR(t, D1, HI, q, F, N, xl, hi);
+      wave_eq_rhs_IR(t, D1, HI, q, F, i_xstart, N[0]-cl_sz, N, xl, hi);
+      wave_eq_rhs_RI(t, D1, HI, q, F, i_ystart, N[1] - cl_sz, N, xl, hi);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, N[0]-cl_sz, i_ystart, N[1] - cl_sz, xl, hi);
     } else // TOP CENTER
     { 
-      wave_eq_rhs_IR(t, D1, HI, q, F, i_xstart, i_xend, N, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xend, i_ystart,  N[1] - cl_sz, xl, hi, cl_sz);
+      wave_eq_rhs_IR(t, D1, HI, q, F, i_xstart, i_xend, N, xl, hi);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xend, i_ystart,  N[1] - cl_sz, xl, hi);
     }
   } else if (i_start[0] == 0) // LEFT NOT BOTTOM OR TOP
   { 
-    wave_eq_rhs_LI(t, D1, HI, q, F, i_ystart, i_yend, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend, i_ystart, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_LI(t, D1, HI, q, F, i_ystart, i_yend, xl, hi);
+    wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend, i_ystart, i_yend, xl, hi);
   } else if (i_end[0] == N[0]) // RIGHT NOT BOTTOM OR TOP
   {
-    wave_eq_rhs_RI(t, D1, HI, q, F, i_ystart, i_yend, N, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, q, F, i_xstart, N[0] - cl_sz, i_ystart, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_RI(t, D1, HI, q, F, i_ystart, i_yend, N, xl, hi);
+    wave_eq_rhs_II(t, D1, q, F, i_xstart, N[0] - cl_sz, i_ystart, i_yend, xl, hi);
   } else // CENTER
   {
-    wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xend, i_ystart, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xend, i_ystart, i_yend, xl, hi);
   }
 
   return 0;
@@ -870,7 +859,6 @@ PetscErrorCode wave_eq_rhs_local(const PetscScalar t,
   * i_end     - End indices per coordinate direction for the process
   * xl        - Lower-left grid points per coordinate direction
   * hi        - Inverse spacing spacing per coordinate direction
-  * sw        - Stencil width (i.e the number of ghost points)
   **/
 template <class SbpDerivative, class SbpInvQuad>
 PetscErrorCode wave_eq_rhs_overlap(const PetscScalar t,
@@ -882,79 +870,79 @@ PetscErrorCode wave_eq_rhs_overlap(const PetscScalar t,
                                    const std::array<PetscInt,2>& i_end,
                                    const std::array<PetscInt,2>& N,
                                    const std::array<PetscScalar,2>& xl, 
-                                   const std::array<PetscScalar,2>& hi,
-                                   const PetscInt sw)
+                                   const std::array<PetscScalar,2>& hi)
 {
+  const PetscScalar sw = (D1.interior_stencil_size()-1)/2;
+  const PetscInt cl_sz = D1.closure_size();
   const PetscInt i_xstart = i_start[0]; 
   const PetscInt i_ystart = i_start[1];
   const PetscInt i_xend = i_end[0];
   const PetscInt i_yend = i_end[1];
-  const auto [iw, cl_sz, closure_width] = D1.get_ranges();
 
   if (i_ystart == 0)  // BOTTOM
   {
     if (i_xstart == 0) // BOTTOM LEFT
     {
-      wave_eq_rhs_IL(t, D1, HI, q, F, i_xend-sw, i_xend, xl, hi, cl_sz);
-      wave_eq_rhs_LI(t, D1, HI, q, F, i_yend-sw, i_yend, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend-sw, i_yend-sw, i_yend, xl, hi, cl_sz); 
-      wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, cl_sz, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_IL(t, D1, HI, q, F, i_xend-sw, i_xend, xl, hi);
+      wave_eq_rhs_LI(t, D1, HI, q, F, i_yend-sw, i_yend, xl, hi);
+      wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend-sw, i_yend-sw, i_yend, xl, hi); 
+      wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, cl_sz, i_yend, xl, hi); 
     } else if (i_xend == N[0]) // BOTTOM RIGHT
     { 
-      wave_eq_rhs_IL(t, D1, HI, q, F, i_xstart, i_xstart+sw, xl, hi, cl_sz);
-      wave_eq_rhs_RI(t, D1, HI, q, F, i_yend-sw, i_yend, N, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, cl_sz, i_yend, xl, hi, cl_sz); 
-      wave_eq_rhs_II(t, D1, q, F, i_xstart+sw, N[0]-cl_sz, i_yend-sw, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_IL(t, D1, HI, q, F, i_xstart, i_xstart+sw, xl, hi);
+      wave_eq_rhs_RI(t, D1, HI, q, F, i_yend-sw, i_yend, N, xl, hi);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, cl_sz, i_yend, xl, hi); 
+      wave_eq_rhs_II(t, D1, q, F, i_xstart+sw, N[0]-cl_sz, i_yend-sw, i_yend, xl, hi); 
     } else // BOTTOM CENTER
     { 
-      wave_eq_rhs_IL(t, D1, HI, q, F, i_xstart, i_xstart+sw, xl, hi, cl_sz);
-      wave_eq_rhs_IL(t, D1, HI, q, F, i_xend-sw, i_xend, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, cl_sz, i_yend-sw, xl, hi, cl_sz); 
-      wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, cl_sz, i_yend-sw, xl, hi, cl_sz); 
-      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xend, i_yend-sw, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_IL(t, D1, HI, q, F, i_xstart, i_xstart+sw, xl, hi);
+      wave_eq_rhs_IL(t, D1, HI, q, F, i_xend-sw, i_xend, xl, hi);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, cl_sz, i_yend-sw, xl, hi); 
+      wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, cl_sz, i_yend-sw, xl, hi); 
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xend, i_yend-sw, i_yend, xl, hi); 
     }
   } else if (i_yend == N[1]) // TOP
   {
     if (i_xstart == 0) // TOP LEFT
     {
-      wave_eq_rhs_IR(t, D1, HI, q, F, i_xend-sw, i_xend, N, xl, hi, cl_sz);
-      wave_eq_rhs_LI(t, D1, HI, q, F, i_ystart, i_ystart+sw, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, i_ystart, N[1]-cl_sz, xl, hi, cl_sz);  
-      wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend-sw, i_ystart, i_ystart+sw, xl, hi, cl_sz);  
+      wave_eq_rhs_IR(t, D1, HI, q, F, i_xend-sw, i_xend, N, xl, hi);
+      wave_eq_rhs_LI(t, D1, HI, q, F, i_ystart, i_ystart+sw, xl, hi);
+      wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, i_ystart, N[1]-cl_sz, xl, hi);  
+      wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend-sw, i_ystart, i_ystart+sw, xl, hi);  
     } else if (i_xend == N[0]) // TOP RIGHT
     { 
-      wave_eq_rhs_IR(t, D1, HI, q, F, i_xstart, i_xstart+sw, N, xl, hi, cl_sz);
-      wave_eq_rhs_RI(t, D1, HI, q, F, i_ystart, i_ystart+sw, N, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, i_ystart, N[1] - cl_sz, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, q, F, i_xstart+sw, N[0]-cl_sz, i_ystart, i_ystart+sw, xl, hi, cl_sz);
+      wave_eq_rhs_IR(t, D1, HI, q, F, i_xstart, i_xstart+sw, N, xl, hi);
+      wave_eq_rhs_RI(t, D1, HI, q, F, i_ystart, i_ystart+sw, N, xl, hi);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, i_ystart, N[1] - cl_sz, xl, hi);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart+sw, N[0]-cl_sz, i_ystart, i_ystart+sw, xl, hi);
     } else // TOP CENTER
     { 
-      wave_eq_rhs_IR(t, D1, HI, q, F, i_xstart, i_xstart+sw, N, xl, hi, cl_sz);
-      wave_eq_rhs_IR(t, D1, HI, q, F, i_xend-sw, i_xend, N, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, i_ystart,  N[1] - cl_sz, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, i_ystart,  N[1] - cl_sz, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, q, F, i_xstart+sw, i_xend-sw, i_ystart,  i_ystart+sw, xl, hi, cl_sz);
+      wave_eq_rhs_IR(t, D1, HI, q, F, i_xstart, i_xstart+sw, N, xl, hi);
+      wave_eq_rhs_IR(t, D1, HI, q, F, i_xend-sw, i_xend, N, xl, hi);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, i_ystart,  N[1] - cl_sz, xl, hi);
+      wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, i_ystart,  N[1] - cl_sz, xl, hi);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart+sw, i_xend-sw, i_ystart,  i_ystart+sw, xl, hi);
     }
   } else if (i_xstart == 0) // LEFT NOT BOTTOM OR TOP
   { 
-    wave_eq_rhs_LI(t, D1, HI, q, F, i_ystart, i_ystart+sw, xl, hi, cl_sz);
-    wave_eq_rhs_LI(t, D1, HI, q, F, i_yend-sw, i_yend, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend, i_ystart, i_ystart+sw, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend, i_yend-sw, i_yend, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, i_ystart+sw, i_yend-sw, xl, hi, cl_sz);
+    wave_eq_rhs_LI(t, D1, HI, q, F, i_ystart, i_ystart+sw, xl, hi);
+    wave_eq_rhs_LI(t, D1, HI, q, F, i_yend-sw, i_yend, xl, hi);
+    wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend, i_ystart, i_ystart+sw, xl, hi);
+    wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend, i_yend-sw, i_yend, xl, hi);
+    wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, i_ystart+sw, i_yend-sw, xl, hi);
   } else if (i_xend == N[0]) // RIGHT NOT BOTTOM OR TOP
   {
-    wave_eq_rhs_RI(t, D1, HI, q, F, i_ystart, i_ystart+sw, N, xl, hi, cl_sz);
-    wave_eq_rhs_RI(t, D1, HI, q, F, i_yend-sw, i_yend, N, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, q, F, i_xstart, N[0] - cl_sz, i_ystart, i_ystart+sw, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, q, F, i_xstart, N[0] - cl_sz, i_yend-sw, i_yend, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, i_ystart+sw, i_yend-sw, xl, hi, cl_sz);
+    wave_eq_rhs_RI(t, D1, HI, q, F, i_ystart, i_ystart+sw, N, xl, hi);
+    wave_eq_rhs_RI(t, D1, HI, q, F, i_yend-sw, i_yend, N, xl, hi);
+    wave_eq_rhs_II(t, D1, q, F, i_xstart, N[0] - cl_sz, i_ystart, i_ystart+sw, xl, hi);
+    wave_eq_rhs_II(t, D1, q, F, i_xstart, N[0] - cl_sz, i_yend-sw, i_yend, xl, hi);
+    wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, i_ystart+sw, i_yend-sw, xl, hi);
   } else // CENTER
   {
-    wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, i_ystart, i_yend, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, i_ystart, i_yend, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, q, F, i_xstart+sw, i_xend-sw, i_yend-sw, i_yend, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, q, F, i_xstart+sw, i_xend-sw, i_ystart, i_ystart+sw, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, i_ystart, i_yend, xl, hi);
+    wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, i_ystart, i_yend, xl, hi);
+    wave_eq_rhs_II(t, D1, q, F, i_xstart+sw, i_xend-sw, i_yend-sw, i_yend, xl, hi);
+    wave_eq_rhs_II(t, D1, q, F, i_xstart+sw, i_xend-sw, i_ystart, i_ystart+sw, xl, hi);
   }
 
   return 0;
@@ -995,17 +983,17 @@ PetscErrorCode wave_eq_rhs_serial(const PetscScalar t,
                                   const std::array<PetscScalar,2>& xl, 
                                   const std::array<PetscScalar,2>& hi)
 {
-  const auto [iw, cl_sz, closure_width] = D1.get_ranges();
+  const PetscInt cl_sz = D1.closure_size();
 
-  wave_eq_rhs_LL(t, D1, HI, q, F, xl, hi, cl_sz);
-  wave_eq_rhs_RL(t, D1, HI, q, F, N, xl, hi, cl_sz);
-  wave_eq_rhs_LR(t, D1, HI, q, F, N, xl, hi, cl_sz);
-  wave_eq_rhs_RR(t, D1, HI, q, F, N, xl, hi, cl_sz);
-  wave_eq_rhs_IL(t, D1, HI, q, F, cl_sz, N[0]-cl_sz, xl, hi, cl_sz);
-  wave_eq_rhs_IR(t, D1, HI, q, F, cl_sz, N[0]-cl_sz, N, xl, hi, cl_sz);
-  wave_eq_rhs_LI(t, D1, HI, q, F, cl_sz, N[1]-cl_sz, xl, hi, cl_sz);
-  wave_eq_rhs_RI(t, D1, HI, q, F, cl_sz, N[1]-cl_sz, N, xl, hi, cl_sz);
-  wave_eq_rhs_II(t, D1, q, F, cl_sz, N[0]-cl_sz, cl_sz, N[1]-cl_sz, xl, hi, cl_sz);
+  wave_eq_rhs_LL(t, D1, HI, q, F, xl, hi);
+  wave_eq_rhs_RL(t, D1, HI, q, F, N, xl, hi);
+  wave_eq_rhs_LR(t, D1, HI, q, F, N, xl, hi);
+  wave_eq_rhs_RR(t, D1, HI, q, F, N, xl, hi);
+  wave_eq_rhs_IL(t, D1, HI, q, F, cl_sz, N[0]-cl_sz, xl, hi);
+  wave_eq_rhs_IR(t, D1, HI, q, F, cl_sz, N[0]-cl_sz, N, xl, hi);
+  wave_eq_rhs_LI(t, D1, HI, q, F, cl_sz, N[1]-cl_sz, xl, hi);
+  wave_eq_rhs_RI(t, D1, HI, q, F, cl_sz, N[1]-cl_sz, N, xl, hi);
+  wave_eq_rhs_II(t, D1, q, F, cl_sz, N[0]-cl_sz, cl_sz, N[1]-cl_sz, xl, hi);
 
   return 0;
 }

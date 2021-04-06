@@ -14,10 +14,11 @@ namespace sbp {
   class HI_central{
   public:
     constexpr HI_central(){};
+    
     /**
     * Convenience function returning the ranges number of boundary closures n_closures.
     **/
-    constexpr PetscInt get_n_closures() const
+    constexpr PetscInt closure_size() const
     {
       return n_closures;
     };

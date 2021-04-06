@@ -36,7 +36,6 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 struct AppCtx{
     std::array<PetscInt,2> N, i_start, i_end;
     std::array<PetscScalar,2> hi, h, xl;
-    PetscScalar sw; // Stencil width for DM-object, i.e. the number of overlapping points
     const DifferenceOp D1; // Difference operator
     const InverseNormOp HI; // Inverse norm operator
     Vec q_local;
@@ -57,7 +56,7 @@ int main(int argc,char **argv)
 { 
   DM             da;
   Vec            q, q_analytic;
-  PetscInt       stencil_radius, i_xstart, i_xend, i_ystart, i_yend, Nx, Ny, nx, ny, procx, procy, dofs;
+  PetscInt       sw, i_xstart, i_xend, i_ystart, i_yend, Nx, Ny, nx, ny, procx, procy, dofs;
   PetscScalar    xl, xr, yl, yr, hix, hiy, dt, Tend, CFL;
   PetscReal      l2_error, max_error;
 
@@ -72,8 +71,7 @@ int main(int argc,char **argv)
   ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
 
   if (get_inputs(argc, argv, &Nx, &Ny, &Tend, &CFL) == -1) {
-    PetscFinalize();
-    return -1;
+    PetscEnd();
   }
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -91,10 +89,9 @@ int main(int argc,char **argv)
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Create distributed array (DMDA) to manage parallel grid and vectors
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  auto [stencil_width, nc, cw] = appctx.D1.get_ranges();
-  stencil_radius = (stencil_width-1)/2;
+  sw = (appctx.D1.interior_stencil_size()-1)/2;
   DMDACreate2d(PETSC_COMM_WORLD,DM_BOUNDARY_NONE,DM_BOUNDARY_NONE,DMDA_STENCIL_STAR,
-               Nx,Ny,PETSC_DECIDE,PETSC_DECIDE,dofs,stencil_radius,NULL,NULL,&da);
+               Nx,Ny,PETSC_DECIDE,PETSC_DECIDE,dofs,sw,NULL,NULL,&da);
   DMSetFromOptions(da);
   DMSetUp(da);
   DMDAGetCorners(da,&i_xstart,&i_ystart,NULL,&nx,&ny,NULL);
@@ -106,6 +103,13 @@ int main(int argc,char **argv)
   if ((procx == 1) || (procy == 1)) {
     PetscPrintf(PETSC_COMM_WORLD,"--- Warning ---\nOne dimensional topology\n");
   }
+  
+  if (i_xend < appctx.D1.closure_stencil_size() || i_yend < appctx.D1.closure_stencil_size() ||
+      i_xstart > (Nx-appctx.D1.closure_stencil_size()) || i_ystart > (Ny-appctx.D1.closure_stencil_size())) {
+    PetscPrintf(PETSC_COMM_WORLD,"--- Error ---\nSubdividing closure region is not supported\n");
+    PetscEnd();
+  }
+  
 
   // Populate application context.
   appctx.N = {Nx, Ny};
@@ -114,7 +118,6 @@ int main(int argc,char **argv)
   appctx.xl = {xl, yl};
   appctx.i_start = {i_xstart,i_ystart};
   appctx.i_end = {i_xend,i_yend};
-  appctx.sw = stencil_radius;
 
   /*  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       Extract global vectors from DMDA; then duplicate for remaining
@@ -190,11 +193,11 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec q, Vec F, AppCtx *appctx)
   // off-processor points needed for stencil update.
   DMGlobalToLocalBegin(da,q,INSERT_VALUES,appctx->q_local);
   // Apply stencil for local points.
-  wave_eq_rhs_local(t, appctx->D1, appctx->HI, array_q, array_F, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  wave_eq_rhs_local(t, appctx->D1, appctx->HI, array_q, array_F, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi);
   // Wait for communcation of ghost points to finish.
   DMGlobalToLocalEnd(da,q,INSERT_VALUES,appctx->q_local);
   // Apply stencil for overlapping points.
-  wave_eq_rhs_overlap(t, appctx->D1, appctx->HI, array_q, array_F, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  wave_eq_rhs_overlap(t, appctx->D1, appctx->HI, array_q, array_F, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi);
   // Restore arrays
   DMDAVecRestoreArrayDOFRead(da,appctx->q_local,&array_q);
   DMDAVecRestoreArrayDOF(da,F,&array_F);
