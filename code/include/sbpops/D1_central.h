@@ -18,7 +18,7 @@ namespace sbp {
     /**
     * Convenience function returning the ranges (interior_width,n_closures,closure_width)
     **/
-    inline constexpr std::tuple<PetscInt,PetscInt,PetscInt> get_ranges() const
+    constexpr std::tuple<PetscInt,PetscInt,PetscInt> get_ranges() const
     {
       return std::make_tuple(interior_width,n_closures,closure_width);
     };
@@ -37,7 +37,7 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_x_left(const PetscScalar *const *const *const v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    PetscScalar apply_x_left(const PetscScalar *const *const *const v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<closure_width; is++)
@@ -57,7 +57,7 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_y_left(const PetscScalar *const *const *const v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    PetscScalar apply_y_left(const PetscScalar *const *const *const v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<closure_width; is++)
@@ -77,7 +77,7 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_x_interior(const PetscScalar *const *const *const v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    PetscScalar apply_x_interior(const PetscScalar *const *const *const v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<interior_width; is++)
@@ -97,7 +97,7 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_y_interior(const PetscScalar *const *const *const v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    PetscScalar apply_y_interior(const PetscScalar *const *const *const v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<interior_width; is++)
@@ -118,7 +118,7 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_x_right(const PetscScalar *const *const *const v, const PetscScalar hix, const PetscInt Nx, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    PetscScalar apply_x_right(const PetscScalar *const *const *const v, const PetscScalar hix, const PetscInt Nx, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is < closure_width; is++)
@@ -139,7 +139,7 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    inline PetscScalar apply_y_right(const PetscScalar *const *const *const v, const PetscScalar hiy, const PetscInt Ny, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    PetscScalar apply_y_right(const PetscScalar *const *const *const v, const PetscScalar hiy, const PetscInt Ny, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is < closure_width; is++)

@@ -39,12 +39,12 @@
 /**
 * Inverse of density rho(x,y) at grid point i,j
 **/
-inline PetscScalar rho_inv(const PetscInt i, const PetscInt j, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl);
+ PetscScalar rho_inv(const PetscInt i, const PetscInt j, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl);
 /**
 * Forcing functions
 **/
-inline PetscScalar forcing_u(const PetscInt i, const PetscInt j, const PetscScalar t, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl);
-inline PetscScalar forcing_v(const PetscInt i, const PetscInt j, const PetscScalar t, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl);
+PetscScalar forcing_u(const PetscInt i, const PetscInt j, const PetscScalar t, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl);
+PetscScalar forcing_v(const PetscInt i, const PetscInt j, const PetscScalar t, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl);
 
  /**
   * 
@@ -81,13 +81,14 @@ inline PetscScalar forcing_v(const PetscInt i, const PetscInt j, const PetscScal
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad>
-inline PetscErrorCode wave_eq_rhs_LL(const PetscScalar t, const SbpDerivative& D1,
-                                     const SbpInvQuad& HI,
-                                     const PetscScalar *const *const *const q,
-                                     PetscScalar *const *const *const F,
-                                     const std::array<PetscScalar,2>& xl,
-                                     const std::array<PetscScalar,2>& hi, 
-                                     const PetscInt cl_sz)
+PetscErrorCode wave_eq_rhs_LL(const PetscScalar t, 
+                              const SbpDerivative& D1,
+                              const SbpInvQuad& HI,
+                              const PetscScalar *const *const *const q,
+                              PetscScalar *const *const *const F,
+                              const std::array<PetscScalar,2>& xl,
+                              const std::array<PetscScalar,2>& hi, 
+                              const PetscInt cl_sz)
 {
   PetscInt i,j;
 
@@ -167,15 +168,16 @@ inline PetscErrorCode wave_eq_rhs_LL(const PetscScalar t, const SbpDerivative& D
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad>
-inline PetscErrorCode wave_eq_rhs_IL(const PetscScalar t, const SbpDerivative& D1, 
-                                     const SbpInvQuad& HI,
-                                     const PetscScalar *const *const *const q,
-                                     PetscScalar *const *const *const F,
-                                     const PetscInt i_xstart, 
-                                     const PetscInt i_xend,
-                                     const std::array<PetscScalar,2>& xl,
-                                     const std::array<PetscScalar,2>& hi, 
-                                     const PetscInt cl_sz)
+PetscErrorCode wave_eq_rhs_IL(const PetscScalar t,
+                              const SbpDerivative& D1, 
+                              const SbpInvQuad& HI,
+                              const PetscScalar *const *const *const q,
+                              PetscScalar *const *const *const F,
+                              const PetscInt i_xstart, 
+                              const PetscInt i_xend,
+                              const std::array<PetscScalar,2>& xl,
+                              const std::array<PetscScalar,2>& hi, 
+                              const PetscInt cl_sz)
 {
   PetscInt i,j;
 
@@ -239,15 +241,16 @@ inline PetscErrorCode wave_eq_rhs_IL(const PetscScalar t, const SbpDerivative& D
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad>
-inline PetscErrorCode wave_eq_rhs_LI(const PetscScalar t, const SbpDerivative& D1,
-                                     const SbpInvQuad& HI,
-                                     const PetscScalar *const *const *const q,
-                                     PetscScalar *const *const *const F,
-                                     const PetscInt i_ystart, 
-                                     const PetscInt i_yend,
-                                     const std::array<PetscScalar,2>& xl,
-                                     const std::array<PetscScalar,2>& hi, 
-                                     const PetscInt cl_sz)
+PetscErrorCode wave_eq_rhs_LI(const PetscScalar t,
+                              const SbpDerivative& D1,
+                              const SbpInvQuad& HI,
+                              const PetscScalar *const *const *const q,
+                              PetscScalar *const *const *const F,
+                              const PetscInt i_ystart, 
+                              const PetscInt i_yend,
+                              const std::array<PetscScalar,2>& xl,
+                              const std::array<PetscScalar,2>& hi, 
+                              const PetscInt cl_sz)
 {
   PetscInt i,j;
 
@@ -310,17 +313,17 @@ inline PetscErrorCode wave_eq_rhs_LI(const PetscScalar t, const SbpDerivative& D
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative>
-inline PetscErrorCode wave_eq_rhs_II(const PetscScalar t, 
-                                     const SbpDerivative& D1,
-                                     const PetscScalar *const *const *const q,
-                                     PetscScalar *const *const *const F,
-                                     const PetscInt i_xstart, 
-                                     const PetscInt i_xend,
-                                     const PetscInt i_ystart, 
-                                     const PetscInt i_yend,
-                                     const std::array<PetscScalar,2>& xl,
-                                     const std::array<PetscScalar,2>& hi, 
-                                     const PetscInt cl_sz)
+PetscErrorCode wave_eq_rhs_II(const PetscScalar t, 
+                              const SbpDerivative& D1,
+                              const PetscScalar *const *const *const q,
+                              PetscScalar *const *const *const F,
+                              const PetscInt i_xstart, 
+                              const PetscInt i_xend,
+                              const PetscInt i_ystart, 
+                              const PetscInt i_yend,
+                              const std::array<PetscScalar,2>& xl,
+                              const std::array<PetscScalar,2>& hi, 
+                              const PetscInt cl_sz)
 {
   PetscInt i,j;
   for (j = i_ystart; j < i_yend; j++)
@@ -371,15 +374,15 @@ inline PetscErrorCode wave_eq_rhs_II(const PetscScalar t,
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad>
-inline PetscErrorCode wave_eq_rhs_RL(const PetscScalar t, 
-                                     const SbpDerivative& D1, 
-                                     const SbpInvQuad& HI,
-                                     const PetscScalar *const *const *const q,
-                                     PetscScalar *const *const *const F,
-                                     const std::array<PetscInt,2>& N,
-                                     const std::array<PetscScalar,2>& xl, 
-                                     const std::array<PetscScalar,2>& hi,
-                                     const PetscInt cl_sz)
+PetscErrorCode wave_eq_rhs_RL(const PetscScalar t, 
+                              const SbpDerivative& D1, 
+                              const SbpInvQuad& HI,
+                              const PetscScalar *const *const *const q,
+                              PetscScalar *const *const *const F,
+                              const std::array<PetscInt,2>& N,
+                              const std::array<PetscScalar,2>& xl, 
+                              const std::array<PetscScalar,2>& hi,
+                              const PetscInt cl_sz)
 {
   PetscInt i,j;
 
@@ -459,17 +462,17 @@ inline PetscErrorCode wave_eq_rhs_RL(const PetscScalar t,
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad>
-inline PetscErrorCode wave_eq_rhs_RI(const PetscScalar t, 
-                                     const SbpDerivative& D1, 
-                                     const SbpInvQuad& HI,
-                                     const PetscScalar *const *const *const q,
-                                     PetscScalar *const *const *const F,
-                                     const PetscInt i_ystart, 
-                                     const PetscInt i_yend,
-                                     const std::array<PetscInt,2>& N,
-                                     const std::array<PetscScalar,2>& xl, 
-                                     const std::array<PetscScalar,2>& hi,
-                                     const PetscInt cl_sz)
+PetscErrorCode wave_eq_rhs_RI(const PetscScalar t, 
+                              const SbpDerivative& D1, 
+                              const SbpInvQuad& HI,
+                              const PetscScalar *const *const *const q,
+                              PetscScalar *const *const *const F,
+                              const PetscInt i_ystart, 
+                              const PetscInt i_yend,
+                              const std::array<PetscInt,2>& N,
+                              const std::array<PetscScalar,2>& xl, 
+                              const std::array<PetscScalar,2>& hi,
+                              const PetscInt cl_sz)
 {
   PetscInt i,j;
 
@@ -533,15 +536,15 @@ inline PetscErrorCode wave_eq_rhs_RI(const PetscScalar t,
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad>
-inline PetscErrorCode wave_eq_rhs_LR(const PetscScalar t,
-                                     const SbpDerivative& D1,
-                                     const SbpInvQuad& HI,
-                                     const PetscScalar *const *const *const q,
-                                     PetscScalar *const *const *const F,
-                                     const std::array<PetscInt,2>& N, 
-                                     const std::array<PetscScalar,2>& xl, 
-                                     const std::array<PetscScalar,2>& hi, 
-                                     const PetscInt cl_sz)
+PetscErrorCode wave_eq_rhs_LR(const PetscScalar t,
+                              const SbpDerivative& D1,
+                              const SbpInvQuad& HI,
+                              const PetscScalar *const *const *const q,
+                              PetscScalar *const *const *const F,
+                              const std::array<PetscInt,2>& N, 
+                              const std::array<PetscScalar,2>& xl, 
+                              const std::array<PetscScalar,2>& hi, 
+                              const PetscInt cl_sz)
 {
   PetscInt i,j;
 
@@ -619,17 +622,17 @@ inline PetscErrorCode wave_eq_rhs_LR(const PetscScalar t,
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad>
-inline PetscErrorCode wave_eq_rhs_IR(const PetscScalar t,
-                                     const SbpDerivative& D1, 
-                                     const SbpInvQuad& HI,
-                                     const PetscScalar *const *const *const q,
-                                     PetscScalar *const *const *const F,
-                                     const PetscInt i_xstart,
-                                     const PetscInt i_xend,
-                                     const std::array<PetscInt,2>& N,
-                                     const std::array<PetscScalar,2>& xl, 
-                                     const std::array<PetscScalar,2>& hi,
-                                     const PetscInt cl_sz)
+PetscErrorCode wave_eq_rhs_IR(const PetscScalar t,
+                              const SbpDerivative& D1, 
+                              const SbpInvQuad& HI,
+                              const PetscScalar * const * const * const q,
+                              PetscScalar * const * const * const F,
+                              const PetscInt i_xstart,
+                              const PetscInt i_xend,
+                              const std::array<PetscInt,2>& N,
+                              const std::array<PetscScalar,2>& xl, 
+                              const std::array<PetscScalar,2>& hi,
+                              const PetscInt cl_sz)
 {
   PetscInt i,j;
 
@@ -690,15 +693,15 @@ inline PetscErrorCode wave_eq_rhs_IR(const PetscScalar t,
   * cl_sz     - Closure size
   **/
 template <class SbpDerivative, class SbpInvQuad>
-inline PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
-                                     const SbpDerivative& D1,
-                                     const SbpInvQuad& HI,
-                                     const PetscScalar *const *const *const q,
-                                     PetscScalar *const *const *const F,
-                                     const std::array<PetscInt,2>& N,
-                                     const std::array<PetscScalar,2>& xl, 
-                                     const std::array<PetscScalar,2>& hi,
-                                     const PetscInt cl_sz)
+PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
+                              const SbpDerivative& D1,
+                              const SbpInvQuad& HI,
+                              const PetscScalar *const *const *const q,
+                              PetscScalar *const *const *const F,
+                              const std::array<PetscInt,2>& N,
+                              const std::array<PetscScalar,2>& xl, 
+                              const std::array<PetscScalar,2>& hi,
+                              const PetscInt cl_sz)
 {
   PetscInt i,j;
 
@@ -770,17 +773,17 @@ inline PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
   * sw        - Stencil width (i.e the number of ghost points)
   **/
 template <class SbpDerivative, class SbpInvQuad>
-inline PetscErrorCode wave_eq_rhs_local(const PetscScalar t,
-                                        const SbpDerivative& D1,
-                                        const SbpInvQuad& HI,
-                                        const PetscScalar *const *const *const q,
-                                        PetscScalar *const *const *const F,
-                                        const std::array<PetscInt,2>& i_start,
-                                        const std::array<PetscInt,2>& i_end,
-                                        const std::array<PetscInt,2>& N,
-                                        const std::array<PetscScalar,2>& xl, 
-                                        const std::array<PetscScalar,2>& hi,
-                                        const PetscInt sw)
+PetscErrorCode wave_eq_rhs_local(const PetscScalar t,
+                                 const SbpDerivative& D1,
+                                 const SbpInvQuad& HI,
+                                 const PetscScalar *const *const *const q,
+                                 PetscScalar *const *const *const F,
+                                 const std::array<PetscInt,2>& i_start,
+                                 const std::array<PetscInt,2>& i_end,
+                                 const std::array<PetscInt,2>& N,
+                                 const std::array<PetscScalar,2>& xl, 
+                                 const std::array<PetscScalar,2>& hi,
+                                 const PetscInt sw)
 {
   const PetscInt i_xstart = i_start[0] + sw; 
   const PetscInt i_ystart = i_start[1] + sw;
@@ -870,17 +873,17 @@ inline PetscErrorCode wave_eq_rhs_local(const PetscScalar t,
   * sw        - Stencil width (i.e the number of ghost points)
   **/
 template <class SbpDerivative, class SbpInvQuad>
-inline PetscErrorCode wave_eq_rhs_overlap(const PetscScalar t,
-                                          const SbpDerivative& D1,
-                                          const SbpInvQuad& HI,
-                                          const PetscScalar *const *const *const q,
-                                          PetscScalar *const *const *const F,
-                                          const std::array<PetscInt,2>& i_start,
-                                          const std::array<PetscInt,2>& i_end,
-                                          const std::array<PetscInt,2>& N,
-                                          const std::array<PetscScalar,2>& xl, 
-                                          const std::array<PetscScalar,2>& hi,
-                                          const PetscInt sw)
+PetscErrorCode wave_eq_rhs_overlap(const PetscScalar t,
+                                   const SbpDerivative& D1,
+                                   const SbpInvQuad& HI,
+                                   const PetscScalar *const *const *const q,
+                                   PetscScalar *const *const *const F,
+                                   const std::array<PetscInt,2>& i_start,
+                                   const std::array<PetscInt,2>& i_end,
+                                   const std::array<PetscInt,2>& N,
+                                   const std::array<PetscScalar,2>& xl, 
+                                   const std::array<PetscScalar,2>& hi,
+                                   const PetscInt sw)
 {
   const PetscInt i_xstart = i_start[0]; 
   const PetscInt i_ystart = i_start[1];
@@ -983,14 +986,14 @@ inline PetscErrorCode wave_eq_rhs_overlap(const PetscScalar t,
   * hi        - Inverse spacing spacing per coordinate direction
   **/
 template <class SbpDerivative, class SbpInvQuad>
-inline PetscErrorCode wave_eq_rhs_serial(const PetscScalar t,
-                                         const SbpDerivative& D1,
-                                         const SbpInvQuad& HI,
-                                         const PetscScalar *const *const *const q,
-                                         PetscScalar *const *const *const F,
-                                         const std::array<PetscInt,2>& N,
-                                         const std::array<PetscScalar,2>& xl, 
-                                         const std::array<PetscScalar,2>& hi)
+PetscErrorCode wave_eq_rhs_serial(const PetscScalar t,
+                                  const SbpDerivative& D1,
+                                  const SbpInvQuad& HI,
+                                  const PetscScalar *const *const *const q,
+                                  PetscScalar *const *const *const F,
+                                  const std::array<PetscInt,2>& N,
+                                  const std::array<PetscScalar,2>& xl, 
+                                  const std::array<PetscScalar,2>& hi)
 {
   const auto [iw, cl_sz, closure_width] = D1.get_ranges();
 

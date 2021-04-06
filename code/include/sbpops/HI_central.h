@@ -17,7 +17,7 @@ namespace sbp {
     /**
     * Convenience function returning the ranges number of boundary closures n_closures.
     **/
-    inline constexpr PetscInt get_n_closures() const
+    constexpr PetscInt get_n_closures() const
     {
       return n_closures;
     };
@@ -34,7 +34,7 @@ namespace sbp {
     *
     * Output: HI[i][i]*v[i][comp]
     **/
-    inline PetscScalar apply_x_left(const PetscScalar *const *const *const v, const PetscScalar hi, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    PetscScalar apply_x_left(const PetscScalar *const *const *const v, const PetscScalar hi, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       return hi*static_cast<const InverseQuadrature&>(*this).closure_invquad[i]*v[j][i][comp];
     };
@@ -48,7 +48,7 @@ namespace sbp {
     *
     * Output: HI[i][i]*v[i][comp]
     **/
-    inline PetscScalar apply_y_left(const PetscScalar *const *const *const v, const PetscScalar hi, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    PetscScalar apply_y_left(const PetscScalar *const *const *const v, const PetscScalar hi, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       return hi*static_cast<const InverseQuadrature&>(*this).closure_invquad[j]*v[j][i][comp];
     };
@@ -63,7 +63,7 @@ namespace sbp {
     *
     * Output: HI[i][i]*v[i][comp]
     **/
-    inline PetscScalar apply_x_right(const PetscScalar *const *const *const v, const PetscScalar hi, const PetscInt N, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    PetscScalar apply_x_right(const PetscScalar *const *const *const v, const PetscScalar hi, const PetscInt N, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       return hi*static_cast<const InverseQuadrature&>(*this).closure_invquad[N-i-1]*v[j][i][comp];
     };
@@ -78,7 +78,7 @@ namespace sbp {
     *
     * Output: HI[i][i]*v[i][comp]
     **/
-    inline PetscScalar apply_y_right(const PetscScalar *const *const *const v, const PetscScalar hi, const PetscInt N, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    PetscScalar apply_y_right(const PetscScalar *const *const *const v, const PetscScalar hi, const PetscInt N, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       return hi*static_cast<const InverseQuadrature&>(*this).closure_invquad[N-j-1]*v[j][i][comp];
     };
