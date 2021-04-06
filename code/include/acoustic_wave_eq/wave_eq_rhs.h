@@ -94,26 +94,26 @@ inline PetscErrorCode wave_eq_rhs_LL(const PetscScalar t, const SbpDerivative& D
   // Corner point
   i = 0; 
   j = 0;
-  F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
-  F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-  F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
+  F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q, hi[0], i, j, 2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
+  F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q, hi[1], i, j, 2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+  F[j][i][2] = -D1.apply_x_left(q, hi[0], i, j, 0) - D1.apply_y_left(q, hi[1], i, j, 1);
 
   // South boundary
   i = 0;
   for (j = 1; j < cl_sz; j++)
   { 
-    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
-    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-    F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q, hi[0], i, j, 2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][2] = -D1.apply_x_left(q, hi[0], i, j, 0) - D1.apply_y_left(q, hi[1], i, j, 1);
   }
 
   // West boundary
   j = 0;
   for (i = 1; i < cl_sz; i++) 
   { 
-    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-    F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q, hi[1], i, j, 2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][2] = -D1.apply_x_left(q, hi[0], i, j, 0) - D1.apply_y_left(q, hi[1], i, j, 1);
   }
 
   // Remaining points in closure region
@@ -121,9 +121,9 @@ inline PetscErrorCode wave_eq_rhs_LL(const PetscScalar t, const SbpDerivative& D
   { 
     for (i = 1; i < cl_sz; i++) 
     { 
-      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-      F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
+      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+      F[j][i][2] = -D1.apply_x_left(q, hi[0], i, j, 0) - D1.apply_y_left(q, hi[1], i, j, 1);
     }
   }
 
@@ -183,9 +183,9 @@ inline PetscErrorCode wave_eq_rhs_IL(const PetscScalar t, const SbpDerivative& D
   j = 0;
   for (i = i_xstart; i < i_xend; i++)
   {
-    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);;
-    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-    F[j][i][2] = -D1.apply_x_interior(q,hi[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q, hi[1], i, j, 2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][2] = -D1.apply_x_interior(q, hi[0], i, j, 0) - D1.apply_y_left(q, hi[1], i, j, 1);
   }
 
   // Remanining points
@@ -193,9 +193,9 @@ inline PetscErrorCode wave_eq_rhs_IL(const PetscScalar t, const SbpDerivative& D
   { 
     for (i = i_xstart; i < i_xend; i++)
     {
-      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);;
-      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-      F[j][i][2] = -D1.apply_x_interior(q,hi[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
+      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
+      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+      F[j][i][2] = -D1.apply_x_interior(q, hi[0], i, j, 0) - D1.apply_y_left(q, hi[1], i, j, 1);
     }
   }
 
@@ -255,9 +255,9 @@ inline PetscErrorCode wave_eq_rhs_LI(const PetscScalar t, const SbpDerivative& D
   i = 0;
   for (j = i_ystart; j < i_yend; j++)
   { 
-    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
-    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-    F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_interior(q,hi[1],i,j,1);;
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q, hi[0], i, j, 2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][2] = -D1.apply_x_left(q, hi[0], i, j, 0) - D1.apply_y_interior(q, hi[1], i, j, 1);;
   }
 
   // Remaining points
@@ -265,9 +265,9 @@ inline PetscErrorCode wave_eq_rhs_LI(const PetscScalar t, const SbpDerivative& D
   { 
     for (i = 1; i < cl_sz; i++)
     {
-      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-      F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_interior(q,hi[1],i,j,1);
+      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+      F[j][i][2] = -D1.apply_x_left(q, hi[0], i, j, 0) - D1.apply_y_interior(q, hi[1], i, j, 1);
     }
   }
 
@@ -327,9 +327,9 @@ inline PetscErrorCode wave_eq_rhs_II(const PetscScalar t,
   { 
     for (i = i_xstart; i < i_xend; i++)
     {
-      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-      F[j][i][2] = -D1.apply_x_interior(q,hi[0],i,j,0) - D1.apply_y_interior(q,hi[1],i,j,1);
+      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+      F[j][i][2] = -D1.apply_x_interior(q, hi[0], i, j, 0) - D1.apply_y_interior(q, hi[1], i, j, 1);
     }
   } 
   return 0;
@@ -387,16 +387,16 @@ inline PetscErrorCode wave_eq_rhs_RL(const PetscScalar t,
   i = N[0]-1; 
   j = 0;
   F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + HI.apply_x_right(q, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-  F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-  F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
+  F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q, hi[1], i, j, 2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+  F[j][i][2] = -D1.apply_x_right(q, hi[0], N[0], i, j, 0) - D1.apply_y_left(q, hi[1], i, j, 1);
 
   // East boundary
   i = N[0]-1;
   for (j = 1; j < cl_sz; j++)
   { 
     F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + HI.apply_x_right(q, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-    F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][2] = -D1.apply_x_right(q, hi[0], N[0], i, j, 0) - D1.apply_y_left(q, hi[1], i, j, 1);
   }
 
   // South boundary
@@ -404,8 +404,8 @@ inline PetscErrorCode wave_eq_rhs_RL(const PetscScalar t,
   for (i = N[0]-cl_sz; i < N[0]-1; i++) 
   { 
     F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-    F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q, hi[1], i, j, 2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][2] = -D1.apply_x_right(q, hi[0], N[0], i, j, 0) - D1.apply_y_left(q, hi[1], i, j, 1);
   }
 
   // Remaining points in block
@@ -414,8 +414,8 @@ inline PetscErrorCode wave_eq_rhs_RL(const PetscScalar t,
     for (i = N[0]-cl_sz; i < N[0]-1; i++) 
     { 
       F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-      F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
+      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+      F[j][i][2] = -D1.apply_x_right(q, hi[0], N[0], i, j, 0) - D1.apply_y_left(q, hi[1], i, j, 1);
     }
   }
   return 0;
@@ -479,8 +479,8 @@ inline PetscErrorCode wave_eq_rhs_RI(const PetscScalar t,
   for (j = i_ystart; j < i_yend; j++)
   { 
     F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + HI.apply_x_right(q, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-    F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_interior(q,hi[1],i,j,1);
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][2] = -D1.apply_x_right(q, hi[0], N[0], i, j, 0) - D1.apply_y_interior(q, hi[1], i, j, 1);
   }
 
   // Remaining points
@@ -489,8 +489,8 @@ inline PetscErrorCode wave_eq_rhs_RI(const PetscScalar t,
     for (i = N[0]-cl_sz; i < N[0]-1; i++) 
     {
       F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-      F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_interior(q,hi[1],i,j,1);
+      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+      F[j][i][2] = -D1.apply_x_right(q, hi[0], N[0], i, j, 0) - D1.apply_y_interior(q, hi[1], i, j, 1);
     }
   }
   return 0;
@@ -548,26 +548,26 @@ inline PetscErrorCode wave_eq_rhs_LR(const PetscScalar t,
   // Corner point 
   i = 0; 
   j = N[1]-1;
-  F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+  F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q, hi[0], i, j, 2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
   F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + HI.apply_y_right(q, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-  F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
+  F[j][i][2] = -D1.apply_x_left(q, hi[0], i, j, 0) - D1.apply_y_right(q, hi[1], N[1], i, j, 1);
 
   // West boundary
   i = 0;
   for (j = N[1]-cl_sz; j < N[1]-1; j++) 
   { 
-    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q, hi[0], i, j, 2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
     F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-    F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
+    F[j][i][2] = -D1.apply_x_left(q, hi[0], i, j, 0) - D1.apply_y_right(q, hi[1], N[1], i, j, 1);
   }
 
   // North boundary
   j = N[1]-1;
   for (i = 1; i < cl_sz; i++) 
   { 
-    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
     F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + HI.apply_y_right(q, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-    F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
+    F[j][i][2] = -D1.apply_x_left(q, hi[0], i, j, 0) - D1.apply_y_right(q, hi[1], N[1], i, j, 1);
   }
 
   // Remaining points in block
@@ -575,9 +575,9 @@ inline PetscErrorCode wave_eq_rhs_LR(const PetscScalar t,
   { 
     for (i = 1; i < cl_sz; i++) 
     { 
-      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
       F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-      F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
+      F[j][i][2] = -D1.apply_x_left(q, hi[0], i, j, 0) - D1.apply_y_right(q, hi[1], N[1], i, j, 1);
     }
   }
   return 0;
@@ -639,9 +639,9 @@ inline PetscErrorCode wave_eq_rhs_IR(const PetscScalar t,
   { 
     for (i = i_xstart; i < i_xend; i++)
     {
-      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
       F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-      F[j][i][2] = -D1.apply_x_interior(q,hi[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
+      F[j][i][2] = -D1.apply_x_interior(q, hi[0], i, j, 0) - D1.apply_y_right(q, hi[1], N[1], i, j, 1);
     }
   }
 
@@ -649,9 +649,9 @@ inline PetscErrorCode wave_eq_rhs_IR(const PetscScalar t,
   j = N[1]-1;
   for (i = i_xstart; i < i_xend; i++)
   {
-    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
     F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + HI.apply_y_right(q, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-    F[j][i][2] = -D1.apply_x_interior(q,hi[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
+    F[j][i][2] = -D1.apply_x_interior(q, hi[0], i, j, 0) - D1.apply_y_right(q, hi[1], N[1], i, j, 1);
   }
   return 0;
 }
@@ -709,7 +709,7 @@ inline PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
     { 
       F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
       F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-      F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
+      F[j][i][2] = -D1.apply_x_right(q, hi[0], N[0], i, j, 0) - D1.apply_y_right(q, hi[1], N[1], i, j, 1);
     }
   }
 
@@ -719,7 +719,7 @@ inline PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
   { 
     F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + HI.apply_x_right(q, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
     F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
-    F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
+    F[j][i][2] = -D1.apply_x_right(q, hi[0], N[0], i, j, 0) - D1.apply_y_right(q, hi[1], N[1], i, j, 1);
   }
 
   // North boundary
@@ -728,7 +728,7 @@ inline PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
   { 
     F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
     F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + HI.apply_y_right(q, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-    F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
+    F[j][i][2] = -D1.apply_x_right(q, hi[0], N[0], i, j, 0) - D1.apply_y_right(q, hi[1], N[1], i, j, 1);
   }
 
   // Corner point
@@ -736,7 +736,7 @@ inline PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
   j = N[1]-1;
   F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + HI.apply_x_right(q, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
   F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + HI.apply_y_right(q, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-  F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
+  F[j][i][2] = -D1.apply_x_right(q, hi[0], N[0], i, j, 0) - D1.apply_y_right(q, hi[1], N[1], i, j, 1);
 
   return 0;
 }
