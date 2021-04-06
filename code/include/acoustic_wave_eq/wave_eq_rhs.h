@@ -37,6 +37,10 @@
 **/
   
 /**
+* Inverse of density rho(x,y) at grid point i,j
+**/
+inline PetscScalar rho_inv(const PetscInt i, const PetscInt j, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl);
+/**
 * Forcing functions
 **/
 inline PetscScalar forcing_u(const PetscInt i, const PetscInt j, const PetscScalar t, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl);
@@ -68,7 +72,6 @@ inline PetscScalar forcing_v(const PetscInt i, const PetscInt j, const PetscScal
   * t         - time
   * D1        - SBP difference operator used to approximate d/dx and d/dy
   * HI        - SBP inverse quadrature used to impose boundary conditions
-  * rho_inv   - function computing inverse of density
   * q         - Current solution vector. Stored as a 3D-array q[j][i][k] i,j are grid point indices 
   *             and where k is the component.
   * F         - Result of function evaluation. Stored as a 3D-array q[j][i][k] i,j are grid point indices
@@ -77,10 +80,9 @@ inline PetscScalar forcing_v(const PetscInt i, const PetscInt j, const PetscScal
   * hi        - Inverse spacing spacing per coordinate direction
   * cl_sz     - Closure size
   **/
-template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
+template <class SbpDerivative, class SbpInvQuad>
 inline PetscErrorCode wave_eq_rhs_LL(const PetscScalar t, const SbpDerivative& D1,
                                      const SbpInvQuad& HI,
-                                     CoefficientFunction&& rho_inv,
                                      const PetscScalar *const *const *const q,
                                      PetscScalar *const *const *const F,
                                      const std::array<PetscScalar,2>& xl,
@@ -92,16 +94,16 @@ inline PetscErrorCode wave_eq_rhs_LL(const PetscScalar t, const SbpDerivative& D
   // Corner point
   i = 0; 
   j = 0;
-  F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_left(q,hi[0],i,j,2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
-  F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_left(q,hi[1],i,j,2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+  F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
+  F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
   F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
 
   // South boundary
   i = 0;
   for (j = 1; j < cl_sz; j++)
   { 
-    F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_left(q,hi[0],i,j,2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
-    F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_left(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
     F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
   }
 
@@ -109,8 +111,8 @@ inline PetscErrorCode wave_eq_rhs_LL(const PetscScalar t, const SbpDerivative& D
   j = 0;
   for (i = 1; i < cl_sz; i++) 
   { 
-    F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_left(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-    F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_left(q,hi[1],i,j,2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
     F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
   }
 
@@ -119,8 +121,8 @@ inline PetscErrorCode wave_eq_rhs_LL(const PetscScalar t, const SbpDerivative& D
   { 
     for (i = 1; i < cl_sz; i++) 
     { 
-      F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_left(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_left(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
       F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
     }
   }
@@ -154,7 +156,6 @@ inline PetscErrorCode wave_eq_rhs_LL(const PetscScalar t, const SbpDerivative& D
   * t         - time
   * D1        - SBP difference operator used to approximate d/dx and d/dy
   * HI        - SBP inverse quadrature used to impose boundary conditions
-  * rho_inv   - function computing inverse of density
   * q         - Current solution vector. Stored as a 3D-array q[j][i][k] i,j are grid point indices 
   *             and where k is the component.
   * F         - Result of function evaluation. Stored as a 3D-array q[j][i][k] i,j are grid point indices
@@ -165,10 +166,9 @@ inline PetscErrorCode wave_eq_rhs_LL(const PetscScalar t, const SbpDerivative& D
   * hi        - Inverse spacing spacing per coordinate direction
   * cl_sz     - Closure size
   **/
-template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
+template <class SbpDerivative, class SbpInvQuad>
 inline PetscErrorCode wave_eq_rhs_IL(const PetscScalar t, const SbpDerivative& D1, 
                                      const SbpInvQuad& HI,
-                                     CoefficientFunction&& rho_inv,
                                      const PetscScalar *const *const *const q,
                                      PetscScalar *const *const *const F,
                                      const PetscInt i_xstart, 
@@ -183,8 +183,8 @@ inline PetscErrorCode wave_eq_rhs_IL(const PetscScalar t, const SbpDerivative& D
   j = 0;
   for (i = i_xstart; i < i_xend; i++)
   {
-    F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_interior(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);;
-    F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_left(q,hi[1],i,j,2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);;
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
     F[j][i][2] = -D1.apply_x_interior(q,hi[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
   }
 
@@ -193,8 +193,8 @@ inline PetscErrorCode wave_eq_rhs_IL(const PetscScalar t, const SbpDerivative& D
   { 
     for (i = i_xstart; i < i_xend; i++)
     {
-      F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_interior(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);;
-      F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_left(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);;
+      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
       F[j][i][2] = -D1.apply_x_interior(q,hi[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
     }
   }
@@ -228,7 +228,6 @@ inline PetscErrorCode wave_eq_rhs_IL(const PetscScalar t, const SbpDerivative& D
   * t         - time
   * D1        - SBP difference operator used to approximate d/dx and d/dy
   * HI        - SBP inverse quadrature used to impose boundary conditions
-  * rho_inv   - function computing inverse of density
   * q         - Current solution vector. Stored as a 3D-array q[j][i][k] i,j are grid point indices 
   *             and where k is the component.
   * F         - Result of function evaluation. Stored as a 3D-array q[j][i][k] i,j are grid point indices
@@ -239,10 +238,9 @@ inline PetscErrorCode wave_eq_rhs_IL(const PetscScalar t, const SbpDerivative& D
   * hi        - Inverse spacing spacing per coordinate direction
   * cl_sz     - Closure size
   **/
-template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
+template <class SbpDerivative, class SbpInvQuad>
 inline PetscErrorCode wave_eq_rhs_LI(const PetscScalar t, const SbpDerivative& D1,
                                      const SbpInvQuad& HI,
-                                     CoefficientFunction&& rho_inv,
                                      const PetscScalar *const *const *const q,
                                      PetscScalar *const *const *const F,
                                      const PetscInt i_ystart, 
@@ -257,8 +255,8 @@ inline PetscErrorCode wave_eq_rhs_LI(const PetscScalar t, const SbpDerivative& D
   i = 0;
   for (j = i_ystart; j < i_yend; j++)
   { 
-    F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_left(q,hi[0],i,j,2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
-    F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_interior(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);;
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
     F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_interior(q,hi[1],i,j,1);;
   }
 
@@ -267,8 +265,8 @@ inline PetscErrorCode wave_eq_rhs_LI(const PetscScalar t, const SbpDerivative& D
   { 
     for (i = 1; i < cl_sz; i++)
     {
-      F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_left(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_interior(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
       F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_interior(q,hi[1],i,j,1);
     }
   }
@@ -299,7 +297,6 @@ inline PetscErrorCode wave_eq_rhs_LI(const PetscScalar t, const SbpDerivative& D
   * Input: 
   * t         - time
   * D1        - SBP difference operator used to approximate d/dx and d/dy
-  * rho_inv   - function computing inverse of density
   * q         - Current solution vector. Stored as a 3D-array q[j][i][k] i,j are grid point indices 
   *             and where k is the component.
   * F         - Result of function evaluation. Stored as a 3D-array q[j][i][k] i,j are grid point indices
@@ -312,10 +309,9 @@ inline PetscErrorCode wave_eq_rhs_LI(const PetscScalar t, const SbpDerivative& D
   * hi        - Inverse spacing spacing per coordinate direction
   * cl_sz     - Closure size
   **/
-template <class SbpDerivative, typename CoefficientFunction>
+template <class SbpDerivative>
 inline PetscErrorCode wave_eq_rhs_II(const PetscScalar t, 
                                      const SbpDerivative& D1,
-                                     CoefficientFunction&& rho_inv,
                                      const PetscScalar *const *const *const q,
                                      PetscScalar *const *const *const F,
                                      const PetscInt i_xstart, 
@@ -331,8 +327,8 @@ inline PetscErrorCode wave_eq_rhs_II(const PetscScalar t,
   { 
     for (i = i_xstart; i < i_xend; i++)
     {
-      F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_interior(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_interior(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
       F[j][i][2] = -D1.apply_x_interior(q,hi[0],i,j,0) - D1.apply_y_interior(q,hi[1],i,j,1);
     }
   } 
@@ -365,7 +361,6 @@ inline PetscErrorCode wave_eq_rhs_II(const PetscScalar t,
   * t         - time
   * D1        - SBP difference operator used to approximate d/dx and d/dy
   * HI        - SBP inverse quadrature used to impose boundary conditions
-  * rho_inv   - function computing inverse of density
   * q         - Current solution vector. Stored as a 3D-array q[j][i][k] i,j are grid point indices 
   *             and where k is the component.
   * F         - Result of function evaluation. Stored as a 3D-array q[j][i][k] i,j are grid point indices
@@ -375,11 +370,10 @@ inline PetscErrorCode wave_eq_rhs_II(const PetscScalar t,
   * hi        - Inverse spacing spacing per coordinate direction
   * cl_sz     - Closure size
   **/
-template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
+template <class SbpDerivative, class SbpInvQuad>
 inline PetscErrorCode wave_eq_rhs_RL(const PetscScalar t, 
                                      const SbpDerivative& D1, 
                                      const SbpInvQuad& HI,
-                                     CoefficientFunction&& rho_inv,
                                      const PetscScalar *const *const *const q,
                                      PetscScalar *const *const *const F,
                                      const std::array<PetscInt,2>& N,
@@ -392,16 +386,16 @@ inline PetscErrorCode wave_eq_rhs_RL(const PetscScalar t,
   // Corner point
   i = N[0]-1; 
   j = 0;
-  F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + HI.apply_x_right(q, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-  F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_left(q,hi[1],i,j,2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+  F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + HI.apply_x_right(q, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+  F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
   F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
 
   // East boundary
   i = N[0]-1;
   for (j = 1; j < cl_sz; j++)
   { 
-    F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + HI.apply_x_right(q, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-    F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_left(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + HI.apply_x_right(q, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
     F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
   }
 
@@ -409,8 +403,8 @@ inline PetscErrorCode wave_eq_rhs_RL(const PetscScalar t,
   j = 0;
   for (i = N[0]-cl_sz; i < N[0]-1; i++) 
   { 
-    F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-    F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_left(q,hi[1],i,j,2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) - HI.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
     F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
   }
 
@@ -419,8 +413,8 @@ inline PetscErrorCode wave_eq_rhs_RL(const PetscScalar t,
   { 
     for (i = N[0]-cl_sz; i < N[0]-1; i++) 
     { 
-      F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_left(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
       F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_left(q,hi[1],i,j,1);
     }
   }
@@ -453,7 +447,6 @@ inline PetscErrorCode wave_eq_rhs_RL(const PetscScalar t,
   * t         - time
   * D1        - SBP difference operator used to approximate d/dx and d/dy
   * HI        - SBP inverse quadrature used to impose boundary conditions
-  * rho_inv   - function computing inverse of density
   * q         - Current solution vector. Stored as a 3D-array q[j][i][k] i,j are grid point indices 
   *             and where k is the component.
   * F         - Result of function evaluation. Stored as a 3D-array q[j][i][k] i,j are grid point indices
@@ -465,11 +458,10 @@ inline PetscErrorCode wave_eq_rhs_RL(const PetscScalar t,
   * hi        - Inverse spacing spacing per coordinate direction
   * cl_sz     - Closure size
   **/
-template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
+template <class SbpDerivative, class SbpInvQuad>
 inline PetscErrorCode wave_eq_rhs_RI(const PetscScalar t, 
                                      const SbpDerivative& D1, 
                                      const SbpInvQuad& HI,
-                                     CoefficientFunction&& rho_inv,
                                      const PetscScalar *const *const *const q,
                                      PetscScalar *const *const *const F,
                                      const PetscInt i_ystart, 
@@ -486,8 +478,8 @@ inline PetscErrorCode wave_eq_rhs_RI(const PetscScalar t,
   i = N[0]-1;
   for (j = i_ystart; j < i_yend; j++)
   { 
-    F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + HI.apply_x_right(q, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-    F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_interior(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + HI.apply_x_right(q, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
     F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_interior(q,hi[1],i,j,1);
   }
 
@@ -496,8 +488,8 @@ inline PetscErrorCode wave_eq_rhs_RI(const PetscScalar t,
   { 
     for (i = N[0]-cl_sz; i < N[0]-1; i++) 
     {
-      F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_interior(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q,hi[1],i,j,2) + forcing_v(i, j, t, hi, xl);
       F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_interior(q,hi[1],i,j,1);
     }
   }
@@ -531,7 +523,6 @@ inline PetscErrorCode wave_eq_rhs_RI(const PetscScalar t,
   * t         - time
   * D1        - SBP difference operator used to approximate d/dx and d/dy
   * HI        - SBP inverse quadrature used to impose boundary conditions
-  * rho_inv   - function computing inverse of density
   * q         - Current solution vector. Stored as a 3D-array q[j][i][k] i,j are grid point indices 
   *             and where k is the component.
   * F         - Result of function evaluation. Stored as a 3D-array q[j][i][k] i,j are grid point indices
@@ -541,11 +532,10 @@ inline PetscErrorCode wave_eq_rhs_RI(const PetscScalar t,
   * hi        - Inverse spacing spacing per coordinate direction
   * cl_sz     - Closure size
   **/
-template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
+template <class SbpDerivative, class SbpInvQuad>
 inline PetscErrorCode wave_eq_rhs_LR(const PetscScalar t,
                                      const SbpDerivative& D1,
                                      const SbpInvQuad& HI,
-                                     CoefficientFunction&& rho_inv,
                                      const PetscScalar *const *const *const q,
                                      PetscScalar *const *const *const F,
                                      const std::array<PetscInt,2>& N, 
@@ -558,16 +548,16 @@ inline PetscErrorCode wave_eq_rhs_LR(const PetscScalar t,
   // Corner point 
   i = 0; 
   j = N[1]-1;
-  F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_left(q,hi[0],i,j,2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-  F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + HI.apply_y_right(q, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+  F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+  F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + HI.apply_y_right(q, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
   F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
 
   // West boundary
   i = 0;
   for (j = N[1]-cl_sz; j < N[1]-1; j++) 
   { 
-    F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_left(q,hi[0],i,j,2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-    F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) - HI.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
     F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
   }
 
@@ -575,8 +565,8 @@ inline PetscErrorCode wave_eq_rhs_LR(const PetscScalar t,
   j = N[1]-1;
   for (i = 1; i < cl_sz; i++) 
   { 
-    F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_left(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-    F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + HI.apply_y_right(q, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + HI.apply_y_right(q, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
     F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
   }
 
@@ -585,8 +575,8 @@ inline PetscErrorCode wave_eq_rhs_LR(const PetscScalar t,
   { 
     for (i = 1; i < cl_sz; i++) 
     { 
-      F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_left(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
       F[j][i][2] = -D1.apply_x_left(q,hi[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
     }
   }
@@ -617,7 +607,6 @@ inline PetscErrorCode wave_eq_rhs_LR(const PetscScalar t,
   * t         - time
   * D1        - SBP difference operator used to approximate d/dx and d/dy
   * HI        - SBP inverse quadrature used to impose boundary conditions
-  * rho_inv   - function computing inverse of density
   * q         - Current solution vector. Stored as a 3D-array q[j][i][k] i,j are grid point indices 
   *             and where k is the component.
   * F         - Result of function evaluation. Stored as a 3D-array q[j][i][k] i,j are grid point indices
@@ -629,11 +618,10 @@ inline PetscErrorCode wave_eq_rhs_LR(const PetscScalar t,
   * hi        - Inverse spacing spacing per coordinate direction
   * cl_sz     - Closure size
   **/
-template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
+template <class SbpDerivative, class SbpInvQuad>
 inline PetscErrorCode wave_eq_rhs_IR(const PetscScalar t,
                                      const SbpDerivative& D1, 
                                      const SbpInvQuad& HI,
-                                     CoefficientFunction&& rho_inv,
                                      const PetscScalar *const *const *const q,
                                      PetscScalar *const *const *const F,
                                      const PetscInt i_xstart,
@@ -651,8 +639,8 @@ inline PetscErrorCode wave_eq_rhs_IR(const PetscScalar t,
   { 
     for (i = i_xstart; i < i_xend; i++)
     {
-      F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_interior(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
       F[j][i][2] = -D1.apply_x_interior(q,hi[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
     }
   }
@@ -661,8 +649,8 @@ inline PetscErrorCode wave_eq_rhs_IR(const PetscScalar t,
   j = N[1]-1;
   for (i = i_xstart; i < i_xend; i++)
   {
-    F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_interior(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-    F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + HI.apply_y_right(q, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q,hi[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + HI.apply_y_right(q, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
     F[j][i][2] = -D1.apply_x_interior(q,hi[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
   }
   return 0;
@@ -692,7 +680,6 @@ inline PetscErrorCode wave_eq_rhs_IR(const PetscScalar t,
   * t         - time
   * D1        - SBP difference operator used to approximate d/dx and d/dy
   * HI        - SBP inverse quadrature used to impose boundary conditions
-  * rho_inv   - function computing inverse of density
   * q         - Current solution vector. Stored as a 3D-array q[j][i][k] i,j are grid point indices 
   *             and where k is the component.
   * F         - Result of function evaluation. Stored as a 3D-array q[j][i][k] i,j are grid point indices
@@ -702,11 +689,10 @@ inline PetscErrorCode wave_eq_rhs_IR(const PetscScalar t,
   * hi        - Inverse spacing spacing per coordinate direction
   * cl_sz     - Closure size
   **/
-template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
+template <class SbpDerivative, class SbpInvQuad>
 inline PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
                                      const SbpDerivative& D1,
                                      const SbpInvQuad& HI,
-                                     CoefficientFunction&& rho_inv,
                                      const PetscScalar *const *const *const q,
                                      PetscScalar *const *const *const F,
                                      const std::array<PetscInt,2>& N,
@@ -721,8 +707,8 @@ inline PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
   { 
     for (i = N[0]-cl_sz; i < N[0]-1; i++) 
     { 
-      F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-      F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
       F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
     }
   }
@@ -731,8 +717,8 @@ inline PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
   i = N[0]-1; 
   for (j = N[1]-cl_sz; j < N[1]-1; j++)
   { 
-    F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + HI.apply_x_right(q, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-    F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + HI.apply_x_right(q, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + forcing_v(i, j, t, hi, xl);
     F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
   }
 
@@ -740,16 +726,16 @@ inline PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
   j = N[1]-1;
   for (i = N[0]-cl_sz; i < N[0]-1; i++) 
   { 
-    F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
-    F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + HI.apply_y_right(q, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+    F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + forcing_u(i, j, t, hi, xl);
+    F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + HI.apply_y_right(q, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
     F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
   }
 
   // Corner point
   i = N[0]-1; 
   j = N[1]-1;
-  F[j][i][0] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + HI.apply_x_right(q, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-  F[j][i][1] = -std::forward<CoefficientFunction>(rho_inv)(i,j)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + HI.apply_y_right(q, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+  F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q,hi[0],N[0],i,j,2) + HI.apply_x_right(q, hi[0], N[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+  F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q,hi[1],N[1],i,j,2) + HI.apply_y_right(q, hi[1], N[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
   F[j][i][2] = -D1.apply_x_right(q,hi[0],N[0],i,j,0) - D1.apply_y_right(q,hi[1],N[1],i,j,1);
 
   return 0;
@@ -773,7 +759,6 @@ inline PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
   * t         - time
   * D1        - SBP difference operator used to approximate d/dx and d/dy
   * HI        - SBP inverse quadrature used to impose boundary conditions
-  * rho_inv   - function computing inverse of density
   * q         - Current solution vector. Stored as a 3D-array q[j][i][k] i,j are grid point indices 
   *             and where k is the component.
   * F         - Result of function evaluation. Stored as a 3D-array q[j][i][k] i,j are grid point indices
@@ -784,11 +769,10 @@ inline PetscErrorCode wave_eq_rhs_RR(const PetscScalar t,
   * hi        - Inverse spacing spacing per coordinate direction
   * sw        - Stencil width (i.e the number of ghost points)
   **/
-template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
+template <class SbpDerivative, class SbpInvQuad>
 inline PetscErrorCode wave_eq_rhs_local(const PetscScalar t,
                                         const SbpDerivative& D1,
                                         const SbpInvQuad& HI,
-                                        CoefficientFunction&& rho_inv,
                                         const PetscScalar *const *const *const q,
                                         PetscScalar *const *const *const F,
                                         const std::array<PetscInt,2>& i_start,
@@ -808,51 +792,51 @@ inline PetscErrorCode wave_eq_rhs_local(const PetscScalar t,
   {
     if (i_start[0] == 0) // BOTTOM LEFT
     {
-      wave_eq_rhs_LL(t, D1, HI, rho_inv, q, F, xl, hi, cl_sz);
-      wave_eq_rhs_IL(t, D1, HI, rho_inv, q, F, cl_sz, i_xend, xl, hi, cl_sz);
-      wave_eq_rhs_LI(t, D1, HI, rho_inv, q, F, cl_sz, i_yend, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, cl_sz, i_xend, cl_sz, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_LL(t, D1, HI, q, F, xl, hi, cl_sz);
+      wave_eq_rhs_IL(t, D1, HI, q, F, cl_sz, i_xend, xl, hi, cl_sz);
+      wave_eq_rhs_LI(t, D1, HI, q, F, cl_sz, i_yend, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend, cl_sz, i_yend, xl, hi, cl_sz); 
     } else if (i_end[0] == N[0]) // BOTTOM RIGHT
     { 
-      wave_eq_rhs_RL(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
-      wave_eq_rhs_IL(t, D1, HI, rho_inv, q, F, i_xstart, N[0]-cl_sz, xl, hi, cl_sz);
-      wave_eq_rhs_RI(t, D1, HI, rho_inv, q, F, cl_sz, i_yend, N, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, N[0]-cl_sz, cl_sz, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_RL(t, D1, HI, q, F, N, xl, hi, cl_sz);
+      wave_eq_rhs_IL(t, D1, HI, q, F, i_xstart, N[0]-cl_sz, xl, hi, cl_sz);
+      wave_eq_rhs_RI(t, D1, HI, q, F, cl_sz, i_yend, N, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, N[0]-cl_sz, cl_sz, i_yend, xl, hi, cl_sz); 
     } else // BOTTOM CENTER
     { 
-      wave_eq_rhs_IL(t, D1, HI, rho_inv, q, F, i_xstart, i_xend, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xend, cl_sz, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_IL(t, D1, HI, q, F, i_xstart, i_xend, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xend, cl_sz, i_yend, xl, hi, cl_sz); 
     }
   } else if (i_end[1] == N[1]) // TOP
   {
     if (i_start[0] == 0) // TOP LEFT
     {
-      wave_eq_rhs_LR(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
-      wave_eq_rhs_IR(t, D1, HI, rho_inv, q, F, cl_sz, i_xend, N, xl, hi, cl_sz);
-      wave_eq_rhs_LI(t, D1, HI, rho_inv, q, F, i_ystart, N[1] - cl_sz, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, cl_sz, i_xend, i_ystart, N[1]-cl_sz, xl, hi, cl_sz);  
+      wave_eq_rhs_LR(t, D1, HI, q, F, N, xl, hi, cl_sz);
+      wave_eq_rhs_IR(t, D1, HI, q, F, cl_sz, i_xend, N, xl, hi, cl_sz);
+      wave_eq_rhs_LI(t, D1, HI, q, F, i_ystart, N[1] - cl_sz, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend, i_ystart, N[1]-cl_sz, xl, hi, cl_sz);  
     } else if (i_end[0] == N[0]) // TOP RIGHT
     { 
-      wave_eq_rhs_RR(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
-      wave_eq_rhs_IR(t, D1, HI, rho_inv, q, F, i_xstart, N[0]-cl_sz, N, xl, hi, cl_sz);
-      wave_eq_rhs_RI(t, D1, HI, rho_inv, q, F, i_ystart, N[1] - cl_sz, N, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, N[0]-cl_sz, i_ystart, N[1] - cl_sz, xl, hi, cl_sz);
+      wave_eq_rhs_RR(t, D1, HI, q, F, N, xl, hi, cl_sz);
+      wave_eq_rhs_IR(t, D1, HI, q, F, i_xstart, N[0]-cl_sz, N, xl, hi, cl_sz);
+      wave_eq_rhs_RI(t, D1, HI, q, F, i_ystart, N[1] - cl_sz, N, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, N[0]-cl_sz, i_ystart, N[1] - cl_sz, xl, hi, cl_sz);
     } else // TOP CENTER
     { 
-      wave_eq_rhs_IR(t, D1, HI, rho_inv, q, F, i_xstart, i_xend, N, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xend, i_ystart,  N[1] - cl_sz, xl, hi, cl_sz);
+      wave_eq_rhs_IR(t, D1, HI, q, F, i_xstart, i_xend, N, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xend, i_ystart,  N[1] - cl_sz, xl, hi, cl_sz);
     }
   } else if (i_start[0] == 0) // LEFT NOT BOTTOM OR TOP
   { 
-    wave_eq_rhs_LI(t, D1, HI, rho_inv, q, F, i_ystart, i_yend, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, rho_inv, q, F, cl_sz, i_xend, i_ystart, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_LI(t, D1, HI, q, F, i_ystart, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend, i_ystart, i_yend, xl, hi, cl_sz);
   } else if (i_end[0] == N[0]) // RIGHT NOT BOTTOM OR TOP
   {
-    wave_eq_rhs_RI(t, D1, HI, rho_inv, q, F, i_ystart, i_yend, N, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, N[0] - cl_sz, i_ystart, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_RI(t, D1, HI, q, F, i_ystart, i_yend, N, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, q, F, i_xstart, N[0] - cl_sz, i_ystart, i_yend, xl, hi, cl_sz);
   } else // CENTER
   {
-    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xend, i_ystart, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xend, i_ystart, i_yend, xl, hi, cl_sz);
   }
 
   return 0;
@@ -875,7 +859,6 @@ inline PetscErrorCode wave_eq_rhs_local(const PetscScalar t,
   * t         - time
   * D1        - SBP difference operator used to approximate d/dx and d/dy
   * HI        - SBP inverse quadrature used to impose boundary conditions
-  * rho_inv   - function computing inverse of density
   * q         - Current solution vector. Stored as a 3D-array q[j][i][k] i,j are grid point indices 
   *             and where k is the component.
   * F         - Result of function evaluation. Stored as a 3D-array q[j][i][k] i,j are grid point indices
@@ -886,11 +869,10 @@ inline PetscErrorCode wave_eq_rhs_local(const PetscScalar t,
   * hi        - Inverse spacing spacing per coordinate direction
   * sw        - Stencil width (i.e the number of ghost points)
   **/
-template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
+template <class SbpDerivative, class SbpInvQuad>
 inline PetscErrorCode wave_eq_rhs_overlap(const PetscScalar t,
                                           const SbpDerivative& D1,
                                           const SbpInvQuad& HI,
-                                          CoefficientFunction&& rho_inv,
                                           const PetscScalar *const *const *const q,
                                           PetscScalar *const *const *const F,
                                           const std::array<PetscInt,2>& i_start,
@@ -910,66 +892,66 @@ inline PetscErrorCode wave_eq_rhs_overlap(const PetscScalar t,
   {
     if (i_xstart == 0) // BOTTOM LEFT
     {
-      wave_eq_rhs_IL(t, D1, HI, rho_inv, q, F, i_xend-sw, i_xend, xl, hi, cl_sz);
-      wave_eq_rhs_LI(t, D1, HI, rho_inv, q, F, i_yend-sw, i_yend, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, cl_sz, i_xend-sw, i_yend-sw, i_yend, xl, hi, cl_sz); 
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, cl_sz, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_IL(t, D1, HI, q, F, i_xend-sw, i_xend, xl, hi, cl_sz);
+      wave_eq_rhs_LI(t, D1, HI, q, F, i_yend-sw, i_yend, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend-sw, i_yend-sw, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, cl_sz, i_yend, xl, hi, cl_sz); 
     } else if (i_xend == N[0]) // BOTTOM RIGHT
     { 
-      wave_eq_rhs_IL(t, D1, HI, rho_inv, q, F, i_xstart, i_xstart+sw, xl, hi, cl_sz);
-      wave_eq_rhs_RI(t, D1, HI, rho_inv, q, F, i_yend-sw, i_yend, N, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, cl_sz, i_yend, xl, hi, cl_sz); 
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart+sw, N[0]-cl_sz, i_yend-sw, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_IL(t, D1, HI, q, F, i_xstart, i_xstart+sw, xl, hi, cl_sz);
+      wave_eq_rhs_RI(t, D1, HI, q, F, i_yend-sw, i_yend, N, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, cl_sz, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_II(t, D1, q, F, i_xstart+sw, N[0]-cl_sz, i_yend-sw, i_yend, xl, hi, cl_sz); 
     } else // BOTTOM CENTER
     { 
-      wave_eq_rhs_IL(t, D1, HI, rho_inv, q, F, i_xstart, i_xstart+sw, xl, hi, cl_sz);
-      wave_eq_rhs_IL(t, D1, HI, rho_inv, q, F, i_xend-sw, i_xend, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, cl_sz, i_yend-sw, xl, hi, cl_sz); 
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, cl_sz, i_yend-sw, xl, hi, cl_sz); 
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xend, i_yend-sw, i_yend, xl, hi, cl_sz); 
+      wave_eq_rhs_IL(t, D1, HI, q, F, i_xstart, i_xstart+sw, xl, hi, cl_sz);
+      wave_eq_rhs_IL(t, D1, HI, q, F, i_xend-sw, i_xend, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, cl_sz, i_yend-sw, xl, hi, cl_sz); 
+      wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, cl_sz, i_yend-sw, xl, hi, cl_sz); 
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xend, i_yend-sw, i_yend, xl, hi, cl_sz); 
     }
   } else if (i_yend == N[1]) // TOP
   {
     if (i_xstart == 0) // TOP LEFT
     {
-      wave_eq_rhs_IR(t, D1, HI, rho_inv, q, F, i_xend-sw, i_xend, N, xl, hi, cl_sz);
-      wave_eq_rhs_LI(t, D1, HI, rho_inv, q, F, i_ystart, i_ystart+sw, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, i_ystart, N[1]-cl_sz, xl, hi, cl_sz);  
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, cl_sz, i_xend-sw, i_ystart, i_ystart+sw, xl, hi, cl_sz);  
+      wave_eq_rhs_IR(t, D1, HI, q, F, i_xend-sw, i_xend, N, xl, hi, cl_sz);
+      wave_eq_rhs_LI(t, D1, HI, q, F, i_ystart, i_ystart+sw, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, i_ystart, N[1]-cl_sz, xl, hi, cl_sz);  
+      wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend-sw, i_ystart, i_ystart+sw, xl, hi, cl_sz);  
     } else if (i_xend == N[0]) // TOP RIGHT
     { 
-      wave_eq_rhs_IR(t, D1, HI, rho_inv, q, F, i_xstart, i_xstart+sw, N, xl, hi, cl_sz);
-      wave_eq_rhs_RI(t, D1, HI, rho_inv, q, F, i_ystart, i_ystart+sw, N, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, i_ystart, N[1] - cl_sz, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart+sw, N[0]-cl_sz, i_ystart, i_ystart+sw, xl, hi, cl_sz);
+      wave_eq_rhs_IR(t, D1, HI, q, F, i_xstart, i_xstart+sw, N, xl, hi, cl_sz);
+      wave_eq_rhs_RI(t, D1, HI, q, F, i_ystart, i_ystart+sw, N, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, i_ystart, N[1] - cl_sz, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart+sw, N[0]-cl_sz, i_ystart, i_ystart+sw, xl, hi, cl_sz);
     } else // TOP CENTER
     { 
-      wave_eq_rhs_IR(t, D1, HI, rho_inv, q, F, i_xstart, i_xstart+sw, N, xl, hi, cl_sz);
-      wave_eq_rhs_IR(t, D1, HI, rho_inv, q, F, i_xend-sw, i_xend, N, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, i_ystart,  N[1] - cl_sz, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, i_ystart,  N[1] - cl_sz, xl, hi, cl_sz);
-      wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart+sw, i_xend-sw, i_ystart,  i_ystart+sw, xl, hi, cl_sz);
+      wave_eq_rhs_IR(t, D1, HI, q, F, i_xstart, i_xstart+sw, N, xl, hi, cl_sz);
+      wave_eq_rhs_IR(t, D1, HI, q, F, i_xend-sw, i_xend, N, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, i_ystart,  N[1] - cl_sz, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, i_ystart,  N[1] - cl_sz, xl, hi, cl_sz);
+      wave_eq_rhs_II(t, D1, q, F, i_xstart+sw, i_xend-sw, i_ystart,  i_ystart+sw, xl, hi, cl_sz);
     }
   } else if (i_xstart == 0) // LEFT NOT BOTTOM OR TOP
   { 
-    wave_eq_rhs_LI(t, D1, HI, rho_inv, q, F, i_ystart, i_ystart+sw, xl, hi, cl_sz);
-    wave_eq_rhs_LI(t, D1, HI, rho_inv, q, F, i_yend-sw, i_yend, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, rho_inv, q, F, cl_sz, i_xend, i_ystart, i_ystart+sw, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, rho_inv, q, F, cl_sz, i_xend, i_yend-sw, i_yend, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, i_ystart+sw, i_yend-sw, xl, hi, cl_sz);
+    wave_eq_rhs_LI(t, D1, HI, q, F, i_ystart, i_ystart+sw, xl, hi, cl_sz);
+    wave_eq_rhs_LI(t, D1, HI, q, F, i_yend-sw, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend, i_ystart, i_ystart+sw, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, q, F, cl_sz, i_xend, i_yend-sw, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, i_ystart+sw, i_yend-sw, xl, hi, cl_sz);
   } else if (i_xend == N[0]) // RIGHT NOT BOTTOM OR TOP
   {
-    wave_eq_rhs_RI(t, D1, HI, rho_inv, q, F, i_ystart, i_ystart+sw, N, xl, hi, cl_sz);
-    wave_eq_rhs_RI(t, D1, HI, rho_inv, q, F, i_yend-sw, i_yend, N, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, N[0] - cl_sz, i_ystart, i_ystart+sw, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, N[0] - cl_sz, i_yend-sw, i_yend, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, i_ystart+sw, i_yend-sw, xl, hi, cl_sz);
+    wave_eq_rhs_RI(t, D1, HI, q, F, i_ystart, i_ystart+sw, N, xl, hi, cl_sz);
+    wave_eq_rhs_RI(t, D1, HI, q, F, i_yend-sw, i_yend, N, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, q, F, i_xstart, N[0] - cl_sz, i_ystart, i_ystart+sw, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, q, F, i_xstart, N[0] - cl_sz, i_yend-sw, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, i_ystart+sw, i_yend-sw, xl, hi, cl_sz);
   } else // CENTER
   {
-    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart, i_xstart+sw, i_ystart, i_yend, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xend-sw, i_xend, i_ystart, i_yend, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart+sw, i_xend-sw, i_yend-sw, i_yend, xl, hi, cl_sz);
-    wave_eq_rhs_II(t, D1, rho_inv, q, F, i_xstart+sw, i_xend-sw, i_ystart, i_ystart+sw, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, q, F, i_xstart, i_xstart+sw, i_ystart, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, q, F, i_xend-sw, i_xend, i_ystart, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, q, F, i_xstart+sw, i_xend-sw, i_yend-sw, i_yend, xl, hi, cl_sz);
+    wave_eq_rhs_II(t, D1, q, F, i_xstart+sw, i_xend-sw, i_ystart, i_ystart+sw, xl, hi, cl_sz);
   }
 
   return 0;
@@ -993,7 +975,6 @@ inline PetscErrorCode wave_eq_rhs_overlap(const PetscScalar t,
   * t         - time
   * D1        - SBP difference operator used to approximate d/dx and d/dy
   * HI        - SBP inverse quadrature used to impose boundary conditions
-  * rho_inv   - function computing inverse of density
   * q         - Current solution vector. Stored as a 3D-array q[j][i][k] i,j are grid point indices 
   *             and where k is the component.
   * F         - Result of function evaluation. Stored as a 3D-array q[j][i][k] i,j are grid point indices
@@ -1001,11 +982,10 @@ inline PetscErrorCode wave_eq_rhs_overlap(const PetscScalar t,
   * xl        - Lower-left grid points per coordinate direction
   * hi        - Inverse spacing spacing per coordinate direction
   **/
-template <class SbpDerivative, class SbpInvQuad, typename CoefficientFunction>
+template <class SbpDerivative, class SbpInvQuad>
 inline PetscErrorCode wave_eq_rhs_serial(const PetscScalar t,
                                          const SbpDerivative& D1,
                                          const SbpInvQuad& HI,
-                                         CoefficientFunction&& rho_inv,
                                          const PetscScalar *const *const *const q,
                                          PetscScalar *const *const *const F,
                                          const std::array<PetscInt,2>& N,
@@ -1014,24 +994,33 @@ inline PetscErrorCode wave_eq_rhs_serial(const PetscScalar t,
 {
   const auto [iw, cl_sz, closure_width] = D1.get_ranges();
 
-  wave_eq_rhs_LL(t, D1, HI, rho_inv, q, F, xl, hi, cl_sz);
-  wave_eq_rhs_RL(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
-  wave_eq_rhs_LR(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
-  wave_eq_rhs_RR(t, D1, HI, rho_inv, q, F, N, xl, hi, cl_sz);
-  wave_eq_rhs_IL(t, D1, HI, rho_inv, q, F, cl_sz, N[0]-cl_sz, xl, hi, cl_sz);
-  wave_eq_rhs_IR(t, D1, HI, rho_inv, q, F, cl_sz, N[0]-cl_sz, N, xl, hi, cl_sz);
-  wave_eq_rhs_LI(t, D1, HI, rho_inv, q, F, cl_sz, N[1]-cl_sz, xl, hi, cl_sz);
-  wave_eq_rhs_RI(t, D1, HI, rho_inv, q, F, cl_sz, N[1]-cl_sz, N, xl, hi, cl_sz);
-  wave_eq_rhs_II(t, D1, rho_inv, q, F, cl_sz, N[0]-cl_sz, cl_sz, N[1]-cl_sz, xl, hi, cl_sz);
+  wave_eq_rhs_LL(t, D1, HI, q, F, xl, hi, cl_sz);
+  wave_eq_rhs_RL(t, D1, HI, q, F, N, xl, hi, cl_sz);
+  wave_eq_rhs_LR(t, D1, HI, q, F, N, xl, hi, cl_sz);
+  wave_eq_rhs_RR(t, D1, HI, q, F, N, xl, hi, cl_sz);
+  wave_eq_rhs_IL(t, D1, HI, q, F, cl_sz, N[0]-cl_sz, xl, hi, cl_sz);
+  wave_eq_rhs_IR(t, D1, HI, q, F, cl_sz, N[0]-cl_sz, N, xl, hi, cl_sz);
+  wave_eq_rhs_LI(t, D1, HI, q, F, cl_sz, N[1]-cl_sz, xl, hi, cl_sz);
+  wave_eq_rhs_RI(t, D1, HI, q, F, cl_sz, N[1]-cl_sz, N, xl, hi, cl_sz);
+  wave_eq_rhs_II(t, D1, q, F, cl_sz, N[0]-cl_sz, cl_sz, N[1]-cl_sz, xl, hi, cl_sz);
 
   return 0;
 }
 
 
 /**
+* Inverse of density rho(x,y) at grid point i,j
+**/
+PetscScalar rho_inv(const PetscInt i, const PetscInt j,  const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) {
+  PetscScalar x = xl[0] + i/hi[0];
+  PetscScalar y = xl[1] + j/hi[1];
+  return 1./(2 + x*y);
+}
+
+/**
 * Forcing function on u component
 **/
-inline PetscScalar forcing_u(const PetscInt i, const PetscInt j, const PetscScalar t, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) {
+PetscScalar forcing_u(const PetscInt i, const PetscInt j, const PetscScalar t, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) {
   PetscScalar x = xl[0] + i/hi[0];
   PetscScalar y = xl[1] + j/hi[1];
   return -(3*PETSC_PI*cos(5*PETSC_PI*t)*cos(3*PETSC_PI*x)*sin(4*PETSC_PI*y)*(x*y + 1))/(x*y + 2);
@@ -1040,7 +1029,7 @@ inline PetscScalar forcing_u(const PetscInt i, const PetscInt j, const PetscScal
 /**
 * Forcing function on v component
 **/
-inline PetscScalar forcing_v(const PetscInt i, const PetscInt j, const PetscScalar t, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) {
+PetscScalar forcing_v(const PetscInt i, const PetscInt j, const PetscScalar t, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) {
   PetscScalar x = xl[0] + i/hi[0];
   PetscScalar y = xl[1] + j/hi[1];
   return -(4*PETSC_PI*cos(5*PETSC_PI*t)*cos(4*PETSC_PI*y)*sin(3*PETSC_PI*x)*(x*y + 1))/(x*y + 2);

@@ -37,7 +37,6 @@ struct AppCtx{
     std::array<PetscInt,2> N, i_start, i_end;
     std::array<PetscScalar,2> hi, h, xl;
     PetscScalar sw; // Stencil width for DM-object, i.e. the number of overlapping points
-    std::function<PetscScalar(PetscInt, PetscInt)> rho_inv;
     const DifferenceOp D1; // Difference operator
     const InverseNormOp HI; // Inverse norm operator
     Vec q_local;
@@ -88,12 +87,7 @@ int main(int argc,char **argv)
   hix = (Nx-1)/(xr-xl);
   hiy = (Ny-1)/(yr-yl);
   dt = CFL/(std::min(hix,hiy)); // Time step
-  // Create coefficient function 1/rho(x,y) = f(x,y) = 1/(2+x*y)
-  auto rho_inv = [xl,yl,hix,hiy](const PetscInt i, const PetscInt j){ 
-    PetscScalar x = xl + i/hix;
-    PetscScalar y = yl + j/hiy;
-    return 1.0/(2 + x*y);
-  };
+
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Create distributed array (DMDA) to manage parallel grid and vectors
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
@@ -120,7 +114,6 @@ int main(int argc,char **argv)
   appctx.xl = {xl, yl};
   appctx.i_start = {i_xstart,i_ystart};
   appctx.i_end = {i_xend,i_yend};
-  appctx.rho_inv = rho_inv;
   appctx.sw = stencil_radius;
 
   /*  - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -197,11 +190,11 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec q, Vec F, AppCtx *appctx)
   // off-processor points needed for stencil update.
   DMGlobalToLocalBegin(da,q,INSERT_VALUES,appctx->q_local);
   // Apply stencil for local points.
-  wave_eq_rhs_local(t, appctx->D1, appctx->HI, appctx->rho_inv, array_q, array_F, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  wave_eq_rhs_local(t, appctx->D1, appctx->HI, array_q, array_F, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
   // Wait for communcation of ghost points to finish.
   DMGlobalToLocalEnd(da,q,INSERT_VALUES,appctx->q_local);
   // Apply stencil for overlapping points.
-  wave_eq_rhs_overlap(t, appctx->D1, appctx->HI, appctx->rho_inv, array_q, array_F, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  wave_eq_rhs_overlap(t, appctx->D1, appctx->HI, array_q, array_F, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
   // Restore arrays
   DMDAVecRestoreArrayDOFRead(da,appctx->q_local,&array_q);
   DMDAVecRestoreArrayDOF(da,F,&array_F);
@@ -234,7 +227,7 @@ PetscErrorCode rhs_serial(DM da, PetscReal t, Vec q, Vec F, AppCtx *appctx)
   DMDAVecGetArrayDOFRead(da,q,&array_q);
   DMDAVecGetArrayDOF(da,F,&array_F);
 
-  wave_eq_rhs_serial(t, appctx->D1, appctx->HI, appctx->rho_inv, array_q, array_F, appctx->N, appctx->xl, appctx->hi);
+  wave_eq_rhs_serial(t, appctx->D1, appctx->HI, array_q, array_F, appctx->N, appctx->xl, appctx->hi);
 
   // Restore arrays
   DMDAVecRestoreArrayDOFRead(da,q,&array_q);
