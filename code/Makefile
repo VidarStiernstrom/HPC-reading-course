@@ -1,10 +1,10 @@
+all: debug
+
 SRC_PATH = src/
 BIN_PATH = bin/
 OBJ_PATH = obj/
 INCLUDE_PATH = include/
 EXTERNAL_PATH = external/
-
-all: init acoustic_wave_sim
 
 # External include paths
 MDSPAN_INCLUDE = $(EXTERNAL_PATH)mdspan/include
@@ -14,22 +14,28 @@ EXTERNAL_INCLUDE = $(MDSPAN_INCLUDE) ${PETSC_INCLUDE}
 INCLUDES = $(INCLUDE_PATH) $(EXTERNAL_INCLUDE)
 
 IFLAGS			= $(foreach d, $(INCLUDES), -I$d)
-DEBUG_MODULES	= -Wall
-COPTFLAGS		= -std=c++17 -O3 -march=native -mtune=native -ffast-math
+DEBUGFLAGS		= -Wall -g
+COPTFLAGS		= -O3 -march=native -mtune=native -ffast-math
 CPPFLAGS		= -DVERSION=${PETSC_VERSION_NUM}
 
 ifeq ($(strip $(ORDER)),)
 ORDER		= 4
-ORDER_MSG	= ORDER not set. Using ORDER=$(ORDER)
+ORDER_MSG	= ORDER not set. Compiling acoustic_wave_sim with $(ORDER)
 else
 ORDER_MSG	= Compiling acoustic_wave_sim with $(ORDER)
 endif
 CXX 			= mpicc 
-CXXFLAGS		= $(DEBUG_MODULES) $(COPTFLAGS) $(IFLAGS)
+CXXFLAGS		= -std=c++17 $(IFLAGS)
 
 include ${PETSC_DIR}/lib/petsc/conf/variables
 include ${PETSC_DIR}/lib/petsc/conf/rules
 include ${PETSC_DIR}/lib/petsc/conf/test
+
+
+debug: CXXFLAGS += -DDEBUG $(DEBUGFLAGS)
+debug: init acoustic_wave_sim
+opt: CXXFLAGS += -DNDEBUG $(COPTFLAGS)
+opt: init acoustic_wave_sim
 
 # Link object files to create binaries in BIN_PATH/
 acoustic_wave_sim: acoustic_wave_sim.o IO_utils.o timestepping.o 
