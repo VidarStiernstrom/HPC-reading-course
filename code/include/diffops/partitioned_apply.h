@@ -12,17 +12,17 @@ template <typename RhsLeftBoundary,
           typename RhsRightClosure,
           typename RhsRightBoundary,
           typename... Args>
-inline PetscErrorCode rhs_1D_local(const RhsLeftBoundary& rhs_lb,
-                                   const RhsLeftClosure& rhs_lc,
-                                   const RhsInterior& rhs_int,
-                                   const RhsRightClosure& rhs_rc,
-                                   const RhsRightBoundary& rhs_rb,                                                          
-                                         grid::grid_function_1d<PetscScalar> dst, 
-                                   const grid::grid_function_1d<PetscScalar> src,                                                          
-                                   const PetscInt cl_sz,
-                                   const PetscInt i_start,
-                                   const PetscInt i_end,
-                                   Args... args)
+PetscErrorCode rhs_1D_local(const RhsLeftBoundary& rhs_lb,
+                            const RhsLeftClosure& rhs_lc,
+                            const RhsInterior& rhs_int,
+                            const RhsRightClosure& rhs_rc,
+                            const RhsRightBoundary& rhs_rb,                                                          
+                                  grid::grid_function_1d<PetscScalar> dst, 
+                            const grid::grid_function_1d<PetscScalar> src,                                                          
+                            const PetscInt cl_sz,
+                            const PetscInt i_start,
+                            const PetscInt i_end,
+                            Args... args)
 {
   PetscInt i;
   const PetscInt N = src.mapping().nx();
@@ -59,17 +59,17 @@ template <typename RhsLeftBoundary,
           typename RhsRightClosure,
           typename RhsRightBoundary,
           typename... Args>
-inline PetscErrorCode rhs_1D_overlap(const RhsLeftBoundary& rhs_lb,
-                                     const RhsLeftClosure& rhs_lc,
-                                     const RhsInterior& rhs_int,
-                                     const RhsRightClosure& rhs_rc,
-                                     const RhsRightBoundary& rhs_rb,                                                          
-                                           grid::grid_function_1d<PetscScalar> dst, 
-                                     const grid::grid_function_1d<PetscScalar> src,                                                          
-                                     const PetscInt cl_sz,
-                                     const PetscInt i_start,
-                                     const PetscInt i_end,
-                                     Args... args)
+PetscErrorCode rhs_1D_overlap(const RhsLeftBoundary& rhs_lb,
+                              const RhsLeftClosure& rhs_lc,
+                              const RhsInterior& rhs_int,
+                              const RhsRightClosure& rhs_rc,
+                              const RhsRightBoundary& rhs_rb,                                                          
+                                    grid::grid_function_1d<PetscScalar> dst, 
+                              const grid::grid_function_1d<PetscScalar> src,                                                          
+                              const PetscInt cl_sz,
+                              const PetscInt i_start,
+                              const PetscInt i_end,
+                              Args... args)
 {
   PetscInt i;
   const PetscInt N = src.mapping().nx();
@@ -105,12 +105,13 @@ inline PetscErrorCode rhs_1D_overlap(const RhsLeftBoundary& rhs_lb,
   *   ****************
   *   *    *    *    *
   *   ****************
-  *   * LI *    *    *
+  *   * LL *    *    *
   *   ****************
 **/
 template <typename RhsWestBC,
           typename RhsSouthBC,
-          typename RhsClosure,
+          typename RhsLClosureX,
+          typename RhsLClosureY,
           typename... Args>
 inline PetscErrorCode rhs_LL(const RhsWestBC& rhs_wbc,
                              const RhsSouthBC& rhs_sbc,
@@ -154,8 +155,8 @@ inline PetscErrorCode rhs_LL(const RhsWestBC& rhs_wbc,
   *   ****************
 **/
 template <typename RhsWestBC,
-          typename RhsClosure,
-          typename RhsInterior,
+          typename RhsLClosureX,
+          typename RhsInteriorY,
           typename... Args>
 inline PetscErrorCode rhs_LI(const RhsWestBC& rhs_wbc,
                              const RhsClosure& rhs_cl,
@@ -194,7 +195,8 @@ inline PetscErrorCode rhs_LI(const RhsWestBC& rhs_wbc,
 **/
 template <typename RhsWestBC,
           typename RhsNorthBC,
-          typename RhsClosure,
+          typename RhsLClosureX,
+          typename RhsRClosureY,
           typename... Args>
 inline PetscErrorCode rhs_LR(const RhsWestBC& rhs_wbc,
                              const RhsNorthBC& rhs_nbc,
@@ -239,9 +241,9 @@ inline PetscErrorCode rhs_LR(const RhsWestBC& rhs_wbc,
   *   *    * IL *    *
   *   ****************
 **/
-template <typename RhsInterior,
+template <typename RhsInteriorX,
           typename RhsSouthBC,
-          typename RhsClosure,
+          typename RhsLClosureY,
           typename... Args>
 inline PetscErrorCode rhs_IL(const RhsInterior& rhs_int,
                              const RhsSouthBC& rhs_sbc,
@@ -280,7 +282,8 @@ inline PetscErrorCode rhs_IL(const RhsInterior& rhs_int,
   *   *    *    *    *
   *   ****************
 **/
-template <typename RhsInterior,
+template <typename RhsInteriorX,
+          typename RhsInteriorY,
           typename... Args>
 inline PetscErrorCode rhs_II(const RhsInterior& rhs_int,
                              grid::grid_function_2d<PetscScalar> dst,
@@ -310,9 +313,9 @@ inline PetscErrorCode rhs_II(const RhsInterior& rhs_int,
   *   *    *    *    *
   *   ****************
 **/
-template <typename RhsInterior,
+template <typename RhsInteriorX,
           typename RhsNorthBC,
-          typename RhsClosure,
+          typename RhsRClosureY,
           typename... Args>
 inline PetscErrorCode rhs_IR(const RhsInterior& rhs_int,
                              const RhsNorthBC& rhs_nbc,
@@ -353,7 +356,8 @@ inline PetscErrorCode rhs_IR(const RhsInterior& rhs_int,
 **/
 template <typename RhsEastBC,
           typename RhsSouthBC,
-          typename RhsClosure,
+          typename RhsRClosureX,
+          typename RhsLClosureY,
           typename... Args>
 inline PetscErrorCode rhs_RL(const RhsEastBC& rhs_ebc,
                              const RhsSouthBC& rhs_sbc,
@@ -404,12 +408,12 @@ inline PetscErrorCode rhs_RL(const RhsEastBC& rhs_ebc,
   *   ****************
 **/
 template <typename RhsEastBC,
-          typename RhsClosure,
-          typename RhsInterior,
+          typename RhsRClosureX,
+          typename RhsInteriorY,
           typename... Args>
 inline PetscErrorCode rhs_RI(const RhsEastBC& rhs_ebc,
-                             const RhsClosure& rhs_cl,
-                             const RhsInterior& rhs_int,
+                             const RhsRClosureX& rhs_cl,
+                             const RhsInteriorY& rhs_int,
                              grid::grid_function_2d<PetscScalar> dst,
                              const grid::grid_function_2d<PetscScalar> src,
                              const std::array<PetscInt,2>& ind_j,
@@ -447,7 +451,8 @@ inline PetscErrorCode rhs_RI(const RhsEastBC& rhs_ebc,
 **/
 template <typename RhsEastBC,
           typename RhsNorthBC,
-          typename RhsClosure,
+          typename RhsRClosureX,
+          typename RhsRClosureY,
           typename... Args>
 inline PetscErrorCode rhs_RR(const RhsEastBC& rhs_ebc,
                              const RhsNorthBC& rhs_nbc,
@@ -482,6 +487,58 @@ inline PetscErrorCode rhs_RR(const RhsEastBC& rhs_ebc,
     }
   }
   return 0;
+}
+
+template <typename RhsWestBC,
+          typename RhsEastBC,
+          typename RhsSouthBC,
+          typename RhsNorthBC,
+          typename RhsLClosureX,
+          typename RhsLClosureY,
+          typename RhsRClosureX,
+          typename RhsRClosureY,
+          typename RhsInteriorX,
+          typename RhsInteriorY,
+          typename... Args>
+inline PetscErrorCode rhs_2D_local(const RhsWestBC&,
+                                   const RhsEastBC&,
+                                   const RhsSouthBC&,
+                                   const RhsNorthBC&,
+                                   const RhsLClosureX&,
+                                   const RhsLClosureY&,
+                                   const RhsRClosureX&,
+                                   const RhsRClosureY&,
+                                   const RhsInteriorX&,
+                                   const RhsInteriorY&,
+                                   ...
+                                   Args... args)
+{
+}
+
+template <typename RhsWestBC,
+          typename RhsEastBC,
+          typename RhsSouthBC,
+          typename RhsNorthBC,
+          typename RhsLClosureX,
+          typename RhsLClosureY,
+          typename RhsRClosureX,
+          typename RhsRClosureY,
+          typename RhsInteriorX,
+          typename RhsInteriorY,
+          typename... Args>
+inline PetscErrorCode rhs_2D_overlap(const RhsWestBC&,
+                                     const RhsEastBC&,
+                                     const RhsSouthBC&,
+                                     const RhsNorthBC&,
+                                     const RhsLClosureX&,
+                                     const RhsLClosureY&,
+                                     const RhsRClosureX&,
+                                     const RhsRClosureY&,
+                                     const RhsInteriorX&,
+                                     const RhsInteriorY&,
+                                     ...
+                                     Args... args)
+{
 }
 
 
