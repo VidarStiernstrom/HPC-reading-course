@@ -35,7 +35,7 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 **/
 struct AppCtx{
     std::array<PetscInt,2> N, i_start, i_end;
-    std::array<PetscScalar,2> hi, h, xl;
+    std::array<PetscScalar,2> hi, xl;
     const DifferenceOp D1; // Difference operator
     const InverseNormOp HI; // Inverse norm operator
     Vec q_local;
@@ -48,8 +48,8 @@ PetscErrorCode rhs_serial(DM, PetscReal, Vec, Vec, AppCtx *);
 PetscErrorCode rhs_TS_serial(TS, PetscReal, Vec, Vec, void *);
 /* Utility functions used to initialize the problem and compute errors */
 PetscErrorCode analytic_solution(DM, PetscScalar, AppCtx&, Vec);
-PetscErrorCode set_initial_condition(DM, AppCtx& appctx, Vec);
-PetscScalar compute_l2_error(Vec, Vec, std::array<PetscScalar,2>&);
+PetscErrorCode set_initial_condition(DM, AppCtx&, Vec);
+PetscScalar compute_l2_error(Vec, Vec, PetscScalar, PetscScalar);
 PetscScalar compute_max_error(Vec, Vec);
 
 int main(int argc,char **argv)
@@ -57,7 +57,7 @@ int main(int argc,char **argv)
   DM             da;
   Vec            q, q_analytic;
   PetscInt       sw, i_xstart, i_xend, i_ystart, i_yend, Nx, Ny, nx, ny, procx, procy, dofs;
-  PetscScalar    xl, xr, yl, yr, hix, hiy, dt, Tend, CFL;
+  PetscScalar    xl, xr, yl, yr, hx, hy, dt, Tend, CFL;
   PetscReal      l2_error, max_error;
 
   AppCtx         appctx;
@@ -82,9 +82,9 @@ int main(int argc,char **argv)
   xr = 1;
   yl = -1;
   yr = 1;
-  hix = (Nx-1)/(xr-xl);
-  hiy = (Ny-1)/(yr-yl);
-  dt = CFL/(std::min(hix,hiy)); // Time step
+  hx = (xr-xl)/(Nx-1);
+  hy = (yr-yl)/(Ny-1);
+  dt = CFL*(std::min(hx,hy)); // Time step
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Create distributed array (DMDA) to manage parallel grid and vectors
@@ -113,8 +113,7 @@ int main(int argc,char **argv)
 
   // Populate application context.
   appctx.N = {Nx, Ny};
-  appctx.hi = {hix, hiy};
-  appctx.h = {1./hix, 1./hiy};
+  appctx.hi = {1./hx, 1./hy};
   appctx.xl = {xl, yl};
   appctx.i_start = {i_xstart,i_ystart};
   appctx.i_end = {i_xend,i_yend};
@@ -155,7 +154,7 @@ int main(int argc,char **argv)
 
   PetscPrintf(PETSC_COMM_WORLD,"Elapsed time: %f seconds\n",elapsed_time);
   analytic_solution(da, Tend, appctx, q_analytic);
-  l2_error = compute_l2_error(q, q_analytic, appctx.h);
+  l2_error = compute_l2_error(q, q_analytic, hx, hy);
   max_error = compute_max_error(q, q_analytic);
   PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %g, and the maximum error is %g\n",l2_error,max_error);
 
@@ -295,14 +294,14 @@ PetscErrorCode set_initial_condition(DM da, AppCtx& appctx, Vec q)
 * q1, q2 - vectors being compared.
 * h - array storing grid spacings
 **/
-PetscScalar compute_l2_error(Vec q1, Vec q2, std::array<PetscScalar,2>& h) {
+PetscScalar compute_l2_error(Vec q1, Vec q2, PetscScalar hx, PetscScalar hy) {
   PetscScalar l2_error;
   Vec q_error;
   VecDuplicate(q1,&q_error);
   VecWAXPY(q_error,-1,q1,q2);
   VecNorm(q_error,NORM_2,&l2_error);
   VecDestroy(&q_error);
-  return l2_error = sqrt(h[0]*h[1])*(l2_error);
+  return l2_error = sqrt(hx*hy)*(l2_error);
 }
 
 /**
