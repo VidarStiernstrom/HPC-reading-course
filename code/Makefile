@@ -136,6 +136,23 @@ endif
 endif
 
 
+# Link object files to create binaries in BIN_PATH/
+wave_eq_benchmark: benchmark/wave_eq_rhs_II_benchmark.cpp $(INCLUDE_PATH)$(wildcard sbpops/*.h) $(INCLUDE_PATH)acoustic_wave_eq/wave_eq_rhs.h
+	-${CXX} ${CXXFLAGS} $(COPTFLAGS) ${GPROF} -o wave_eq_benchmark benchmark/wave_eq_rhs_II_benchmark.cpp -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
+	mv wave_eq_benchmark $(BIN_PATH)
+
+
+# (${PROFILING}, true)
+# else
+# ifeq (${COVERAGE}, true)
+# 	-${CXX} -o $@ ${GCOV} $(OBJ_PATH)acoustic_wave_sim.o ${PETSC_SYS_LIB}
+# 	mv acoustic_wave_sim $(BIN_PATH)acoustic_wave_sim
+# else
+# 	-${CXX} -o $@ $(OBJ_PATH)acoustic_wave_sim.o ${PETSC_SYS_LIB}
+# 	mv acoustic_wave_sim $(BIN_PATH)acoustic_wave_sim
+# endif
+# endif
+
 #.PHONY : clean
 init:
 	mkdir -p $(BIN_PATH)
