@@ -4,16 +4,8 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 #include "sbpops/op_defs.h"
 #include <petsc.h>
 #include <stdlib.h>
+#include "acoustic_wave_eq/wave_eq_rhs.h"
 
-
-/**
-* Inverse of density rho(x,y) at grid point i,j
-**/
-PetscScalar rho_inv(const PetscInt i, const PetscInt j, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) {
-  PetscScalar x = xl[0] + i/hi[0]; // multiplicera med h istället för division med hi
-  PetscScalar y = xl[1] + j/hi[1];
-  return 1./(2 + x*y);
-}
 
 template <class SbpDerivative>
 void wave_eq_rhs_II_benchmark(
