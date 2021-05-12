@@ -48,7 +48,7 @@ void print_usage(char* exec_name) {
 	PetscPrintf(PETSC_COMM_WORLD,"\n");
 }
 
-int get_inputs(int argc, char *argv[], PetscInt *Nx, PetscInt *Ny, PetscScalar *Tend, PetscScalar *CFL) {
+int get_inputs(int argc, char *argv[], PetscInt *Nx, PetscInt *Ny, PetscScalar *n_steps, PetscScalar *CFL) {
 
 	if (argc != 5) {
 		PetscPrintf(PETSC_COMM_WORLD,"Error, wrong number of input arguments. Expected 4 arguments, got %d.\n",argc-1);
@@ -70,9 +70,16 @@ int get_inputs(int argc, char *argv[], PetscInt *Nx, PetscInt *Ny, PetscScalar *
 		return -1;
 	}
 
-	*Tend = atof(argv[3]);
-	if (*Tend <= 0) {
-		PetscPrintf(PETSC_COMM_WORLD, "Error, third argument wrong. Expected Tend > 0, got %f.\n",*Tend);
+	// *Tend = atof(argv[3]);
+	// if (*Tend <= 0) {
+	// 	PetscPrintf(PETSC_COMM_WORLD, "Error, third argument wrong. Expected Tend > 0, got %f.\n",*Tend);
+	// 	print_usage(argv[0]);
+	// 	return -1;
+	// }
+
+  *n_steps = atof(argv[3]);
+	if (*n_steps <= 0) {
+		PetscPrintf(PETSC_COMM_WORLD, "Error, third argument wrong. Expected n_steps > 0, got %f.\n",*n_steps);
 		print_usage(argv[0]);
 		return -1;
 	}

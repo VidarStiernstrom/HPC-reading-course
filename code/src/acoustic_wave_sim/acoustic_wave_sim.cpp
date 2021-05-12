@@ -57,7 +57,7 @@ int main(int argc,char **argv)
   DM             da;
   Vec            q, q_analytic;
   PetscInt       sw, i_xstart, i_xend, i_ystart, i_yend, Nx, Ny, nx, ny, procx, procy, dofs;
-  PetscScalar    xl, xr, yl, yr, hx, hy, dt, Tend, CFL;
+  PetscScalar    xl, xr, yl, yr, hx, hy, dt, Tend, n_steps, CFL;
   PetscReal      l2_error, max_error;
 
   AppCtx         appctx;
@@ -70,7 +70,7 @@ int main(int argc,char **argv)
   ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
 
-  if (get_inputs(argc, argv, &Nx, &Ny, &Tend, &CFL) == -1) {
+if (get_inputs(argc, argv, &Nx, &Ny, &n_steps, &CFL) == -1) {
     PetscEnd();
   }
 
@@ -85,6 +85,7 @@ int main(int argc,char **argv)
   hx = (xr-xl)/(Nx-1);
   hy = (yr-yl)/(Ny-1);
   dt = CFL*(std::min(hx,hy)); // Time step
+  Tend = n_steps*dt;
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Create distributed array (DMDA) to manage parallel grid and vectors
@@ -109,7 +110,6 @@ int main(int argc,char **argv)
     PetscPrintf(PETSC_COMM_WORLD,"--- Error ---\nSubdividing closure region is not supported\n");
     PetscEnd();
   }
-  
 
   // Populate application context.
   appctx.N = {Nx, Ny};
