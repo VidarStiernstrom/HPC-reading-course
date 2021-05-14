@@ -5,6 +5,8 @@
 #include <tuple>
 
 namespace sbp {
+
+  enum Region {L, I, R};
   
   /**
   * Central first derivative SBP operator. The class holds the stencil weights for the interior
@@ -35,6 +37,8 @@ namespace sbp {
     //=============================================================================
     // 1D functions
     //=============================================================================
+    template <Region r>
+    inline PetscScalar apply(const grid::grid_function_1d<PetscScalar>, const PetscScalar, const PetscInt, const PetscInt) const;
 
     /**
     * Computes the derivative in x-direction of a multicomponent 1D grid function v[i][comp] for an index i within the set of left closure points.
@@ -94,10 +98,29 @@ namespace sbp {
       return hi*u;
     };
 
+    template <>
+    inline PetscScalar apply<L>(const grid::grid_function_1d<PetscScalar> v, const PetscScalar hi, const PetscInt i, const PetscInt comp) const
+    {
+      return apply_left(v, hi, i, comp);
+    }
+  
+    template <>
+    inline PetscScalar apply<I>(const grid::grid_function_1d<PetscScalar> v, const PetscScalar hi, const PetscInt i, const PetscInt comp) const
+    {
+      return apply_interior(v, hi, i, comp);
+    }
+    
+    template <>
+    inline PetscScalar apply<R>(const grid::grid_function_1d<PetscScalar> v, const PetscScalar hi, const PetscInt i, const PetscInt comp) const
+    {
+      return apply_right(v, hi, i, comp);
+    }
+
     //=============================================================================
     // 2D functions
     //=============================================================================
-
+    template <PetscInt dim, Region r>
+    inline PetscScalar apply(const grid::grid_function_2d<PetscScalar>, const PetscScalar, const PetscInt, const PetscInt, const PetscInt) const;
 
     /**
     * Computes the derivative in x-direction of a multicomponent 2D grid function v[j][i][comp] for an index i within the set of left closure points.
@@ -222,6 +245,43 @@ namespace sbp {
       }
       return hiy*u;
     };
+
+    template <>
+    inline PetscScalar apply<1,L>(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    {
+      return apply_2D_x_left(v, hix, i, j, comp);
+    }
+  
+    template <>
+    inline PetscScalar apply<1,I>(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    {
+      return apply_2D_x_interior(v, hix, i, j, comp);
+    }
+    
+    template <>
+    inline PetscScalar apply<1,R>(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    {
+      return apply_2D_x_right(v, hix, i, j, comp);
+    }
+
+    template <>
+    inline PetscScalar apply<2,L>(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    {
+      return apply_2D_x_left(v, hiy, i, j, comp);
+    }
+  
+    template <>
+    inline PetscScalar apply<2,I>(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    {
+      return apply_2D_x_interior(v, hiy, i, j, comp);
+    }
+    
+    template <>
+    inline PetscScalar apply<2,R>(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    {
+      return apply_2D_x_right(v, hiy, i, j, comp);
+    }
+
   };
 
   
