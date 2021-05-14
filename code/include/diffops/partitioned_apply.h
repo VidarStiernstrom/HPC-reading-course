@@ -98,449 +98,366 @@ PetscErrorCode rhs_1D_overlap(const RhsLeftBoundary& rhs_lb,
 // =============================================================================
 // 2D functions
 // =============================================================================
-
-/**
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-  *   * LL *    *    *
-  *   ****************
-**/
-template <typename RhsWestBC,
-          typename RhsSouthBC,
-          typename RhsLClosureX,
-          typename RhsLClosureY,
+template <typename RhsLL,
+          typename RhsLI,
+          typename RhsLR,
+          typename RhsIL,
+          typename RhsII,
+          typename RhsIR,
+          typename RhsRL,
+          typename RhsRI,
+          typename RhsRR,
           typename... Args>
-inline PetscErrorCode rhs_LL(const RhsWestBC& rhs_wbc,
-                             const RhsSouthBC& rhs_sbc,
-                             const RhsClosure& rhs_cl,
-                             grid::grid_function_2d<PetscScalar> dst,
-                             const grid::grid_function_2d<PetscScalar> src,
-                             const PetscInt cl_sz,
-                             Args args...)
+PetscErrorCode rhs_local(const RhsLL& rhs_LL,
+                         const RhsLI& rhs_LI,
+                         const RhsLR& rhs_LR,
+                         const RhsIL& rhs_IL,
+                         const RhsII& rhs_II,
+                         const RhsIR& rhs_IR,
+                         const RhsRL& rhs_RL,
+                         const RhsRI& rhs_RI,
+                         const RhsRR& rhs_RR,
+                         grid::grid_function_2d<PetscScalar> dst,
+                         const grid::grid_function_2d<PetscScalar> src,
+                         const std::array<PetscInt,2> idx_start,
+                         const std::array<PetscInt,2> idx_end,
+                         const PetscInt halo_sz,
+                         const PetscInt cl_sz,
+                         Args... args)
 {
-  PetscInt i,j;
-  // Corner point
-  rhs_wbc(dst,src,0,args...);
-  rhs_sbc(dst,src,0,args...);
-  rhs_cl(dst,src,0,0,args...);
-  // south boundary (exluding corner)
-  for (i = 1; i < cl_sz; i++) { 
-    rhs_cl(dst,src,i,0,args...);
-    rhs_sbc(dst,src,i,args...);
-  }
-  // west boundary (exluding corner)
-  for (j = 1; j < cl_sz; j++) { 
-    rhs_cl(dst,src,0,j,args...); 
-    rhs_wbc(dst,src,j,args...);
-  }
-  // remaining closure region
-  for (j = 1; j < cl_sz; j++) { 
-    for (i = 1; i < cl_sz; i++) { 
-      rhs_cl(dst,src,i,j,args...); 
+  const PetscInt i_start = idx_start[0] + halo_sz; 
+  const PetscInt j_start = idx_start[1] + halo_sz;
+  const PetscInt i_end = idx_end[0] - halo_sz;
+  const PetscInt j_end = idx_end[1] - halo_sz;
+  const PetscInt nx = src.mapping().nx();
+  const PetscInt ny = src.mapping().ny();
+
+  if (idx_start[1] == 0)  // BOTTOM
+  {
+    if (idx_start[0] == 0) // BOTTOM LEFT
+    {
+      rhs_LL(dst, src, cl_sz, args);
+      rhs_IL(dst, src, {cl_sz, i_end}, cl_sz, args);
+      rhs_LI(dst, src, {cl_sz, j_end}, cl_sz, args);
+      rhs_II(dst, src, {cl_sz, i_end}, {cl_sz, j_end}, args); 
+    } else if (idx_end[0] == nx) // BOTTOM RIGHT
+    { 
+      rhs_RL(dst, src, cl_sz, args);
+      rhs_IL(dst, src, {i_start, nx-cl_sz}, cl_sz, args);
+      rhs_RI(dst, src, {cl_sz, j_end}, cl_sz, args);
+      rhs_II(dst, src, {i_start, nx-cl_sz}, {cl_sz, j_end}, args); 
+    } else // BOTTOM CENTER
+    { 
+      rhs_IL(dst, src, {i_start, i_end}, cl_sz, args);
+      rhs_II(dst, src, {i_start, i_end}, {cl_sz, j_end}, args); 
     }
-  }
-  return 0;
-}
-
-/**
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-  *   * LI *    *    *
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-**/
-template <typename RhsWestBC,
-          typename RhsLClosureX,
-          typename RhsInteriorY,
-          typename... Args>
-inline PetscErrorCode rhs_LI(const RhsWestBC& rhs_wbc,
-                             const RhsClosure& rhs_cl,
-                             const RhsInterior& rhs_int,
-                             grid::grid_function_2d<PetscScalar> dst,
-                             const grid::grid_function_2d<PetscScalar> src,
-                             const std::array<PetscInt,2>& ind_j,
-                             const PetscInt cl_sz,
-                             Args args...)
-{
-  PetscInt i,j;
-  // west boundary
-  for (j = ind_j[0]; j < ind_j[1]; j++) {
-    rhs_wbc(dst,src,j,args...);
-    rhs_cl(dst,src,0,j,args...); 
-    rhs_int(dst,src,0,j,args...)
-  }
-  // remaining points
-  for (j = ind_j[0]; j < ind_j[1]; j++) { 
-    for (i = 1; i < cl_sz; i++) { 
-        rhs_cl(dst,src,i,j,args...); 
-        rhs_int(dst,src,i,j,args...)
+  } else if (idx_end[1] == ny) // TOP
+  {
+    if (idx_start[0] == 0) // TOP LEFT
+    {
+      rhs_LR(dst, src, cl_sz, args);
+      rhs_IR(dst, src, {cl_sz, i_end}, cl_sz, args);
+      rhs_LI(dst, src, {j_start, ny - cl_sz}, cl_sz, args);
+      rhs_II(dst, src, {cl_sz, i_end}, {j_start, ny-cl_sz}, args);  
+    } else if (idx_end[0] == nx) // TOP RIGHT
+    { 
+      rhs_RR(dst, src, cl_sz, args);
+      rhs_IR(dst, src, {i_start, nx-cl_sz} cl_sz, args);
+      rhs_RI(dst, src, {j_start, ny - cl_sz}, cl_sz, args);
+      rhs_II(dst, src, {i_start, nx-cl_sz}, {j_start, ny - cl_sz}, args);
+    } else // TOP CENTER
+    { 
+      rhs_IR(dst, src, {i_start, i_end}, cl_sz, args);
+      rhs_II(dst, src, {i_start, i_end}, {j_start,  ny - cl_sz}, args);
     }
-  }
-  return 0;
-}
-
-/**
-  *   ****************
-  *   * LR *    *    *
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-**/
-template <typename RhsWestBC,
-          typename RhsNorthBC,
-          typename RhsLClosureX,
-          typename RhsRClosureY,
-          typename... Args>
-inline PetscErrorCode rhs_LR(const RhsWestBC& rhs_wbc,
-                             const RhsNorthBC& rhs_nbc,
-                             const RhsClosure& rhs_cl,
-                             grid::grid_function_2d<PetscScalar> dst,
-                             const grid::grid_function_2d<PetscScalar> src,
-                             const PetscInt cl_sz,
-                             Args args...)
-{
-  PetscInt i,j;
-  const PetscInt j_end = src.mapping().ny-1;
-  // Corner point
-  rhs_wbc(dst,src,j_end,args...);
-  rhs_nbc(dst,src,0,args...);
-  rhs_cl(dst,src,0,j_end,args...);
-  // north boundary (exluding corner)
-  for (i = 1; i < cl_sz; i++) { 
-    rhs_cl(dst,src,i,j_end,args...);
-    rhs_nbc(dst,src,i,args...);
-  }
-  // west boundary (exluding corner)
-  for (j = j_end-cl_sz+1; j < j_end; j++) { 
-    rhs_cl(dst,src,0,j,args...); 
-    rhs_wbc(dst,src,j,args...);
-  }
-  // remaining closure region
-  for (j = j_end-cl_sz+1; j < j_end; j++) { 
-    for (i = 1; i < cl_sz; i++) { 
-      rhs_cl(dst,src,i,j,args...); 
-    }
-  }
-  return 0;
-}
-
-
-/**
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-  *   *    * IL *    *
-  *   ****************
-**/
-template <typename RhsInteriorX,
-          typename RhsSouthBC,
-          typename RhsLClosureY,
-          typename... Args>
-inline PetscErrorCode rhs_IL(const RhsInterior& rhs_int,
-                             const RhsSouthBC& rhs_sbc,
-                             const RhsClosure& rhs_cl,
-                             grid::grid_function_2d<PetscScalar> dst,
-                             const grid::grid_function_2d<PetscScalar> src,
-                             const std::array<PetscInt,2>& ind_i,
-                             const PetscInt cl_sz,
-                             Args args...)
-{
-  PetscInt i,j;
-  // south boundary
-  for (i = ind_i[0]; i < ind_i[1]; i++) {
-    rhs_sbc(dst,src,i,args...);
-    rhs_cl(dst,src,i,0,args...); 
-    rhs_int(dst,src,i,0,args...)
-  }
-  // remaining points
-  for (j = 1; j < cl_sz; j++) { 
-    for (i = ind_i[0]; i < ind_i[1]; i++) { 
-        rhs_cl(dst,src,i,j,args...); 
-        rhs_int(dst,src,i,j,args...)
-    }
-  }
-  return 0;
-}
-
-
-
-/**
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-  *   *    * II *    *
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-**/
-template <typename RhsInteriorX,
-          typename RhsInteriorY,
-          typename... Args>
-inline PetscErrorCode rhs_II(const RhsInterior& rhs_int,
-                             grid::grid_function_2d<PetscScalar> dst,
-                             const grid::grid_function_2d<PetscScalar> src,
-                             const std::array<PetscInt,2>& ind_i,
-                             const std::array<PetscInt,2>& ind_j,
-                             const PetscInt cl_sz,
-                             Args args...)
-{
-  PetscInt i,j;
-  // Interior points points
-  for (j = ind_j[0]; j < ind_j[1]; j++) { 
-    for (i = ind_i[0]; i < ind_i[1]; i++) { 
-        rhs_int(dst,src,i,j,args...)
-    }
-  }
-  return 0;
-}
-
-
-/**
-  *   ****************
-  *   *    * IR *    *
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-**/
-template <typename RhsInteriorX,
-          typename RhsNorthBC,
-          typename RhsRClosureY,
-          typename... Args>
-inline PetscErrorCode rhs_IR(const RhsInterior& rhs_int,
-                             const RhsNorthBC& rhs_nbc,
-                             const RhsClosure& rhs_cl,
-                             grid::grid_function_2d<PetscScalar> dst,
-                             const grid::grid_function_2d<PetscScalar> src,
-                             const std::array<PetscInt,2>& ind_i,
-                             const PetscInt cl_sz,
-                             Args args...)
-{
-  PetscInt i,j;
-  const PetscInt j_end = src.mapping().ny-1;
-  // north boundary
-  for (i = ind_i[0]; i < ind_i[1]; i++) {
-    rhs_int(dst,src,i,j_end,args...); 
-    rhs_cl(dst,src,i,j_end,args...);
-    rhs_nbc(dst,src,i,args...);
-  }
-  // remaining points
-  for (j = j_end-cl_sz+1; j < j_end; j++) { 
-    for (i = ind_i[0]; i < ind_i[1]; i++) { 
-      rhs_int(dst,src,i,j,args...);
-      rhs_cl(dst,src,i,j,args...); 
-    }
-  }
-  return 0;
-}
-
-
-/**
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-  *   *    *    * RL *
-  *   ****************
-**/
-template <typename RhsEastBC,
-          typename RhsSouthBC,
-          typename RhsRClosureX,
-          typename RhsLClosureY,
-          typename... Args>
-inline PetscErrorCode rhs_RL(const RhsEastBC& rhs_ebc,
-                             const RhsSouthBC& rhs_sbc,
-                             const RhsClosure& rhs_cl,
-                             grid::grid_function_2d<PetscScalar> dst,
-                             const grid::grid_function_2d<PetscScalar> src,
-                             const PetscInt cl_sz,
-                             Args args...)
-{
-  PetscInt i,j;
-  const PetscInt i_end = src.mapping().nx()-1;
-
-  // Corner point
-  rhs_ebc(dst,src,0,args...);
-  rhs_sbc(dst,src,i_end,args...);
-  rhs_cl(dst,src,i_end,0,args...);
-
-  // east boundary (exluding corner)
-  for (j = 1; j < cl_sz; j++) { 
-    rhs_cl(dst,src,i_end,j,args...); 
-    rhs_ebc(dst,src,j,args...);
-  }
-
-  // east boundary (exluding corner)
-  for (j = 1; j < cl_sz; j++) { 
-    rhs_cl(dst,src,i_end,j,args...); 
-    rhs_ebc(dst,src,j,args...);
-  }
-
-  // remaining closure region
-  for (j = 1; j < cl_sz; j++) { 
-    for (i = i_end-cl_sz+1; i < i_end; i++) { 
-      rhs_cl(dst,src,i,j,args...); 
-    }
+  } else if (idx_start[0] == 0) // LEFT NOT BOTTOM OR TOP
+  { 
+    rhs_LI(dst, src, {j_start, j_end}, cl_sz, args);
+    rhs_II(dst, src, {cl_sz, i_end}, {j_start, j_end}, args);
+  } else if (idx_end[0] == nx) // RIGHT NOT BOTTOM OR TOP
+  {
+    rhs_RI(dst, src, {j_start, j_end}, cl_sz, args);
+    rhs_II(dst, src, {i_start, nx - cl_sz}, {j_start, j_end}, args);
+  } else // CENTER
+  {
+    rhs_II(dst, src, {i_start, i_end}, {j_start, j_end}, args);
   }
 
   return 0;
 }
 
-
-/**
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-  *   *    *    * RI *
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-**/
-template <typename RhsEastBC,
-          typename RhsRClosureX,
-          typename RhsInteriorY,
+template <typename RhsLL,
+          typename RhsLI,
+          typename RhsLR,
+          typename RhsIL,
+          typename RhsII,
+          typename RhsIR,
+          typename RhsRL,
+          typename RhsRI,
+          typename RhsRR,
           typename... Args>
-inline PetscErrorCode rhs_RI(const RhsEastBC& rhs_ebc,
-                             const RhsRClosureX& rhs_cl,
-                             const RhsInteriorY& rhs_int,
-                             grid::grid_function_2d<PetscScalar> dst,
-                             const grid::grid_function_2d<PetscScalar> src,
-                             const std::array<PetscInt,2>& ind_j,
-                             const PetscInt cl_sz,
-                             Args args...)
+PetscErrorCode rhs_local(const RhsLL& rhs_LL,
+                         const RhsLI& rhs_LI,
+                         const RhsLR& rhs_LR,
+                         const RhsIL& rhs_IL,
+                         const RhsII& rhs_II,
+                         const RhsIR& rhs_IR,
+                         const RhsRL& rhs_RL,
+                         const RhsRI& rhs_RI,
+                         const RhsRR& rhs_RR,
+                         grid::grid_function_2d<PetscScalar> dst,
+                         const grid::grid_function_2d<PetscScalar> src,
+                         const std::array<PetscInt,2> idx_start,
+                         const std::array<PetscInt,2> idx_end,
+                         const PetscInt halo_sz,
+                         const PetscInt cl_sz,
+                         Args... args)
 {
-  PetscInt i,j;
-  const PetscInt i_end = src.mapping().nx()-1;
+  const PetscInt i_start = idx_start[0] + halo_sz; 
+  const PetscInt j_start = idx_start[1] + halo_sz;
+  const PetscInt i_end = idx_end[0] - halo_sz;
+  const PetscInt j_end = idx_end[1] - halo_sz;
+  const PetscInt nx = src.mapping().nx();
+  const PetscInt ny = src.mapping().ny();
 
-  // east boundary
-  for (j = ind_j[0]; j < ind_j[1]; j++) { 
-    rhs_ebc(dst,src,j,args...);
-    rhs_cl(dst,src,i_end,j,args...); 
-    rhs_int(dst,src,i_end,j,args...);
-  }
-  // remaining points
-  for (j = ind_j[0]; j < ind_j[0]; j++) { 
-    for (i = i_end-cl_sz+1; i < i_end; i++) { 
-      rhs_int(dst,src,i,j,args...);
-      rhs_cl(dst,src,i,j,args...); 
+  if (idx_start[1] == 0)  // BOTTOM
+  {
+    if (idx_start[0] == 0) // BOTTOM LEFT
+    {
+      rhs_LL(dst, src, cl_sz, args);
+      rhs_IL(dst, src, {cl_sz, i_end}, cl_sz, args);
+      rhs_LI(dst, src, {cl_sz, j_end}, cl_sz, args);
+      rhs_II(dst, src, {cl_sz, i_end}, {cl_sz, j_end}, args); 
+    } else if (idx_end[0] == nx) // BOTTOM RIGHT
+    { 
+      rhs_RL(dst, src, cl_sz, args);
+      rhs_IL(dst, src, {i_start, nx-cl_sz}, cl_sz, args);
+      rhs_RI(dst, src, {cl_sz, j_end}, cl_sz, args);
+      rhs_II(dst, src, {i_start, nx-cl_sz}, {cl_sz, j_end}, args); 
+    } else // BOTTOM CENTER
+    { 
+      rhs_IL(dst, src, {i_start, i_end}, cl_sz, args);
+      rhs_II(dst, src, {i_start, i_end}, {cl_sz, j_end}, args); 
     }
+  } else if (idx_end[1] == ny) // TOP
+  {
+    if (idx_start[0] == 0) // TOP LEFT
+    {
+      rhs_LR(dst, src, cl_sz, args);
+      rhs_IR(dst, src, {cl_sz, i_end}, cl_sz, args);
+      rhs_LI(dst, src, {j_start, ny - cl_sz}, cl_sz, args);
+      rhs_II(dst, src, {cl_sz, i_end}, {j_start, ny-cl_sz}, args);  
+    } else if (idx_end[0] == nx) // TOP RIGHT
+    { 
+      rhs_RR(dst, src, cl_sz, args);
+      rhs_IR(dst, src, {i_start, nx-cl_sz} cl_sz, args);
+      rhs_RI(dst, src, {j_start, ny - cl_sz}, cl_sz, args);
+      rhs_II(dst, src, {i_start, nx-cl_sz}, {j_start, ny - cl_sz}, args);
+    } else // TOP CENTER
+    { 
+      rhs_IR(dst, src, {i_start, i_end}, cl_sz, args);
+      rhs_II(dst, src, {i_start, i_end}, {j_start,  ny - cl_sz}, args);
+    }
+  } else if (idx_start[0] == 0) // LEFT NOT BOTTOM OR TOP
+  { 
+    rhs_LI(dst, src, {j_start, j_end}, cl_sz, args);
+    rhs_II(dst, src, {cl_sz, i_end}, {j_start, j_end}, args);
+  } else if (idx_end[0] == nx) // RIGHT NOT BOTTOM OR TOP
+  {
+    rhs_RI(dst, src, {j_start, j_end}, cl_sz, args);
+    rhs_II(dst, src, {i_start, nx - cl_sz}, {j_start, j_end}, args);
+  } else // CENTER
+  {
+    rhs_II(dst, src, {i_start, i_end}, {j_start, j_end}, args);
+  }
+
+  return 0;
+}
+
+template <typename RhsLI,
+          typename RhsIL,
+          typename RhsII,
+          typename RhsIR,
+          typename RhsRI,
+          typename... Args>
+PetscErrorCode rhs_overlap(const RhsLI& rhs_LI,
+                           const RhsIL& rhs_IL,
+                           const RhsII& rhs_II,
+                           const RhsIR& rhs_IR,
+                           const RhsRI& rhs_RI,
+                           grid::grid_function_2d<PetscScalar> dst,
+                           const grid::grid_function_2d<PetscScalar> src,
+                           const std::array<PetscInt,2> idx_start,
+                           const std::array<PetscInt,2> idx_end,
+                           const PetscInt halo_sz,
+                           const PetscInt cl_sz,
+                           Args... args)
+{
+  const PetscInt i_start = idx_start[0]; 
+  const PetscInt j_start = idx_start[1];
+  const PetscInt i_end = idx_end[0];
+  const PetscInt j_end = idx_end[1];
+  const PetscInt nx = src.mapping().nx();
+  const PetscInt nt = src.mapping().ny();
+
+  if (j_start == 0)  // BOTTOM
+  {
+    if (i_start == 0) // BOTTOM LEFT
+    {
+      rhs_IL(dst, src, {i_end-halo_sz, i_end}, cl_sz, args);
+      rhs_LI(dst, src, {j_end-halo_sz, j_end}, cl_sz, args);
+      rhs_II(dst,src, {cl_sz, i_end-halo_sz}, {j_end-halo_sz, j_end}, args); 
+      rhs_II(dst,src, {i_end-halo_sz, i_end}, {cl_sz, j_end}, args); 
+    } else if (i_end == nx) // BOTTOM RIGHT
+    { 
+      rhs_IL(dst, src, {i_start, i_start+halo_sz}, cl_sz, args);
+      rhs_RI(dst, src, {j_end-halo_sz, j_end}, cl_sz, args);
+      rhs_II(dst, src, {i_start, i_start+halo_sz}, {cl_sz, j_end}, args); 
+      rhs_II(dst, src, {i_start+halo_sz, nx-cl_sz}, {j_end-halo_sz, j_end}, args); 
+    } else // BOTTOM CENTER
+    { 
+      rhs_IL(dst, src, {i_start, i_start+halo_sz}, cl_sz, args);
+      rhs_IL(dst, src, {i_end-halo_sz, i_end}, cl_sz, args);
+      rhs_II(dst, src, {i_start, i_start+halo_sz}, {cl_sz, j_end-halo_sz}, args); 
+      rhs_II(dst, src, {i_end-halo_sz, i_end}, cl_sz, j_end-halo_sz, args); 
+      rhs_II(dst, src, {i_start, i_end}, {j_end-halo_sz, j_end}, args); 
+    }
+  } else if (j_end == ny) // TOP
+  {
+    if (i_start == 0) // TOP LEFT
+    {
+      rhs_IR(dst, src, {i_end-halo_sz, i_end}, cl_sz, args);
+      rhs_LI(dst, src, {j_start, j_start+halo_sz}, cl_sz, args);
+      rhs_II(dst, src, {i_end-halo_sz, i_end}, {j_start, ny-cl_sz}, args);  
+      rhs_II(dst, src, {cl_sz, i_end-halo_sz}, {j_start, j_start+halo_sz}, args);  
+    } else if (i_end == nx) // TOP RIGHT
+    { 
+      rhs_IR(dst, src, {i_start, i_start+halo_sz}, cl_sz, args);
+      rhs_RI(dst, src, {j_start, j_start+halo_sz}, cl_sz, args);
+      rhs_II(dst, src, {i_start, i_start+halo_sz}, {j_start, ny - cl_sz}, args);
+      rhs_II(dst, src, {i_start+halo_sz, nx-cl_sz}, {j_start, j_start+halo_sz}, args);
+    } else // TOP CENTER
+    { 
+      rhs_IR(dst, src, {i_start, i_start+halo_sz}, cl_sz, args);
+      rhs_IR(dst, src, {i_end-halo_sz, i_end}, cl_sz, args);
+      rhs_II(dst, src, {i_start, i_start+halo_sz}, {j_start, ny - cl_sz}, args);
+      rhs_II(dst, src, {i_end-halo_sz, i_end}, {j_start, ny - cl_sz}, args);
+      rhs_II(dst, src, {i_start+halo_sz, i_end-halo_sz}, {j_start, j_start+halo_sz}, args);
+    }
+  } else if (i_start == 0) // LEFT NOT BOTTOM OR TOP
+  { 
+    rhs_LI(dst, src, {j_start, j_start+halo_sz}, cl_sz, args);
+    rhs_LI(dst, src, {j_end-halo_sz, j_end}, cl_sz, args);
+    rhs_II(dst, src, {cl_sz, i_end}, {j_start, j_start+halo_sz}, args);
+    rhs_II(dst, src, {cl_sz, i_end}, {j_end-halo_sz, j_end}, args);
+    rhs_II(dst, src, {i_end-halo_sz, i_end}, {j_start+halo_sz, j_end-halo_sz}, args);
+  } else if (i_end == nx) // RIGHT NOT BOTTOM OR TOP
+  {
+    rhs_RI(dst, src, {j_start, j_start+halo_sz}, cl_sz, args);
+    rhs_RI(dst, src, {j_end-halo_sz, j_end}, cl_sz, args);
+    rhs_II(dst, src, {i_start, nx - cl_sz}, {j_start, j_start+halo_sz}, args);
+    rhs_II(dst, src, {i_start, nx - cl_sz}, {j_end-halo_sz, j_end}, args);
+    rhs_II(dst, src, {i_start, i_start+halo_sz}, {j_start+halo_sz, j_end-halo_sz}, args);
+  } else // CENTER
+  {
+    rhs_II(dst, src, {i_start, i_start+halo_sz}, {j_start, j_end}, args);
+    rhs_II(dst, src, {i_end-halo_sz, i_end}, {j_start, j_end}, args);
+    rhs_II(dst, src, {i_start+halo_sz, i_end-halo_sz}, {j_end-halo_sz, j_end}, args);
+    rhs_II(dst, src, {i_start+halo_sz, i_end-halo_sz}, {j_start, j_start+halo_sz}, args);
   }
   return 0;
 }
 
 
-/**
-  *   ****************
-  *   *    *    * RR *
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-  *   *    *    *    *
-  *   ****************
-**/
-template <typename RhsEastBC,
-          typename RhsNorthBC,
-          typename RhsRClosureX,
-          typename RhsRClosureY,
+template <typename RhsLL,
+          typename RhsLI,
+          typename RhsLR,
+          typename RhsIL,
+          typename RhsII,
+          typename RhsIR,
+          typename RhsRL,
+          typename RhsRI,
+          typename RhsRR,
           typename... Args>
-inline PetscErrorCode rhs_RR(const RhsEastBC& rhs_ebc,
-                             const RhsNorthBC& rhs_nbc,
-                             const RhsClosure& rhs_cl,
-                             grid::grid_function_2d<PetscScalar> dst,
-                             const grid::grid_function_2d<PetscScalar> src,
-                             const PetscInt cl_sz,
-                             Args args...)
+PetscErrorCode rhs_single_core(const RhsLL& rhs_LL,
+                               const RhsLI& rhs_LI,
+                               const RhsLR& rhs_LR,
+                               const RhsIL& rhs_IL,
+                               const RhsII& rhs_II,
+                               const RhsIR& rhs_IR,
+                               const RhsRL& rhs_RL,
+                               const RhsRI& rhs_RI,
+                               const RhsRR& rhs_RR,
+                               grid::grid_function_2d<PetscScalar> dst,
+                               const grid::grid_function_2d<PetscScalar> src,
+                               const PetscInt cl_sz,
+                               Args... args)
 {
-  PetscInt i,j;
-  const PetscInt i_end = src.mapping().nx()-1;
-  const PetscInt j_end = src.mapping().ny()-1;
+  const PetscInt nx = src.mapping.nx();
+  const PetscInt ny = src.mapping.ny();
+  rhs_LL(dst, src, cl_sz, args);
+  rhs_LI(dst, src, {cl_sz,ny-cl_sz}, cl_sz, args);
+  rhs_LR(dst, src, cl_sz, args);
+  rhs_IL(dst, src, {cl_sz,nx-cl_sz}, cl_sz, args);
+  rhs_II(dst, src, {cl_sz,nx-cl_sz}, {cl_sz,ny-cl_sz}, args);
+  rhs_IR(dst, src, {cl_sz,nx-cl_sz}, cl_sz, args);
+  rhs_RL(dst, src, cl_sz, args);
+  rhs_RI(dst, src, {cl_sz,ny-cl_sz}, cl_sz, args);
+  rhs_RR(dst, src, cl_sz, args);
+}
 
-  // Corner point
-  rhs_ebc(dst,src,j_end,args...);
-  rhs_nbc(dst,src,i_end,args...);
-  rhs_cl(dst,src,i_end,j_end,args...);
-  // north boundary (exluding corner)
-  for (i = i_end-cl_sz+1; i < i_end; i++) { 
-    rhs_cl(dst,src,i,j_end,args...);
-    rhs_nbc(dst,src,i,args...);
-  }
-  // east boundary (exluding corner)
-  for (j = j_end-cl_sz+1; j < j_end; j++) { 
-    rhs_cl(dst,src,i_end,j,args...); 
-    rhs_ebc(dst,src,j,args...);
-  }
-  // remaining closure region
-  for (j = j_end-cl_sz+1; j < j_end; j++) { 
-    for (i = i_end-cl_sz+1; i < i_end; i++) { 
-      rhs_cl(dst,src,i,j,args...); 
-    }
-  }
+template <typename BCWest,
+          typename BCSouth,
+          typename BCEast,
+          typename BCNorth,
+          typename... Args>
+PetscErrorCode bc(const BCWest& bc_w,
+                  const BCSouth& bc_s,
+                  const BCEast& bc_e,
+                  const BCNorth& bc_n,
+                  grid::grid_function_2d<PetscScalar> dst,
+                  const grid::grid_function_2d<PetscScalar> src,
+                  const std::array<PetscInt,2> idx_start,
+                  const std::array<PetscInt,2> idx_end,
+                  Args... args)
+{
+  const PetscInt i_start = idx_start[0]; 
+  const PetscInt j_start = idx_start[1];
+  const PetscInt i_end = idx_end[0];
+  const PetscInt j_end = idx_end[1];
+  const PetscInt nx = src.mapping().nx();
+  const PetscInt ny = src.mapping().ny();
+  if (idx_start[0] == 0) // West
+    bc_w(dst,src,{j_start, j_end},args...);
+  if (idx_start[0] == nx) // East
+    bc_e(dst,src,{j_start, j_end},args...);
+  if (idx_start[1] == 0) // South
+    bc_s(dst,src,{i_start, i_end},args...); 
+  if (idx_start[1] == ny) // North
+    bc_n(dst,src,{i_start, i_end},args...);
   return 0;
 }
 
-template <typename RhsWestBC,
-          typename RhsEastBC,
-          typename RhsSouthBC,
-          typename RhsNorthBC,
-          typename RhsLClosureX,
-          typename RhsLClosureY,
-          typename RhsRClosureX,
-          typename RhsRClosureY,
-          typename RhsInteriorX,
-          typename RhsInteriorY,
+template <typename BCWest,
+          typename BCSouth,
+          typename BCEast,
+          typename BCNorth,
           typename... Args>
-inline PetscErrorCode rhs_2D_local(const RhsWestBC&,
-                                   const RhsEastBC&,
-                                   const RhsSouthBC&,
-                                   const RhsNorthBC&,
-                                   const RhsLClosureX&,
-                                   const RhsLClosureY&,
-                                   const RhsRClosureX&,
-                                   const RhsRClosureY&,
-                                   const RhsInteriorX&,
-                                   const RhsInteriorY&,
-                                   ...
-                                   Args... args)
+PetscErrorCode bc_single_core(const BCWest& bc_w,
+                              const BCSouth& bc_s,
+                              const BCEast& bc_e,
+                              const BCNorth& bc_n,
+                              grid::grid_function_2d<PetscScalar> dst,
+                              const grid::grid_function_2d<PetscScalar> src
+                              Args... args)
 {
+  const PetscInt nx = src.mapping.nx();
+  const PetscInt ny = src.mapping.ny();
+  bc_w(dst,src,{0,ny},args...);
+  bc_s(dst,src,{0,nx},args...);
+  bc_e(dst,src,{0,ny},args...);
+  bc_n(dst,src,{0,nx},args...);
 }
-
-template <typename RhsWestBC,
-          typename RhsEastBC,
-          typename RhsSouthBC,
-          typename RhsNorthBC,
-          typename RhsLClosureX,
-          typename RhsLClosureY,
-          typename RhsRClosureX,
-          typename RhsRClosureY,
-          typename RhsInteriorX,
-          typename RhsInteriorY,
-          typename... Args>
-inline PetscErrorCode rhs_2D_overlap(const RhsWestBC&,
-                                     const RhsEastBC&,
-                                     const RhsSouthBC&,
-                                     const RhsNorthBC&,
-                                     const RhsLClosureX&,
-                                     const RhsLClosureY&,
-                                     const RhsRClosureX&,
-                                     const RhsRClosureY&,
-                                     const RhsInteriorX&,
-                                     const RhsInteriorY&,
-                                     ...
-                                     Args... args)
-{
-}
-
 
 //=============================================================================
 // Temporary functions
