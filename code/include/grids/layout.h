@@ -17,10 +17,9 @@ namespace grid{
       using index_t = typename Extents::index_type;
 
       // constructor
-      mapping(Extents const& exts, index_t offset, index_t sw, index_t nx) noexcept
+      mapping(Extents const& exts, index_t offset, index_t nx) noexcept
         : _extents(exts),
           _g2l_offset(offset),
-          _sw(sw),
           _nx(nx)
       {
         assert(exts.extent(0) > 0);
@@ -36,11 +35,6 @@ namespace grid{
 
       //------------------------------------------------------------
       // Helper members (not part of the layout concept)
-      constexpr index_t
-      stencil_width() const noexcept {
-        return _sw;
-      }
-
       constexpr index_t
       nx() const noexcept {
         return _nx;
@@ -75,7 +69,6 @@ namespace grid{
 
       Extents _extents;
       index_t _g2l_offset;
-      index_t _sw;
       index_t _nx;      
     };
   };
@@ -91,10 +84,9 @@ namespace grid{
       using index_t = typename Extents::index_type;
 
       // constructor
-      mapping(Extents const& exts, index_t offset, index_t sw, index_t nx, index_t ny) noexcept
+      mapping(Extents const& exts, index_t offset, index_t nx, index_t ny) noexcept
         : _extents(exts),
           _g2l_offset(offset),
-          _sw(sw),
           _nx(nx),
           _ny(ny)
       {
@@ -112,11 +104,6 @@ namespace grid{
 
       //------------------------------------------------------------
       // Helper members (not part of the layout concept)
-      constexpr index_t
-      stencil_width() const noexcept {
-        return _sw;
-      }
-
       constexpr index_t
       nx() const noexcept {
         return _nx;
@@ -162,7 +149,6 @@ namespace grid{
 
       Extents _extents;
       index_t _g2l_offset;
-      index_t _sw;
       index_t _nx,_ny;
     };
   };

@@ -13,12 +13,11 @@ namespace grid
 
         // Get the offsets this process has.
         DMDAGetCorners(da,&processor_offset,NULL,NULL,NULL,NULL,NULL);
-        stencil_offset = -sw;
-        if (processor_offset == 0) stencil_offset = 0; // Left boundary, no ghost points.
+        stencil_offset = (processor_offset == 0) ? 0 : -sw; // If on left boundary, no offset, otherwise offset by DMDA stencil size (halo size).
         
         // Compute global to local offset. 
         g2l_offset = -(dofs*(processor_offset+stencil_offset));
-        return grid::partitioned_layout_1d(grid::extents_1d(nlocal,dofs),g2l_offset,sw,nx);
+        return grid::partitioned_layout_1d(grid::extents_1d(nlocal,dofs),g2l_offset,nx);
     }
 
     partitioned_layout_2d create_layout_2d(const DM& da)
@@ -31,18 +30,15 @@ namespace grid
         // Get the offsets this process has.
         DMDAGetCorners(da,&processor_x_offset,&processor_y_offset,NULL,NULL,NULL,NULL);
         
-        stencil_x_offset =  -sw;
-        if (processor_x_offset == 0) stencil_x_offset = 0; // Left boundary, no left ghost points.
-
-        stencil_y_offset = -sw;
-        if (processor_y_offset == 0) stencil_y_offset = 0; // Bottom boundary, no bottom ghost points.
+        stencil_x_offset = (processor_x_offset == 0) ? 0 : -sw; // If on west boundary, no offset, otherwise offset by DMDA stencil width (halo size).
+        stencil_y_offset = (processor_y_offset == 0) ? 0 : -sw; // If on south boundary, no offset, otherwise offset by DMDA stencil width (halo size).
         
         // Compute global to local offset. 
         g2l_x_offset = -(processor_x_offset+stencil_x_offset);
         g2l_y_offset = -(processor_y_offset+stencil_y_offset);
         g2l_offset = dofs*(g2l_x_offset + nxg*g2l_y_offset);
         
-        return grid::partitioned_layout_2d(grid::extents_2d(nxg,nyg,dofs),g2l_offset,sw,nx,ny);
+        return grid::partitioned_layout_2d(grid::extents_2d(nxg,nyg,dofs),g2l_offset,nx,ny);
     }
 
 }
