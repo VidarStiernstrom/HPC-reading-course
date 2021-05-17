@@ -27,7 +27,7 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 #include "sbpops/D1_central.h"
 #include "sbpops/H_central.h"
 #include "sbpops/HI_central.h"
-#include "diffops/acowave.h"
+#include "diffops/wave_eq.h"
 #include "timestepping.h"
 #include "appctx.h"
 #include "grids/grid_function.h"
@@ -276,16 +276,16 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
   auto gf_src = grid::grid_function_2d<PetscScalar>(array_src, appctx->layout);
   auto gf_dst = grid::grid_function_2d<PetscScalar>(array_dst, appctx->layout);
 
-  VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::acowave_apply_2D_inner(t, appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
-  VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::acowave_apply_2D_outer(t, appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  // VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
+  // sbp::acowave_apply_2D_inner(t, appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  // VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
+  // sbp::acowave_apply_2D_outer(t, appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
   
   // VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   // VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   // sbp::acowave_apply_2D_all(t, appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
-
-  // sbp::acowave_apply_2D_1p(t, appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->N, appctx->xl, appctx->hi, appctx->sw);
+  wave_eq_single_core(gf_dst, gf_src, appctx->D1.closure_size(), appctx->D1, appctx->hi, appctx->xl, t);
+  wave_eq_free_surface_bc_single_core(gf_dst, gf_src, appctx->HI, appctx->hi);
 
   // Restore arrays
   VecRestoreArray(v_src,&array_src);
