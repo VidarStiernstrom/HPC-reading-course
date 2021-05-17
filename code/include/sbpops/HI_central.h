@@ -11,16 +11,16 @@ namespace sbp {
   * weights for the boundary closures and contains methods for applying the operator to a grid function
   * vector. 
   **/
-  template <typename InverseQuadrature, PetscInt n_closures>
+  template <typename InverseQuadrature, PetscInt cls_sz>
   class HI_central{
   public:
     constexpr HI_central(){};
     /**
-    * Convenience function returning the ranges number of boundary closures n_closures.
+    * Convenience function returning the ranges number of boundary closures cls_sz.
     **/
-    inline constexpr PetscInt get_n_closures() const
+    inline constexpr PetscInt closure_size() const
     {
-      return n_closures;
+      return cls_sz;
     };
 
     //=============================================================================
@@ -67,7 +67,7 @@ namespace sbp {
     *
     * Output: HI[i][i]*v[i][comp]
     **/
-    inline PetscScalar apply_2D_x_left(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hi, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_x_left(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hi, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       return hi*static_cast<const InverseQuadrature&>(*this).closure_invquad[i]*v(j,i,comp);
     };
@@ -81,7 +81,7 @@ namespace sbp {
     *
     * Output: HI[i][i]*v[i][comp]
     **/
-    inline PetscScalar apply_2D_y_left(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hi, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_y_left(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hi, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       return hi*static_cast<const InverseQuadrature&>(*this).closure_invquad[j]*v(j,i,comp);
     };
@@ -96,7 +96,7 @@ namespace sbp {
     *
     * Output: HI[i][i]*v[i][comp]
     **/
-    inline PetscScalar apply_2D_x_right(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hi, const PetscInt N, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_x_right(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hi, const PetscInt N, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       return hi*static_cast<const InverseQuadrature&>(*this).closure_invquad[N-i-1]*v(j,i,comp);
     };
@@ -111,7 +111,7 @@ namespace sbp {
     *
     * Output: HI[i][i]*v[i][comp]
     **/
-    inline PetscScalar apply_2D_y_right(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hi, const PetscInt N, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    inline PetscScalar apply_y_right(const grid::grid_function_2d<PetscScalar> v, const PetscScalar hi, const PetscInt N, const PetscInt i, const PetscInt j, const PetscInt comp) const
     {
       return hi*static_cast<const InverseQuadrature&>(*this).closure_invquad[N-j-1]*v(j,i,comp);
     };
