@@ -284,8 +284,8 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
   // VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   // VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   // sbp::acowave_apply_2D_all(t, appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
-  wave_eq_single_core(gf_dst, gf_src, appctx->D1.closure_size(), appctx->D1, appctx->hi, appctx->xl, t);
-  wave_eq_free_surface_bc_single_core(gf_dst, gf_src, appctx->HI, appctx->hi);
+  wave_eq_serial(gf_dst, gf_src, appctx->D1.closure_size(), appctx->D1, appctx->hi, appctx->xl, t);
+  wave_eq_free_surface_bc_serial(gf_dst, gf_src, appctx->HI, appctx->hi);
 
   // Restore arrays
   VecRestoreArray(v_src,&array_src);
