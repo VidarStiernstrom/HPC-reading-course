@@ -24,6 +24,7 @@ GPROF			= -pg -fprofile-dir=/$(PROF_PATH)
 PROFILING		= false
 COVERAGE		= false
 
+
 ifeq ($(strip $(ORDER)),)
 ORDER			= 4
 ORDER_MSG		= ORDER not set. Compiling acoustic_wave_sim with $(ORDER)
@@ -61,7 +62,7 @@ endif
 acoustic_wave_sim.o: $(SRC_PATH)acoustic_wave_sim/acoustic_wave_sim.cpp $(INCLUDE_PATH)acoustic_wave_eq/wave_eq_rhs.h $(INCLUDE_PATH)$(wildcard sbpops/*.h)
 ifeq (${PROFILING}, true)
 	echo $(ORDER_MSG)
-	-${CXX} ${CXXFLAGS} ${GPROF} -c $(SRC_PATH)acoustic_wave_sim/acoustic_wave_sim.cpp -DSBP_OPERATOR_ORDER=$(ORDER)
+	-${CXX} ${CXXFLAGS} ${GPROF} -fopt-info-vec-optimized -c $(SRC_PATH)acoustic_wave_sim/acoustic_wave_sim.cpp -DSBP_OPERATOR_ORDER=$(ORDER)
 	mv acoustic_wave_sim.o $(OBJ_PATH)acoustic_wave_sim.o
 else
 ifeq (${COVERAGE}, true)
@@ -70,7 +71,7 @@ ifeq (${COVERAGE}, true)
 	mv acoustic_wave_sim.o $(OBJ_PATH)acoustic_wave_sim.o
 else
 	echo $(ORDER_MSG)
-	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)acoustic_wave_sim/acoustic_wave_sim.cpp -DSBP_OPERATOR_ORDER=$(ORDER)
+	-${CXX} ${CXXFLAGS} -fopt-info-vec-optimized -c $(SRC_PATH)acoustic_wave_sim/acoustic_wave_sim.cpp -DSBP_OPERATOR_ORDER=$(ORDER)
 	mv acoustic_wave_sim.o $(OBJ_PATH)acoustic_wave_sim.o
 endif
 endif
@@ -138,20 +139,18 @@ endif
 
 # Link object files to create binaries in BIN_PATH/
 wave_eq_benchmark: benchmark/wave_eq_rhs_II_benchmark.cpp $(INCLUDE_PATH)$(wildcard sbpops/*.h) $(INCLUDE_PATH)acoustic_wave_eq/wave_eq_rhs.h
-	-${CXX} ${CXXFLAGS} $(COPTFLAGS) ${GPROF} -o wave_eq_benchmark benchmark/wave_eq_rhs_II_benchmark.cpp -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
+ifeq (${PROFILING}, true)
+	-${CXX} ${CXXFLAGS} ${GPROF} -fopt-info-vec-optimized -o wave_eq_benchmark benchmark/wave_eq_rhs_II_benchmark.cpp -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
 	mv wave_eq_benchmark $(BIN_PATH)
-
-
-# (${PROFILING}, true)
-# else
-# ifeq (${COVERAGE}, true)
-# 	-${CXX} -o $@ ${GCOV} $(OBJ_PATH)acoustic_wave_sim.o ${PETSC_SYS_LIB}
-# 	mv acoustic_wave_sim $(BIN_PATH)acoustic_wave_sim
-# else
-# 	-${CXX} -o $@ $(OBJ_PATH)acoustic_wave_sim.o ${PETSC_SYS_LIB}
-# 	mv acoustic_wave_sim $(BIN_PATH)acoustic_wave_sim
-# endif
-# endif
+else
+ifeq (${COVERAGE}, true)
+	-${CXX} ${CXXFLAGS} $(COPTFLAGS) ${GCOV} -o wave_eq_benchmark benchmark/wave_eq_rhs_II_benchmark.cpp -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
+	mv wave_eq_benchmark $(BIN_PATH)
+else
+	-${CXX} ${CXXFLAGS} $(COPTFLAGS) -fopt-info-vec-optimized -fno-inline -o wave_eq_benchmark benchmark/wave_eq_rhs_II_benchmark.cpp -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
+	mv wave_eq_benchmark $(BIN_PATH)
+endif
+endif
 
 #.PHONY : clean
 init:

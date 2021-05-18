@@ -1,5 +1,11 @@
 static char help[] ="Solves the 2D acoustic wave equation on first order form: u_t = A*u_x + B*u_y, A = [0,0,-1;0,0,0;-1,0,0], B = [0,0,0;0,0,-1;0,-1,0].";
 
+/**
+ * Program to benchmark isolated functions that use the majority of the total runtime
+ *
+ *
+ *
+ **/
 #include <array>
 #include "sbpops/op_defs.h"
 #include <petsc.h>
@@ -10,20 +16,26 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 template <class SbpDerivative>
 void wave_eq_rhs_II_benchmark(
                               const SbpDerivative& D1,
-                              const double *const *const *const q,
-                              double *const *const *const F,
-                              const int i_xstart,
-                              const int i_xend,
-                              const int i_ystart,
-                              const int i_yend,
-                              const std::array<double,2>& xl,
-                              const std::array<double,2>& hi)
+                              const PetscScalar *const *const *const q,
+                              PetscScalar *const *const *const F,
+                              const PetscInt i_xstart,
+                              const PetscInt i_xend,
+                              const PetscInt i_ystart,
+                              const PetscInt i_yend,
+                              const std::array<PetscScalar,2>& xl,
+                              const std::array<PetscScalar,2>& hi)
 {
-  int i,j;
+  PetscInt i,j;
   for (j = i_ystart; j < i_yend; j++)
   {
     for (i = i_xstart; i < i_xend; i++)
     {
+      // time
+      //   inv = -rho_inv(i, j, hi, xl)
+      // time
+      //   d1 = d1.apply
+      //   F[j][i][0]
+
       F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q, hi[0], i, j, 2);
       F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q, hi[1], i, j, 2);
       F[j][i][2] = -D1.apply_x_interior(q, hi[0], i, j, 0) - D1.apply_y_interior(q, hi[1], i, j, 1);
@@ -34,15 +46,16 @@ void wave_eq_rhs_II_benchmark(
 template <class SbpDerivative>
 void wave_eq_rhs_serial_benchmark(
                                   const SbpDerivative& D1,
-                                  const double *const *const *const q,
-                                  double *const *const *const F,
-                                  const int N,
-                                  const std::array<double,2>& xl,
-                                  const std::array<double,2>& hi)
+                                  const PetscScalar *const *const *const q,
+                                  PetscScalar *const *const *const F,
+                                  const PetscInt N,
+                                  const std::array<PetscScalar,2>& xl,
+                                  const std::array<PetscScalar,2>& hi)
 {
-  const int cl_sz = D1.closure_size();
+  const PetscInt cl_sz = D1.closure_size();
 
   wave_eq_rhs_II_benchmark(D1, q, F, cl_sz, N-cl_sz, cl_sz, N-cl_sz, xl, hi);
+
 }
 
 /**
@@ -51,7 +64,7 @@ void wave_eq_rhs_serial_benchmark(
 * appctx - application context, contains necessary information
 * q - vector to store analytic solution
 **/
-PetscErrorCode setup(DM da, int n, Vec q) {
+PetscErrorCode setup(DM da, PetscInt n, Vec q) {
   PetscInt i, j;
   PetscScalar ***q_arr;
 
@@ -62,9 +75,9 @@ PetscErrorCode setup(DM da, int n, Vec q) {
     for (i = 0; i < n; i++)
     {
       // change rhs to random doubles
-      q_arr[j][i][0] = (double)rand() / RAND_MAX;
-      q_arr[j][i][1] = (double)rand() / RAND_MAX;
-      q_arr[j][i][2] = (double)rand() / RAND_MAX;
+      q_arr[j][i][0] = (PetscScalar)rand() / RAND_MAX;
+      q_arr[j][i][1] = (PetscScalar)rand() / RAND_MAX;
+      q_arr[j][i][2] = (PetscScalar)rand() / RAND_MAX;
     }
   }
 
@@ -77,16 +90,16 @@ int main(int argc,char **argv)
   DM da;
   PetscMPIInt    size, rank;
   const DifferenceOp D1;
-  int turns = 2000;
-  int N = 101;
-  int dofs = 3;
-  double hx = (2.)/(N-1);
-  double hy = (2.)/(N-1);
-  std::array<double,2> xl = {-1,-1};
-  std::array<double,2> hi = {1./hx, 1./hy};
+  PetscInt turns = 1000;
+  PetscInt N = 401;
+  PetscInt dofs = 3;
+  PetscScalar hx = (2.)/(N-1);
+  PetscScalar hy = (2.)/(N-1);
+  std::array<PetscScalar,2> xl = {-1,-1};
+  std::array<PetscScalar,2> hi = {1./hx, 1./hy};
   Vec q,F;
-  double*** q_arr;
-  double*** F_arr;
+  PetscScalar*** q_arr;
+  PetscScalar*** F_arr;
 
   PetscInitialize(&argc,&argv,(char*)0,help);
   MPI_Comm_size(PETSC_COMM_WORLD,&size);
@@ -95,7 +108,7 @@ int main(int argc,char **argv)
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Create distributed array (DMDA) to manage parallel grid and vectors
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  double sw = (D1.interior_stencil_size()-1)/2;
+  PetscScalar sw = (D1.interior_stencil_size()-1)/2;
   DMDACreate2d(PETSC_COMM_WORLD,DM_BOUNDARY_NONE,DM_BOUNDARY_NONE,DMDA_STENCIL_STAR,
                N,N,PETSC_DECIDE,PETSC_DECIDE,dofs,sw,NULL,NULL,&da);
   DMSetFromOptions(da);
@@ -113,7 +126,8 @@ int main(int argc,char **argv)
   DMDAVecGetArrayDOF(da,q,&q_arr);
   DMDAVecGetArrayDOF(da,F,&F_arr);
 
-  for (int i = 0; i < turns; i++) {
+
+  for (PetscInt i = 0; i < turns; i++) {
     wave_eq_rhs_serial_benchmark(D1, q_arr, F_arr, N, xl, hi);
   }
 
