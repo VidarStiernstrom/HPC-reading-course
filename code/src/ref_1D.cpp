@@ -66,7 +66,7 @@ int main(int argc,char **argv)
   auto a = [](const PetscInt i){ return 1.5;};
 
   // Set if data should be written.
-  write_data = PETSC_FALSE;
+  write_data = PETSC_TRUE;
 
   PetscScalar L = xr - xl; // domain width
   if ((Tend < L - L/4) || (Tend > L + L/4)) {
@@ -259,17 +259,17 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
   PetscScalar       *array_src, *array_dst;
 
   VecGetArray(v_src,&array_src);
-  VecGetArray(v_dst,&array_dst);
-  VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
+  VecGetArray(v_dst,&array_dst);  
   auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, appctx->layout);
   auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, appctx->layout);
-  sbp::reflection_local(gf_dst, gf_src, appctx->i_start[0], appctx->i_end[0], appctx->D1, appctx->hi[0]);
+  VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
+  sbp::reflection_local(gf_dst, gf_src, {appctx->i_start[0], appctx->i_end[0]}, appctx->sw, appctx->D1, appctx->hi[0]);
+  sbp::reflection_bc(gf_dst, gf_src, {appctx->i_start[0], appctx->i_end[0]});
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::reflection_overlap(gf_dst, gf_src, appctx->i_start[0], appctx->i_end[0], appctx->D1, appctx->hi[0]);
-
-  //sbp::reflection(gf_dst, gf_src, appctx->N[0], appctx->i_start[0], appctx->i_end[0], appctx->D1, appctx->hi[0]);
-  //sbp::reflection_single_core(appctx->D1, gf_src, gf_dst, appctx->N[0], appctx->hi[0]);
-
+  sbp::reflection_overlap(gf_dst, gf_src, {appctx->i_start[0], appctx->i_end[0]}, appctx->sw, appctx->D1, appctx->hi[0]);
+  // sbp::reflection_serial(gf_dst, gf_src, appctx->D1, appctx->hi[0]);
+  // sbp::reflection_bc_serial(gf_dst, gf_src);  
+  
 
   // Restore arrays
   VecRestoreArray(v_src, &array_src);

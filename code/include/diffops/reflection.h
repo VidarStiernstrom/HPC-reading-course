@@ -2,65 +2,50 @@
 
 #include<petscsystypes.h>
 #include "grids/grid_function.h"
-#include "diffops/partitioned_apply.h"
+#include "partitioned_rhs/rhs.h"
+#include "partitioned_rhs/boundary_conditions.h"
 
 // Approximate RHS of reflection problem, [u;v]_t = [v_x;u_x]
 namespace sbp{
 
 template <class SbpDerivative>
-inline void reflection_lb(grid::grid_function_1d<PetscScalar> dst,
+inline void reflection_l(grid::grid_function_1d<PetscScalar> dst,
                           const grid::grid_function_1d<PetscScalar> src, 
+                          const PetscInt cls_sz,
                           const SbpDerivative& D1, 
                           const PetscScalar hi)
 {
-  const PetscInt i = 0;
-  dst(i,1) = D1.apply_left(src,hi,i,0);
-  dst(i,0) = 0.0;
+  for (PetscInt i = 0; i < cls_sz; i++){
+    dst(i,1) = D1.apply_left(src,hi,i,0);
+    dst(i,0) = D1.apply_left(src,hi,i,1);  
+  }
 };
 
 template <class SbpDerivative>
-inline void reflection_lc(grid::grid_function_1d<PetscScalar> dst,
+inline void reflection_i(grid::grid_function_1d<PetscScalar> dst,
                           const grid::grid_function_1d<PetscScalar> src, 
-                          const PetscInt i,
+                          const std::array<PetscInt,2>& ind_i,
                           const SbpDerivative& D1, 
                           const PetscScalar hi)
 {
-  dst(i,1) = D1.apply_left(src,hi,i,0);
-  dst(i,0) = D1.apply_left(src,hi,i,1);
-};
-
-
-template <class SbpDerivative>
-inline void reflection_int(grid::grid_function_1d<PetscScalar> dst,
-                          const grid::grid_function_1d<PetscScalar> src, 
-                          const PetscInt i,
-                          const SbpDerivative& D1, 
-                          const PetscScalar hi)
-{
-  dst(i,1) = D1.apply_interior(src,hi,i,0);
-  dst(i,0) = D1.apply_interior(src,hi,i,1);
+  for (PetscInt i = ind_i[0]; i<ind_i[1]; i++) {
+    dst(i,1) = D1.apply_interior(src,hi,i,0);
+    dst(i,0) = D1.apply_interior(src,hi,i,1);
+  }
 };
 
 template <class SbpDerivative>
-inline void reflection_rc(grid::grid_function_1d<PetscScalar> dst,
+inline void reflection_r(grid::grid_function_1d<PetscScalar> dst,
                           const grid::grid_function_1d<PetscScalar> src, 
-                          const PetscInt i,
+                          const PetscInt cls_sz,
                           const SbpDerivative& D1, 
                           const PetscScalar hi)
 {
-  dst(i,1) = D1.apply_right(src,hi,i,0);
-  dst(i,0) = D1.apply_right(src,hi,i,1);
-};
-
-template <class SbpDerivative>
-inline void reflection_rb(grid::grid_function_1d<PetscScalar> dst,
-                          const grid::grid_function_1d<PetscScalar> src, 
-                          const SbpDerivative& D1, 
-                          const PetscScalar hi)
-{
-  const PetscInt i = src.mapping().nx()-1;
-  dst(i,1) = D1.apply_right(src,hi,i,0);
-  dst(i,0) = 0.0;
+  const PetscInt nx = src.mapping().nx();
+  for (PetscInt i = nx-cls_sz; i < nx; i++) {
+    dst(i,1) = D1.apply_right(src,hi,i,0);
+    dst(i,0) = D1.apply_right(src,hi,i,1);
+  }
 };
 
 /**
@@ -74,15 +59,16 @@ inline void reflection_rb(grid::grid_function_1d<PetscScalar> dst,
 *         hi        - Inverse step length
 **/
 template <class SbpDerivative>
-inline PetscErrorCode reflection_local(grid::grid_function_1d<PetscScalar> dst,
-                                       const grid::grid_function_1d<PetscScalar> src,
-                                       const PetscInt i_start,
-                                       const PetscInt i_end,
-                                       const SbpDerivative& D1,
-                                       const PetscScalar hi)
+inline void reflection_local(grid::grid_function_1d<PetscScalar> dst,
+                             const grid::grid_function_1d<PetscScalar> src,
+                             const std::array<PetscInt,2>& ind_i,
+                             const PetscInt halo_size,
+                             const SbpDerivative& D1,
+                             const PetscScalar hi)
 {
-  return rhs_1D_local(reflection_lb<decltype(D1)>, reflection_lc<decltype(D1)>, reflection_int<decltype(D1)>, reflection_rc<decltype(D1)>, reflection_rb<decltype(D1)>,
-                      dst, src, D1.closure_size(), i_start, i_end, D1, hi);
+  const PetscInt cls_sz = D1.closure_size();
+  rhs_local(reflection_l<decltype(D1)>, reflection_i<decltype(D1)>, reflection_r<decltype(D1)>,
+            dst, src, ind_i, cls_sz, halo_size, D1, hi);
 };
 
 /**
@@ -96,38 +82,14 @@ inline PetscErrorCode reflection_local(grid::grid_function_1d<PetscScalar> dst,
 *         hi        - Inverse step length
 **/
 template <class SbpDerivative>
-inline PetscErrorCode reflection_overlap(grid::grid_function_1d<PetscScalar> dst,
-                                         const grid::grid_function_1d<PetscScalar> src,
-                                         const PetscInt i_start,
-                                         const PetscInt i_end,
-                                         const SbpDerivative& D1,
-                                         const PetscScalar hi)
+inline void reflection_overlap(grid::grid_function_1d<PetscScalar> dst,
+                               const grid::grid_function_1d<PetscScalar> src,
+                               const std::array<PetscInt,2>& ind_i,
+                               const PetscInt halo_size,
+                               const SbpDerivative& D1,
+                               const PetscScalar hi)
 {
-  return rhs_1D_overlap(reflection_lb<decltype(D1)>, reflection_lc<decltype(D1)>, reflection_int<decltype(D1)>, reflection_rc<decltype(D1)>, reflection_rb<decltype(D1)>,
-                        dst, src, D1.closure_size(), i_start, i_end, D1, hi);
-};
-
-
-/**
-* Approximate RHS of reflection problem, [u;v]_t = [v_x;u_x], between indices i_start <= i < i_end. Direct looping.
-* Inputs: D1        - SBP D1 operator
-*         array_src - 2D array containing multi-component input data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
-*         array_src - 2D array containing multi-component output data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
-*         i_start   - Starting index to compute
-*         i_end     - Final index to compute, index < i_end
-*         N         - Global number of points excluding ghost points
-*         hi        - Inverse step length
-**/
-template <class SbpDerivative>
-inline PetscErrorCode reflection(grid::grid_function_1d<PetscScalar> dst,
-                                 const grid::grid_function_1d<PetscScalar> src,
-                                 const PetscInt i_start,
-                                 const PetscInt i_end,
-                                 const SbpDerivative& D1,
-                                 const PetscScalar hi)
-{
-  return rhs_1D(reflection_lb<decltype(D1)>, reflection_lc<decltype(D1)>, reflection_int<decltype(D1)>, reflection_rc<decltype(D1)>, reflection_rb<decltype(D1)>,
-                dst, src, D1.closure_size(), i_start, i_end, D1, hi);
+  rhs_overlap(reflection_i<decltype(D1)>, dst, src,  ind_i, halo_size, D1, hi);
 };
 
 /**
@@ -135,56 +97,43 @@ inline PetscErrorCode reflection(grid::grid_function_1d<PetscScalar> dst,
 * Inputs: D1        - SBP D1 operator
 **/
 template <class SbpDerivative>
-inline PetscErrorCode reflection_single_core(grid::grid_function_1d<PetscScalar> dst,
-                                             const grid::grid_function_1d<PetscScalar> src,
-                                             const SbpDerivative& D1,
-                                             const PetscScalar hi)
+inline void reflection_serial(grid::grid_function_1d<PetscScalar> dst,
+                              const grid::grid_function_1d<PetscScalar> src,
+                              const SbpDerivative& D1,
+                              const PetscScalar hi)
 {
-  return rhs_1D_single_core(reflection_lb, reflection_lc, reflection_int,reflection_rc, reflection_rb,
-                            dst, src, D1.closure_size(), D1, hi);
+  const PetscInt cls_sz = D1.closure_size();
+  rhs_serial(reflection_l<decltype(D1)>, reflection_i<decltype(D1)>, reflection_r<decltype(D1)>,
+                    dst, src, cls_sz, D1, hi);
 };
 
-  /**
-  * Approximate RHS of reflection problem, [u;v]_t = [v_x;u_x], between indices i_start <= i < i_end. "Smart" looping.
-  * Inputs: D1        - SBP D1 operator
-  *         array_src - 2D array containing multi-component input data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
-  *         array_src - 2D array containing multi-component output data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
-  *         i_start   - Starting index to compute
-  *         i_end     - Final index to compute, index < i_end
-  *         N         - Global number of points excluding ghost points
-  *         hi        - Inverse step length
-  **/
-  template <class SbpDerivative>
-  inline PetscErrorCode reflection_old(const SbpDerivative& D1, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, PetscInt N, PetscScalar hi)
-  {
-    PetscInt i;
-    const auto [iw, n_closures, closure_width] = D1.get_ranges();
+inline void proj_dirichlet_bc_l(grid::grid_function_1d<PetscScalar> dst,
+                                const grid::grid_function_1d<PetscScalar> src)
+{
+  const PetscInt i = 0;
+  dst(i,0) = 0.0;
+};
 
-    if (i_start == 0) {
-      for (i = 0; i < n_closures; i++) 
-      { 
-        dst(i,1) = D1.apply_left(src,hi,i,0);
-        dst(i,0) = D1.apply_left(src,hi,i,1);
-      }
-      i_start = n_closures;
-    }
+inline void proj_dirichlet_bc_r(grid::grid_function_1d<PetscScalar> dst,
+                                const grid::grid_function_1d<PetscScalar> src)
+{
+  const PetscInt i = src.mapping().nx()-1;
+  dst(i,0) = 0.0;
+};
 
-    if (i_end == N) {
-      for (i = N-n_closures; i < N; i++)
-      {
-          dst(i,1) = D1.apply_right(src,hi,i,0);
-          dst(i,0) = D1.apply_right(src,hi,i,1);
-      }
-      i_end = N-n_closures;
-    }
+inline void reflection_bc(grid::grid_function_1d<PetscScalar> dst,
+                          const grid::grid_function_1d<PetscScalar> src,
+                          const std::array<PetscInt,2>& ind_i)
+{
+  bc(proj_dirichlet_bc_l,proj_dirichlet_bc_r,dst,src,ind_i);
+};
 
-    for (i = i_start; i < i_end; i++)
-    {
-      dst(i,1) = D1.apply_interior(src,hi,i,0);
-      dst(i,0) = D1.apply_interior(src,hi,i,1);
-    }
+inline void reflection_bc_serial(grid::grid_function_1d<PetscScalar> dst,
+                                 const grid::grid_function_1d<PetscScalar> src)
+{
+  bc_serial(proj_dirichlet_bc_l,proj_dirichlet_bc_r,dst,src);
+};
 
-    return 0;
-  };
+
 
 } //namespace sbp
