@@ -50,24 +50,20 @@ void bc(const BCWest& bc_w,
         const BCNorth& bc_n,
               grid::grid_function_2d<PetscScalar> dst,
         const grid::grid_function_2d<PetscScalar> src,
-        const std::array<PetscInt,2> idx_start,
-        const std::array<PetscInt,2> idx_end,
+        const std::array<PetscInt,2>& ind_i,
+        const std::array<PetscInt,2>& ind_j,
               Args... args)
 {
-  const PetscInt i_start = idx_start[0]; 
-  const PetscInt j_start = idx_start[1];
-  const PetscInt i_end = idx_end[0];
-  const PetscInt j_end = idx_end[1];
   const PetscInt nx = src.mapping().nx();
   const PetscInt ny = src.mapping().ny();
-  if (idx_start[0] == 0) // West
-    bc_w(dst,src,{j_start, j_end},args...);
-  if (idx_start[0] == nx) // East
-    bc_e(dst,src,{j_start, j_end},args...);
-  if (idx_start[1] == 0) // South
-    bc_s(dst,src,{i_start, i_end},args...); 
-  if (idx_start[1] == ny) // North
-    bc_n(dst,src,{i_start, i_end},args...);
+  if (ind_i[0] == 0) // West
+    bc_w(dst,src,ind_j,args...);
+  if (ind_i[1] == nx) // East
+    bc_e(dst,src,ind_j,args...);
+  if (ind_j[0] == 0) // South
+    bc_s(dst,src,ind_i,args...); 
+  if (ind_j[1] == ny) // North
+    bc_n(dst,src,ind_i,args...);
 }
 
 template <typename BCWest,

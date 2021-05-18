@@ -114,28 +114,28 @@ void rhs_local(const RhsLL& rhs_ll,
                const RhsRR& rhs_rr,
                      grid::grid_function_2d<PetscScalar> dst,
                const grid::grid_function_2d<PetscScalar> src,
-               const std::array<PetscInt,2>& idx_start,
-               const std::array<PetscInt,2>& idx_end,
+               const std::array<PetscInt,2>& ind_i,
+               const std::array<PetscInt,2>& ind_j,
                const PetscInt cls_sz,
                const PetscInt halo_sz,
                Args... args)
 {
-  const PetscInt i_start = idx_start[0] + halo_sz; 
-  const PetscInt j_start = idx_start[1] + halo_sz;
-  const PetscInt i_end = idx_end[0] - halo_sz;
-  const PetscInt j_end = idx_end[1] - halo_sz;
+  const PetscInt i_start = ind_i[0] + halo_sz; 
+  const PetscInt i_end = ind_i[1] - halo_sz;
+  const PetscInt j_start = ind_j[0] + halo_sz;
+  const PetscInt j_end = ind_j[1] - halo_sz;
   const PetscInt nx = src.mapping().nx();
   const PetscInt ny = src.mapping().ny();
 
-  if (idx_start[1] == 0)  // BOTTOM
+  if (ind_j[0] == 0)  // BOTTOM
   {
-    if (idx_start[0] == 0) // BOTTOM LEFT
+    if (ind_i[0] == 0) // BOTTOM LEFT
     {
       rhs_ll(dst, src, cls_sz, args...);
       rhs_il(dst, src, {cls_sz, i_end}, cls_sz, args...);
       rhs_li(dst, src, {cls_sz, j_end}, cls_sz, args...);
       rhs_ii(dst, src, {cls_sz, i_end}, {cls_sz, j_end}, args...); 
-    } else if (idx_end[0] == nx) // BOTTOM RIGHT
+    } else if (ind_i[1] == nx) // BOTTOM RIGHT
     { 
       rhs_rl(dst, src, cls_sz, args...);
       rhs_il(dst, src, {i_start, nx-cls_sz}, cls_sz, args...);
@@ -146,15 +146,15 @@ void rhs_local(const RhsLL& rhs_ll,
       rhs_il(dst, src, {i_start, i_end}, cls_sz, args...);
       rhs_ii(dst, src, {i_start, i_end}, {cls_sz, j_end}, args...); 
     }
-  } else if (idx_end[1] == ny) // TOP
+  } else if (ind_j[1] == ny) // TOP
   {
-    if (idx_start[0] == 0) // TOP LEFT
+    if (ind_i[0] == 0) // TOP LEFT
     {
       rhs_lr(dst, src, cls_sz, args...);
       rhs_ir(dst, src, {cls_sz, i_end}, cls_sz, args...);
       rhs_li(dst, src, {j_start, ny - cls_sz}, cls_sz, args...);
       rhs_ii(dst, src, {cls_sz, i_end}, {j_start, ny-cls_sz}, args...);  
-    } else if (idx_end[0] == nx) // TOP RIGHT
+    } else if (ind_i[1] == nx) // TOP RIGHT
     { 
       rhs_rr(dst, src, cls_sz, args...);
       rhs_ir(dst, src, {i_start, nx-cls_sz}, cls_sz, args...);
@@ -165,11 +165,11 @@ void rhs_local(const RhsLL& rhs_ll,
       rhs_ir(dst, src, {i_start, i_end}, cls_sz, args...);
       rhs_ii(dst, src, {i_start, i_end}, {j_start,  ny - cls_sz}, args...);
     }
-  } else if (idx_start[0] == 0) // LEFT NOT BOTTOM OR TOP
+  } else if (ind_i[0] == 0) // LEFT NOT BOTTOM OR TOP
   { 
     rhs_li(dst, src, {j_start, j_end}, cls_sz, args...);
     rhs_ii(dst, src, {cls_sz, i_end}, {j_start, j_end}, args...);
-  } else if (idx_end[0] == nx) // RIGHT NOT BOTTOM OR TOP
+  } else if (ind_i[1] == nx) // RIGHT NOT BOTTOM OR TOP
   {
     rhs_ri(dst, src, {j_start, j_end}, cls_sz, args...);
     rhs_ii(dst, src, {i_start, nx - cls_sz}, {j_start, j_end}, args...);
@@ -192,16 +192,16 @@ void rhs_overlap(const RhsLI& rhs_li,
                  const RhsRI& rhs_ri,
                        grid::grid_function_2d<PetscScalar> dst,
                  const grid::grid_function_2d<PetscScalar> src,
-                 const std::array<PetscInt,2>& idx_start,
-                 const std::array<PetscInt,2>& idx_end,
+                 const std::array<PetscInt,2>& ind_i,
+                 const std::array<PetscInt,2>& ind_j,
                  const PetscInt cls_sz,
                  const PetscInt halo_sz,
                        Args... args)
 {
-  const PetscInt i_start = idx_start[0]; 
-  const PetscInt j_start = idx_start[1];
-  const PetscInt i_end = idx_end[0];
-  const PetscInt j_end = idx_end[1];
+  const PetscInt i_start = ind_i[0]; 
+  const PetscInt i_end = ind_i[1];
+  const PetscInt j_start = ind_j[0];
+  const PetscInt j_end = ind_j[1];
   const PetscInt nx = src.mapping().nx();
   const PetscInt ny = src.mapping().ny();
 
@@ -224,8 +224,8 @@ void rhs_overlap(const RhsLI& rhs_li,
       rhs_il(dst, src, {i_start, i_start+halo_sz}, cls_sz, args...);
       rhs_il(dst, src, {i_end-halo_sz, i_end}, cls_sz, args...);
       rhs_ii(dst, src, {i_start, i_start+halo_sz}, {cls_sz, j_end-halo_sz}, args...); 
-      rhs_ii(dst, src, {i_end-halo_sz, i_end}, cls_sz, j_end-halo_sz, args...); 
-      rhs_ii(dst, src, {i_start, i_end}, {j_end-halo_sz, j_end}, args...); 
+      rhs_ii(dst, src, {i_end-halo_sz, i_end}, {cls_sz, j_end-halo_sz}, args...); 
+      rhs_ii(dst, src, ind_i, {j_end-halo_sz, j_end}, args...); 
     }
   } else if (j_end == ny) // TOP
   {
@@ -265,8 +265,8 @@ void rhs_overlap(const RhsLI& rhs_li,
     rhs_ii(dst, src, {i_start, i_start+halo_sz}, {j_start+halo_sz, j_end-halo_sz}, args...);
   } else // CENTER
   {
-    rhs_ii(dst, src, {i_start, i_start+halo_sz}, {j_start, j_end}, args...);
-    rhs_ii(dst, src, {i_end-halo_sz, i_end}, {j_start, j_end}, args...);
+    rhs_ii(dst, src, {i_start, i_start+halo_sz}, ind_j, args...);
+    rhs_ii(dst, src, {i_end-halo_sz, i_end}, ind_j, args...);
     rhs_ii(dst, src, {i_start+halo_sz, i_end-halo_sz}, {j_end-halo_sz, j_end}, args...);
     rhs_ii(dst, src, {i_start+halo_sz, i_end-halo_sz}, {j_start, j_start+halo_sz}, args...);
   }
