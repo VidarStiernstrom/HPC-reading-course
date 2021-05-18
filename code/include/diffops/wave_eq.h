@@ -325,14 +325,58 @@ void wave_eq_rhs_RR(grid::grid_function_2d<PetscScalar> F,
 }
 
 template <class SbpDerivative>
+void wave_eq_local(grid::grid_function_2d<PetscScalar> F,
+                    const grid::grid_function_2d<PetscScalar> q,
+                    const std::array<PetscInt,2>& ind_i,
+                    const std::array<PetscInt,2>& ind_j,
+                    const PetscInt halo_sz,
+                    const SbpDerivative& D1,
+                    const std::array<PetscScalar,2>& hi,
+                    const std::array<PetscScalar,2>& xl,
+                    const PetscScalar t)
+{
+  const PetscInt cl_sz = D1.closure_size();
+  rhs_local(wave_eq_rhs_LL<decltype(D1)>,
+            wave_eq_rhs_LI<decltype(D1)>,
+            wave_eq_rhs_LR<decltype(D1)>,
+            wave_eq_rhs_IL<decltype(D1)>,
+            wave_eq_rhs_II<decltype(D1)>,
+            wave_eq_rhs_IR<decltype(D1)>,
+            wave_eq_rhs_RL<decltype(D1)>,
+            wave_eq_rhs_RI<decltype(D1)>,
+            wave_eq_rhs_RR<decltype(D1)>,
+            F,q,ind_i,ind_j,cl_sz,halo_sz,D1,hi,xl,t);
+}
+
+template <class SbpDerivative>
+void wave_eq_overlap(grid::grid_function_2d<PetscScalar> F,
+                    const grid::grid_function_2d<PetscScalar> q,
+                    const std::array<PetscInt,2>& ind_i,
+                    const std::array<PetscInt,2>& ind_j,
+                    const PetscInt halo_sz,
+                    const SbpDerivative& D1,
+                    const std::array<PetscScalar,2>& hi,
+                    const std::array<PetscScalar,2>& xl,
+                    const PetscScalar t)
+{
+  const PetscInt cl_sz = D1.closure_size();
+  rhs_overlap(wave_eq_rhs_LI<decltype(D1)>,
+              wave_eq_rhs_IL<decltype(D1)>,
+              wave_eq_rhs_II<decltype(D1)>,
+              wave_eq_rhs_IR<decltype(D1)>,
+              wave_eq_rhs_RI<decltype(D1)>,
+              F,q,ind_i,ind_j,cl_sz,halo_sz,D1,hi,xl,t);
+}
+
+template <class SbpDerivative>
 void wave_eq_serial(grid::grid_function_2d<PetscScalar> F,
                           const grid::grid_function_2d<PetscScalar> q,
-                          const PetscInt cl_sz,
                           const SbpDerivative& D1,
                           const std::array<PetscScalar,2>& hi,
                           const std::array<PetscScalar,2>& xl,
                           const PetscScalar t)
 {
+  const PetscInt cl_sz = D1.closure_size();
   rhs_serial(wave_eq_rhs_LL<decltype(D1)>,
              wave_eq_rhs_LI<decltype(D1)>,
              wave_eq_rhs_LR<decltype(D1)>,
@@ -412,4 +456,18 @@ void wave_eq_free_surface_bc_serial(grid::grid_function_2d<PetscScalar> F,
              free_surface_bc_south<decltype(HI)>,
              free_surface_bc_east<decltype(HI)>,
              free_surface_bc_north<decltype(HI)>,F,q,HI,hi);
+};
+
+template <class SbpInvQuad>
+void wave_eq_free_surface_bc(grid::grid_function_2d<PetscScalar> F,
+                             const grid::grid_function_2d<PetscScalar> q,
+                             const std::array<PetscInt,2>& ind_i,
+                             const std::array<PetscInt,2>& ind_j,
+                             const SbpInvQuad& HI,
+                             const std::array<PetscScalar,2>& hi)
+{
+  bc(free_surface_bc_west<decltype(HI)>,
+    free_surface_bc_south<decltype(HI)>,
+    free_surface_bc_east<decltype(HI)>,
+    free_surface_bc_north<decltype(HI)>,F,q,ind_i,ind_j,HI,hi);
 };

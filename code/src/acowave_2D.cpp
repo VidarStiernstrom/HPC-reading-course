@@ -90,7 +90,7 @@ int main(int argc,char **argv)
   auto b = [](const PetscInt i, const PetscInt j){ return 1;}; // unused at the moment, K = 1.
 
   // Set if data should be written.
-  write_data = PETSC_FALSE;
+  write_data = PETSC_TRUE;
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Create distributed array (DMDA) to manage parallel grid and vectors
@@ -275,17 +275,15 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
 
   auto gf_src = grid::grid_function_2d<PetscScalar>(array_src, appctx->layout);
   auto gf_dst = grid::grid_function_2d<PetscScalar>(array_dst, appctx->layout);
-
-  // VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  // sbp::acowave_apply_2D_inner(t, appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
-  // VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  // sbp::acowave_apply_2D_outer(t, appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
-  
-  // VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  // VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  // sbp::acowave_apply_2D_all(t, appctx->D1, appctx->HI, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->xl, appctx->hi, appctx->sw);
-  wave_eq_serial(gf_dst, gf_src, appctx->D1.closure_size(), appctx->D1, appctx->hi, appctx->xl, t);
-  wave_eq_free_surface_bc_serial(gf_dst, gf_src, appctx->HI, appctx->hi);
+  const std::array<PetscInt,2> ind_i = {appctx->i_start[0], appctx->i_end[0]};
+  const std::array<PetscInt,2> ind_j = {appctx->i_start[1], appctx->i_end[1]};
+  VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
+  wave_eq_local(gf_dst, gf_src, {appctx->i_start[0], appctx->i_end[0]}, {appctx->i_start[1], appctx->i_end[1]}, appctx->sw, appctx->D1, appctx->hi, appctx->xl, t);
+  VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
+  wave_eq_overlap(gf_dst, gf_src, ind_i, ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->xl, t);
+  wave_eq_free_surface_bc(gf_dst, gf_src, ind_i, ind_j, appctx->HI, appctx->hi);
+  //wave_eq_serial(gf_dst, gf_src, appctx->D1, appctx->hi, appctx->xl, t);
+  //wave_eq_free_surface_bc_serial(gf_dst, gf_src, appctx->HI, appctx->hi);
 
   // Restore arrays
   VecRestoreArray(v_src,&array_src);
