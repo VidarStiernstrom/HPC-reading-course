@@ -21,7 +21,7 @@ void bc(const BcL& bc_l,
     bc_l(dst,src,args...);
   if (ind_i[1] == nx) // right
     bc_r(dst,src,args...);
-}
+};
 
 template <typename BcL,
           typename BcR,
@@ -34,7 +34,7 @@ void bc_serial(const BcL& bc_l,
 {
   bc_l(dst,src,args...);
   bc_r(dst,src,args...);
-}
+};
 
 //=============================================================================
 // 2D functions
@@ -64,7 +64,7 @@ void bc(const BCWest& bc_w,
     bc_s(dst,src,ind_i,args...); 
   if (ind_j[1] == ny) // North
     bc_n(dst,src,ind_i,args...);
-}
+};
 
 template <typename BCWest,
           typename BCSouth,
@@ -85,4 +85,4 @@ void bc_serial(const BCWest& bc_w,
   bc_s(dst,src,{0,nx},args...);
   bc_e(dst,src,{0,ny},args...);
   bc_n(dst,src,{0,nx},args...);
-}
+};
