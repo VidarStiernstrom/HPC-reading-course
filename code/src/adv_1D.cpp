@@ -219,13 +219,14 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
 
   auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, appctx->layout);
   auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, appctx->layout);
-
+  const std::array<PetscInt,2> ind_i = {appctx->i_start[0], appctx->i_end[0]};
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::advection_apply_inner(appctx->D1, appctx->HI, appctx->a, gf_src, gf_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0], appctx->sw);
+  sbp::advection_local(gf_dst, gf_src, ind_i, appctx->sw, appctx->D1, appctx->hi[0], appctx->a);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::advection_apply_outer(appctx->D1, appctx->HI, appctx->a, gf_src, gf_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0], appctx->sw);
-
-  // sbp::advection_apply_1p(appctx->D1, appctx->HI, appctx->a, gf_src, gf_dst, appctx->i_start[0], appctx->i_end[0], appctx->N[0], appctx->hi[0]);
+  sbp::advection_overlap(gf_dst ,gf_src, ind_i, appctx->sw, appctx->D1, appctx->hi[0], appctx->a);
+  sbp::advection_bc(gf_dst, gf_src, ind_i, appctx->HI, appctx->hi[0], appctx->a);
+  // sbp::advection_serial(gf_dst, gf_src, appctx->D1, appctx->hi[0], appctx->a);
+  // sbp::advection_bc_serial(gf_dst, gf_src, appctx->HI, appctx->hi[0], appctx->a);
 
   // Restore arrays
   VecRestoreArray(v_src, &array_src);

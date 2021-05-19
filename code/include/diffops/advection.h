@@ -3,1532 +3,557 @@
 #include <petscsystypes.h>
 #include <array>
 #include "grids/grid_function.h"
+#include "partitioned_rhs/rhs.h"
+#include "partitioned_rhs/boundary_conditions.h"
 
 
 namespace sbp{
 
-  //=============================================================================
-  // 1D functions
-  //=============================================================================
+//=============================================================================
+// 1D functions
+//=============================================================================
+template <class SbpDerivative, typename VelocityFunction>
+inline void advection_l(grid::grid_function_1d<PetscScalar> dst,
+                        const grid::grid_function_1d<PetscScalar> src, 
+                        const PetscInt cls_sz,
+                        const SbpDerivative& D1, 
+                        const PetscScalar hi,
+                        VelocityFunction&& a)
+{
+ 
+  for (PetscInt i = 0; i < cls_sz; i++) { 
+    dst(i,0) = -std::forward<VelocityFunction>(a)(i)*D1.apply_left(src,hi,i,0);
+  }   
+}
 
-  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode advection_apply_l(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, const PetscInt N, const PetscScalar hi, const PetscInt n_closures)
-  {
-    int i;
-   
-    // BC using projection, vt = P*D*P*v.
-    // src(0,0) = 0.0;   
-    // for (i = 1; i < n_closures; i++) 
-    // { 
-    //   dst(i,0) = -std::forward<VelocityFunction>(a)(i)*D1.apply_left(src,hi,i,0);
-    // }
-    // dst(0,0) = 0.0;
-
-    // BC using SAT, vt = -a*D*v + tau*HI*e_1*e_1'*v
-    PetscScalar tau = -std::forward<VelocityFunction>(a)(0)/2; // assume a(0) good enough
-    dst(0,0) = -std::forward<VelocityFunction>(a)(0)*D1.apply_left(src,hi,0,0) + tau*HI.apply_left(src, hi, 0, 0);
-    for (i = 1; i < n_closures; i++) 
-    { 
-      dst(i,0) = -std::forward<VelocityFunction>(a)(i)*D1.apply_left(src,hi,i,0);
-    }   
-
-    return 0;
+template <class SbpDerivative, typename VelocityFunction>
+inline void advection_r(grid::grid_function_1d<PetscScalar> dst,
+                        const grid::grid_function_1d<PetscScalar> src, 
+                        const PetscInt cls_sz,
+                        const SbpDerivative& D1, 
+                        const PetscScalar hi,
+                        VelocityFunction&& a)
+{
+  const PetscInt nx = src.mapping().nx();
+  for (PetscInt i = nx-cls_sz; i < nx; i++) {
+      dst(i,0) = -std::forward<VelocityFunction>(a)(i)*D1.apply_right(src,hi,i,0);
   }
+}
 
-  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode advection_apply_r(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, const PetscInt N, const PetscScalar hi, const PetscInt n_closures)
-  {
-    int i;
-    for (i = N-n_closures; i < N; i++)
-    {
-        dst(i,0) = -std::forward<VelocityFunction>(a)(i)*D1.apply_right(src,hi,N,i,0);
-    }
-    return 0;
+template <class SbpDerivative, typename VelocityFunction>
+inline void advection_i(grid::grid_function_1d<PetscScalar> dst,
+                                        const grid::grid_function_1d<PetscScalar> src, 
+                                        const std::array<PetscInt,2> ind_i,
+                                        const SbpDerivative& D1, 
+                                        const PetscScalar hi,
+                                        VelocityFunction&& a)
+{
+  for (PetscInt i = ind_i[0]; i < ind_i[1]; i++) {
+    dst(i,0) = -std::forward<VelocityFunction>(a)(i)*D1.apply_interior(src,hi,i,0);
   }
+}
 
-  template <class SbpDerivative, typename VelocityFunction>
-  inline PetscErrorCode advection_apply_c(const SbpDerivative& D1, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
-  {
-    int i;
-    for (i = i_start; i < i_end; i++)
-    {
-      dst(i,0) = -std::forward<VelocityFunction>(a)(i)*D1.apply_interior(src,hi,i,0);
+template <class SbpDerivative, typename VelocityFunction>
+inline void advection_local(grid::grid_function_1d<PetscScalar> dst,
+                            const grid::grid_function_1d<PetscScalar> src,
+                            const std::array<PetscInt,2> ind_i, 
+                            const PetscInt halo_sz, 
+                            const SbpDerivative& D1, 
+                            const PetscScalar hi,
+                            VelocityFunction&& a)
+{
+  const PetscInt cls_sz = D1.closure_size();
+  rhs_local(advection_l<decltype(D1),decltype(a)>,
+            advection_i<decltype(D1),decltype(a)>,
+            advection_r<decltype(D1),decltype(a)>,
+            dst, src, ind_i, cls_sz, halo_sz, D1, hi, a);
+};
+
+template <class SbpDerivative, typename VelocityFunction>
+inline void advection_overlap(grid::grid_function_1d<PetscScalar> dst,
+                               const grid::grid_function_1d<PetscScalar> src,
+                               const std::array<PetscInt,2>& ind_i,
+                               const PetscInt halo_sz,
+                               const SbpDerivative& D1,
+                               const PetscScalar hi,
+                               VelocityFunction&& a)
+{
+  rhs_overlap(advection_i<decltype(D1),decltype(a)>, dst, src, ind_i, halo_sz, D1, hi, a);
+};
+  
+
+template <class SbpDerivative, typename VelocityFunction>
+inline void advection_serial(grid::grid_function_1d<PetscScalar> dst,
+                              const grid::grid_function_1d<PetscScalar> src,
+                              const SbpDerivative& D1,
+                              const PetscScalar hi,
+                              VelocityFunction&& a)
+{
+  const PetscInt cls_sz = D1.closure_size();
+  rhs_serial(advection_l<decltype(D1),decltype(a)>, advection_i<decltype(D1),decltype(a)>, advection_r<decltype(D1),decltype(a)>,
+            dst, src, cls_sz, D1, hi, a);
+};
+
+template <class SbpInvQuad, typename VelocityFunction>
+inline void SAT_bc_l(grid::grid_function_1d<PetscScalar> dst,
+                     const grid::grid_function_1d<PetscScalar> src, 
+                     const SbpInvQuad& HI, 
+                     const PetscScalar hi,
+                     VelocityFunction&& a)
+{
+  const PetscInt i = 0;
+  const PetscScalar a_l = std::forward<VelocityFunction>(a)(i);
+  const PetscScalar tau = -0.5*(a_l+std::abs(a_l));
+  dst(i,0) += 0.5*tau*HI.apply_left(src, hi, i, 0);
+}
+
+template <class SbpInvQuad, typename VelocityFunction>
+inline void SAT_bc_r(grid::grid_function_1d<PetscScalar> dst,
+                     const grid::grid_function_1d<PetscScalar> src, 
+                     const SbpInvQuad& HI, 
+                     const PetscScalar hi,
+                     VelocityFunction&& a)
+{
+  const PetscInt nx = src.mapping().nx();
+  const PetscInt i = nx-1;
+  const PetscScalar a_r = std::forward<VelocityFunction>(a)(i);
+  const PetscScalar tau = 0.5*(a_r-std::abs(a_r));
+  dst(i,0) += 0.5*tau*HI.apply_left(src, hi, i, 0);
+}
+
+template <class SbpInvQuad, typename VelocityFunction>
+inline void advection_bc(grid::grid_function_1d<PetscScalar> dst,
+                          const grid::grid_function_1d<PetscScalar> src,
+                          const std::array<PetscInt,2>& ind_i,
+                          const SbpInvQuad& HI, 
+                          const PetscScalar hi,
+                          VelocityFunction&& a)
+{
+  bc(SAT_bc_l<decltype(HI),decltype(a)>,SAT_bc_r<decltype(HI),decltype(a)>,dst,src,ind_i,HI,hi,a);
+};
+
+template <class SbpInvQuad, typename VelocityFunction>
+inline void advection_bc_serial(grid::grid_function_1d<PetscScalar> dst,
+                                const grid::grid_function_1d<PetscScalar> src,
+                                const SbpInvQuad& HI, 
+                                const PetscScalar hi,
+                                VelocityFunction&& a)
+{
+  bc_serial(SAT_bc_l<decltype(HI),decltype(a)>,SAT_bc_r<decltype(HI),decltype(a)>,dst,src,HI,hi,a);
+};
+
+//=============================================================================
+// 2D functions
+//=============================================================================
+
+ /**
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   * il *    *    *
+  *   ****************
+  **/
+template <class SbpDerivative, typename VelocityFunction>
+void advection_ll(grid::grid_function_2d<PetscScalar> dst,
+                  const grid::grid_function_2d<PetscScalar> src,
+                  const PetscInt cl_sz,
+                  const SbpDerivative& D1,
+                  const std::array<PetscScalar,2>& hi,
+                  VelocityFunction&& a_x,
+                  VelocityFunction&& a_y)
+{
+  for (PetscInt j = 0; j < cl_sz; j++) { 
+    for (PetscInt i = 0; i < cl_sz; i++) { 
+      dst(j,i,0) = -(std::forward<VelocityFunction>(a_x)(i,j)*D1.apply_x_left(src,hi[0],i,j,0) +
+                     std::forward<VelocityFunction>(a_y)(i,j)*D1.apply_y_right(src,hi[1],i,j,0));
     }
-
-    return 0;
   }
+}
 
-  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode advection_apply_1p(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
-  {
-    const auto [iw, n_closures, closure_width] = D1.get_ranges();
-    advection_apply_l(D1, HI, a, src, dst,  N, hi, n_closures);
-    advection_apply_c(D1, a, src, dst, n_closures, i_end-n_closures,  N, hi);
-    advection_apply_r(D1, HI, a, src, dst,  N, hi, n_closures);
 
-    return 0;
-  };
-
-  /**
-  * Approximate RHS of advection problem, u_t = -au_x, between indices i_start <= i < i_end. Direct looping.
-  * Inputs: D1        - SBP D1 operator
-  *         a         -  velocity field function parametrized on indices, i.e a(x(i)),
-  *         array_src - 2D array containing multi-component input data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
-  *         array_src - 2D array containing multi-component output data. Ordered as array_src[index][component] (obtained using DMDAVecGetArrayDOF).
-  *         i_start   - Starting index to compute
-  *         i_end     - Final index to compute, index < i_end
-  *         N         - Global number of points excluding ghost points
-  *         hi        - Inverse step length
+ /**
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    * il *    *
+  *   ****************
   **/
-  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode advection_apply_all(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi)
-  {
-    const auto [iw, n_closures, closure_width] = D1.get_ranges();
-
-    if (i_start == 0) 
-    {
-      advection_apply_l(D1, HI, a, src, dst,  N, hi, n_closures);
-      advection_apply_c(D1, a, src, dst, n_closures, i_end,  N, hi);
-    } else if (i_end == N) 
-    {
-      advection_apply_r(D1, HI, a, src, dst,  N, hi, n_closures);
-      advection_apply_c(D1, a, src, dst, i_start, N - n_closures,  N, hi);
-    } else 
-    {
-      advection_apply_c(D1, a, src, dst, i_start, i_end,  N, hi);
+template <class SbpDerivative, typename VelocityFunction>
+void advection_il(grid::grid_function_2d<PetscScalar> dst,
+                  const grid::grid_function_2d<PetscScalar> src,
+                  const std::array<PetscInt,2> ind_i,
+                  const PetscInt cl_sz,
+                  const SbpDerivative& D1,
+                  const std::array<PetscScalar,2>& hi,
+                  VelocityFunction&& a_x,
+                  VelocityFunction&& a_y)
+{
+  for (PetscInt j = 0; j < cl_sz; j++) { 
+    for (PetscInt i = ind_i[0]; i < ind_i[1]; i++) {  
+      dst(j,i,0) = -(std::forward<VelocityFunction>(a_x)(i,j)*D1.apply_x_interior(src,hi[0],i,j,0) +
+                     std::forward<VelocityFunction>(a_y)(i,j)*D1.apply_y_right(src,hi[1],i,j,0));
     }
-    return 0;
-  };
+  }
+}
 
-  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode advection_apply_inner(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi, const PetscInt sw)
-  {
-    const auto [iw, n_closures, closure_width] = D1.get_ranges();
-
-    if (i_start == 0) 
-    {
-      advection_apply_l(D1, HI, a, src, dst, N, hi, n_closures);
-      advection_apply_c(D1, a, src, dst, n_closures, i_end-sw,  N, hi);
-    } else if (i_end == N) 
-    {
-      advection_apply_r(D1, HI, a, src, dst, N, hi, n_closures);
-      advection_apply_c(D1, a, src, dst, i_start+sw, N - n_closures,  N, hi);
-    } else 
-    {
-      advection_apply_c(D1, a, src, dst, i_start, i_end,  N, hi);
-    }
-    return 0;
-  };
-
-  template <class SbpDerivative, class SbpInvQuad, typename VelocityFunction>
-  inline PetscErrorCode advection_apply_outer(const SbpDerivative& D1, const SbpInvQuad& HI, VelocityFunction&& a, const grid::grid_function_1d<PetscScalar> src, grid::grid_function_1d<PetscScalar> dst, PetscInt i_start, PetscInt i_end, const PetscInt N, const PetscScalar hi, const PetscInt sw)
-  {
-    if (i_start == 0) 
-    {
-      advection_apply_c(D1, a, src, dst, i_end-sw, i_end,  N, hi);
-    } else if (i_end == N) 
-    {
-      advection_apply_c(D1, a, src, dst, i_start, i_start+sw,  N, hi);
-    } else 
-    {
-      advection_apply_c(D1, a, src, dst, i_start, i_start+sw,  N, hi);
-      advection_apply_c(D1, a, src, dst, i_end-sw, i_end,  N, hi);
-    }
-    return 0;
-  };
-
-  //=============================================================================
-  // 2D functions
-  //=============================================================================
-
-  /**
-  * Approximate RHS of 2D advection problem, u_t = -au_x, between indices [i_start, i_end], [j_start, j_end].
-  * Inputs: D1        - SBP D1 operator
-  *         a         -  velocity field function, parametrized on indices i.e a(x(i),y(j))
-  *         array_src - 2D array containing multi-component input data. Ordered as array_src[j][i][component] (obtained using DMDAVecGetArrayDOF).
-  *         array_dst - 2D array containing multi-component output data. Ordered as array_dst[j][i][component] (obtained using DMDAVecGetArrayDOF).
-  *         i_start   - Starting index in x-direction (global indexing)
-  *         i_end     - Final index in x-direction (global indexing)
-  *         j_start   - Starting index in y-direction (global indexing)
-  *         j_end     - Final index in y-direction (global indexing)
-  *         Nx        - Global number of points excluding ghost points in x-direction
-  *         hix       - Inverse step length in x-direction
+/**
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    *    * rl *
+  *   ****************
   **/
-  template <class SbpDerivative, typename VelocityFunction>
-  inline PetscErrorCode advection_apply_2D_x(const SbpDerivative& D1, VelocityFunction&& a,
-                                             const PetscScalar *const *const *const array_src,
-                                             PetscScalar *const *const *const array_dst,
-                                             PetscInt i_start, const PetscInt j_start,
-                                             PetscInt i_end, const PetscInt j_end,
-                                             const PetscInt Nx, const PetscScalar hix)
-  {
-    PetscInt i,j;
-    const auto [iw, n_closures, closure_width] = D1.get_ranges();
-    if (i_start == 0) 
-    {
-      for (j = j_start; j < j_end; j++)
-      { 
-        for (i = 0; i < n_closures; i++) 
-        { 
-          array_dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hix,i,j,0);
-        }
-      }
-      i_start = n_closures;
+template <class SbpDerivative, typename VelocityFunction>
+void advection_rl(grid::grid_function_2d<PetscScalar> dst,
+                    const grid::grid_function_2d<PetscScalar> src,
+                    const PetscInt cl_sz,
+                    const SbpDerivative& D1,
+                    const std::array<PetscScalar,2>& hi,
+                    VelocityFunction&& a_x,
+                    VelocityFunction&& a_y)
+{
+  const PetscInt nx = src.mapping().nx();
+  for (PetscInt j = 0; j < cl_sz; j++) { 
+    for (PetscInt i = nx-cl_sz; i < nx; i++) { 
+      dst(j,i,0) = -(std::forward<VelocityFunction>(a_x)(i,j)*D1.apply_x_right(src,hi[0],i,j,0) +
+                     std::forward<VelocityFunction>(a_y)(i,j)*D1.apply_y_left(src,hi[1],i,j,0));
     }
+  }
+}
 
-    if (i_end == Nx) 
-    {
-      for (j = j_start; j < j_end; j++)
-      { 
-        for (i = Nx-n_closures; i < Nx; i++)
-        {
-            array_dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hix,Nx,i,j,0);
-        }
-      }
-      i_end = Nx-n_closures;
-    }
-    for (j = j_start; j < j_end; j++)
-      { 
-      for (i = i_start; i < i_end; i++)
-      {
-        array_dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hix,i,j,0);
-      }
-    }
-    return 0;
-  };
-
-  /**
-  * Approximate RHS of 2D advection problem, u_t = -au_y, between indices [i_start, i_end], [j_start, j_end].
-  * Inputs: D1        - SBP D1 operator
-  *         a         -  velocity field function, parametrized on indices i.e a(x(i),y(j))
-  *         array_src - 2D array containing multi-component input data. Ordered as array_src[j][i][component] (obtained using DMDAVecGetArrayDOF).
-  *         array_dst - 2D array containing multi-component output data. Ordered as array_dst[j][i][component] (obtained using DMDAVecGetArrayDOF).
-  *         i_start   - Starting index in x-direction (global indexing)
-  *         i_end     - Final index in x-direction (global indexing)
-  *         j_start   - Starting index in y-direction (global indexing)
-  *         j_end     - Final index in y-direction (global indexing)
-  *         Ny        - Global number of points excluding ghost points in y-direction
-  *         hiy       - Inverse step length in y-direction
+/**
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   * li *    *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
   **/
-  template <class SbpDerivative, typename VelocityFunction>
-  inline PetscErrorCode advection_apply_2D_y(const SbpDerivative& D1, VelocityFunction&& a,
-                                             const PetscScalar *const *const *const array_src,
-                                             PetscScalar *const *const *const array_dst,
-                                             const PetscInt i_start, PetscInt j_start,
-                                             const PetscInt i_end, PetscInt j_end,
-                                             const PetscInt Ny, const PetscScalar hiy)
-  {
-    PetscInt i,j;
-    const auto [iw, n_closures, closure_width] = D1.get_ranges();
-    if (j_start == 0) 
-    {
-      for (j = 0; j < n_closures; j++)
-      { 
-        for (i = i_start; i < i_end; i++) 
-        { 
-          array_dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_y_left(array_src,hiy,i,j,0);
-        }
-      }
-      j_start = n_closures;
-    }
-
-    if (j_end == Ny) 
-    {
-      for (j = Ny-n_closures; j < Ny; j++)
-      { 
-        for (i = i_start; i < i_end; i++)
-        {
-            array_dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_y_right(array_src,hiy,Ny,i,j,0);
-        }
-      }
-      j_end = Ny-n_closures;
-    }
-    for (j = j_start; j < j_end; j++)
-      { 
-      for (i = i_start; i < i_end; i++)
-      {
-        array_dst[j][i][0] = -std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_y_interior(array_src,hiy,i,j,0);
-      }
-    }
-    return 0;
-  };
-
-  /**
-  * Approximate RHS of 2D a general advection problem, u_t = -(au_x+bu_y), between indices in i_start, i_end. Using "smart" looping, likely contains bug.
-  * Inputs: D1        - SBP D1 operator
-  *         a         -  velocity field function in x-direction, parametrized on indices i.e a(x(i),y(j))
-  a         b         -  velocity field function in y-direction, parametrized on indices i.e b(x(i),y(j))
-  *         array_src - 2D array containing multi-component input data. Ordered as array_src[j][i][component] (obtained using DMDAVecGetArrayDOF).
-  *         array_dst - 2D array containing multi-component output data. Ordered as array_dst[j][i][component] (obtained using DMDAVecGetArrayDOF).
-  *         i_start   - Starting indices (global indexing) [ix_start, iy_start]
-  *         i_end     - Final indices (global indexing) [ix_end, iy_end]
-  *         N         - Global number of points excluding ghost points [Nx, Ny]
-  *         hi        - Inverse step length [hix, hiy]
-  **/
-  template <class SbpDerivative, typename VelocityFunction>
-  inline PetscErrorCode advection_apply_2D_1(const SbpDerivative& D1, 
-                                           VelocityFunction&& a,
-                                           VelocityFunction&& b,
-                                           const PetscScalar *const *const *const array_src,
-                                           PetscScalar *const *const *const array_dst,
-                                           const std::array<PetscInt,2>& i_start, std::array<PetscInt,2>& i_end,
-                                           const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& hi)
-  {
-    PetscInt i,j;
-    //Could pass use i_start and i_end using lvalue references and move semantics here aswell. Not sure what is best.
-    PetscInt i_xstart = i_start[0]; 
-    PetscInt i_ystart = i_start[1];
-    PetscInt i_xend = i_end[0];
-    PetscInt i_yend = i_end[1];
-    const auto [iw, n_closures, closure_width] = D1.get_ranges();
-    // Left y 
-    if (i_ystart == 0) 
-    {
-      // Left x
-      if (i_xstart == 0)
-      {
+template <class SbpDerivative, typename VelocityFunction>
+void advection_li(grid::grid_function_2d<PetscScalar> dst,
+                    const grid::grid_function_2d<PetscScalar> src,
+                    const std::array<PetscInt,2> ind_j,
+                    const PetscInt cl_sz,
+                    const SbpDerivative& D1,
+                    const std::array<PetscScalar,2>& hi,
+                    VelocityFunction&& a_x,
+                    VelocityFunction&& a_y)
+{
  
-        for (j = 0; j < n_closures; j++)
-        { 
-          for (i = 0; i < n_closures; i++) 
-          { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) + 
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
-          }
-        }
-        i_xstart = n_closures;
-      }
-      // Right x
-      if (i_xend == N[0])
-      { 
- 
-        for (j = 0; j < n_closures; j++)
-        { 
-          for (i = N[0]-n_closures; i < N[0]; i++)
-          {
-              array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) +
-                                     std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
-          }
-        }
-        i_xend = N[0]-n_closures;
-      }
-      // Interior x
-      for (j = 0; j < n_closures; j++)
-      { 
-        for (i = i_xstart; i < i_xend; i++)
-        {
-          array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                 std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
-        }
-      }
-      i_ystart = n_closures;
+ for (PetscInt j = ind_j[0]; j < ind_j[1]; j++) { 
+    for (PetscInt i = 0; i < cl_sz; i++) { 
+      dst(j,i,0) = -(std::forward<VelocityFunction>(a_x)(i,j)*D1.apply_x_left(src,hi[0],i,j,0) +
+                     std::forward<VelocityFunction>(a_y)(i,j)*D1.apply_y_interior(src,hi[1],i,j,0));
     }
-    // Right y
-    if (i_end[1] == N[1]) 
-    {
-      // Left x
-      if (i_xstart == 0)
-      { 
- 
-        for (j = N[1]-n_closures; j < N[1]; j++)
-        { 
-          for (i = 0; i < n_closures; i++)
-          {
-              array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) +
-                                     std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
-          }
-        }
-        i_xstart = n_closures;
-      }
-      // Right x
-      if (i_xend == N[0])
-      {
- 
-        for (j = N[1]-n_closures; j < N[1]; j++)
-        { 
-          for (i = N[0]-n_closures; i < N[0]; i++)
-          {
-              array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) +
-                                     std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
-          }
-        }
-        i_xend = N[0]-n_closures;
-      }
-      // Interior x
-      for (j = N[1]-n_closures; j < N[1]; j++)
-      { 
-        for (i = i_xstart; i < i_xend; i++)
-        {
-          array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                 std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
-        }
-      }
-      i_yend = N[1]-n_closures;
-    }
-    // Interior y
-    // Left x
-    if (i_xstart == 0)
-    { 
-      for (j = i_ystart; j < i_yend; j++)
-      { 
-        for (i = 0; i < n_closures; i++)
-        { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-        }
-      }
-      i_xstart = n_closures;
-    }
-    // Right x
-    if (i_xend == N[0])
-    {
-      for (j = i_ystart; j < i_yend; j++)
-      { 
-        for (i = N[0]-n_closures; i < N[0]; i++)
-        {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-        }
-      }
-      i_xend = N[0]-n_closures;
-    }
-    // Interior 
-    for (j = i_ystart; j < i_yend; j++)
-    { 
-      for (i = i_xstart; i < i_xend; i++)
-      {
-        array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                               std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-      }
-    }
-    return 0;
-  };
+  }
+}
 
-
-  /**
-  * Approximate RHS of 2D a general advection problem, u_t = -(au_x+bu_y), between indices in i_start, i_end. Using direct looping, likely bug free.
-  * Inputs: D1        - SBP D1 operator
-  *         a         -  velocity field function in x-direction, parametrized on indices i.e a(x(i),y(j))
-  a         b         -  velocity field function in y-direction, parametrized on indices i.e b(x(i),y(j))
-  *         array_src - 2D array containing multi-component input data. Ordered as array_src[j][i][component] (obtained using DMDAVecGetArrayDOF).
-  *         array_dst - 2D array containing multi-component output data. Ordered as array_dst[j][i][component] (obtained using DMDAVecGetArrayDOF).
-  *         i_start   - Starting indices (global indexing) [ix_start, iy_start]
-  *         i_end     - Final indices (global indexing) [ix_end, iy_end]
-  *         N         - Global number of points excluding ghost points [Nx, Ny]
-  *         hi        - Inverse step length [hix, hiy]
+/**
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    * ii *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
   **/
-  template <class SbpDerivative, typename VelocityFunction>
-  inline PetscErrorCode advection_apply_2D_2(const SbpDerivative& D1, 
-                                           VelocityFunction&& a,
-                                           VelocityFunction&& b,
-                                           const PetscScalar *const *const *const array_src,
-                                           PetscScalar *const *const *const array_dst,
-                                           const std::array<PetscInt,2>& i_start, std::array<PetscInt,2>& i_end,
-                                           const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& hi)
-  {
-    PetscInt i,j;
-    //Could pass use i_start and i_end using lvalue references and move semantics here aswell. Not sure what is best.
-    const PetscInt i_xstart = i_start[0]; 
-    const PetscInt i_ystart = i_start[1];
-    const PetscInt i_xend = i_end[0];
-    const PetscInt i_yend = i_end[1];
-    const auto [iw, n_closures, closure_width] = D1.get_ranges();
-    if (i_ystart == 0)  // BOTTOM
-    {
-      if (i_xstart == 0) // BOTTOM LEFT
-      {
-        // x: closure, y: closure
-        for (j = 0; j < n_closures; j++)
-        { 
-          for (i = 0; i < n_closures; i++) 
-          { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) + 
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: closure
-        for (j = 0; j < n_closures; j++)
-        { 
-          for (i = n_closures; i < i_xend; i++)
-          {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
-          }
-        }
-        // x: closure, y: inner
-        for (j = n_closures; j < i_yend; j++)
-        { 
-          for (i = 0; i < n_closures; i++)
-          {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = n_closures; j < i_yend; j++)
-        { 
-          for (i = n_closures; i < i_xend; i++)
-          {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-          }
-        }    
-      } else if (i_xend == N[0]) // BOTTOM RIGHT
-      { 
-        // x: closure, y: closure
-        for (j = 0; j < n_closures; j++)
-        { 
-          for (i = N[0]-n_closures; i < N[0]; i++) 
-          { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) + 
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: closure
-        for (j = 0; j < n_closures; j++)
-        { 
-          for (i = i_xstart; i < N[0]-n_closures; i++)
-          {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
-          }
-        }
-        // x: closure, y: inner
-        for (j = n_closures; j < i_yend; j++)
-        { 
-          for (i = N[0]-n_closures; i < N[0]; i++) 
-          {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = n_closures; j < i_yend; j++)
-        { 
-          for (i = i_xstart; i < N[0]-n_closures; i++)
-          {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-          }
-        } 
-      } else // BOTTOM CENTER
-      { 
-        // x: inner, y: closure
-        for (j = 0; j < n_closures; j++) 
-        {
-          for (i = i_xstart; i < i_xend; i++) 
-          {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = n_closures; j < i_yend; j++)
-        { 
-          for (i = i_xstart; i < i_xend; i++)
-          {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-          }
-        }
-      }
-    } else if (i_yend == N[1]) // TOP
-    {
-      if (i_xstart == 0) // TOP LEFT
-      {
-        // x: closure, y: closure
-        for (j = N[1]-n_closures; j < N[1]; j++) 
-        { 
-          for (i = 0; i < n_closures; i++) 
-          { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) + 
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
-          }
-        }
-        // x: inner, y: closure
-        for (j = N[1]-n_closures; j < N[1]; j++)
-        { 
-          for (i = n_closures; i < i_xend; i++)
-          {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
-          }
-        }
-        // x: closure, y: inner
-        for (j = i_ystart; j < i_yend - n_closures; j++)
-        { 
-          for (i = 0; i < n_closures; i++)
-          {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = i_ystart; j < i_yend - n_closures; j++)
-        { 
-          for (i = n_closures; i < i_xend; i++)
-          {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-          }
-        }    
-      } else if (i_xend == N[0]) // TOP RIGHT
-      { 
-        // x: closure, y: closure
-        for (j = N[1]-n_closures; j < N[1]; j++)
-        { 
-          for (i = N[0]-n_closures; i < N[0]; i++) 
-          { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) + 
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
-          }
-        }
-        // x: inner, y: closure
-        for (j = N[1]-n_closures; j < N[1]; j++)
-        { 
-          for (i = i_xstart; i < N[0]-n_closures; i++)
-          {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
-          }
-        }
-        // x: closure, y: inner
-        for (j = i_ystart; j < i_yend - n_closures; j++)
-        { 
-          for (i = N[0]-n_closures; i < N[0]; i++) 
-          {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = i_ystart; j < i_yend - n_closures; j++)
-        { 
-          for (i = i_xstart; i < N[0]-n_closures; i++)
-          {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-          }
-        } 
-      } else // TOP CENTER
-      { 
-        // x: inner, y: closure
-        for (j = N[1]-n_closures; j < N[1]; j++)
-        {
-          for (i = i_xstart; i < i_xend; i++) 
-          {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = i_ystart; j < i_yend - n_closures; j++)
-        { 
-          for (i = i_xstart; i < i_xend; i++)
-          {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-          }
-        }
-      }
-    } else if (i_xstart == 0) // LEFT NOT BOTTOM OR TOP
-    { 
-      // x: closure, y: inner
-      for (j = i_ystart; j < i_yend; j++)
-      { 
-        for (i = 0; i < n_closures; i++) 
-        { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-        }
-      }
-      // x: inner, y: inner
-      for (j = i_ystart; j < i_yend; j++)
-      { 
-        for (i = n_closures; i < i_xend; i++) 
-        { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-        }
-      }
-    } else if (i_xend == N[0]) // RIGHT NOT BOTTOM OR TOP
-    {
-      // x: closure, y: inner
-      for (j = i_ystart; j < i_yend; j++)
-      { 
-        for (i = N[0]-n_closures; i < N[0]; i++) 
-        { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-        }
-      }
-      // x: inner, y: inner
-      for (j = i_ystart; j < i_yend; j++)
-      { 
-        for (i = i_xstart; i < i_xend - n_closures; i++)
-        { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-        }
-      }
-    } else // CENTER
-    {
-      // x: inner, y: inner
-      for (j = i_ystart; j < i_yend; j++)
-      { 
-        for (i = i_xstart; i < i_xend; i++) 
-        { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-        }
-      }
-    }
-    return 0;
-  };
+template <class SbpDerivative, typename VelocityFunction>
+void advection_ii(grid::grid_function_2d<PetscScalar> dst,
+                    const grid::grid_function_2d<PetscScalar> src,
+                    const std::array<PetscInt,2> ind_i,
+                    const std::array<PetscInt,2> ind_j,
+                    const SbpDerivative& D1,
+                    const std::array<PetscScalar,2>& hi,
+                    VelocityFunction&& a_x,
+                    VelocityFunction&& a_y)
+{
 
-  /**
-  * Approximate RHS of 2D a general advection problem, u_t = -(au_x+bu_y), between indices in i_start, i_end. Only applies to indices not requiring ghost points. Using "smart" looping.
-  * Inputs: D1        - SBP D1 operator
-  *         a         -  velocity field function in x-direction, parametrized on indices i.e a(x(i),y(j))
-  a         b         -  velocity field function in y-direction, parametrized on indices i.e b(x(i),y(j))
-  *         array_src - 2D array containing multi-component input data. Ordered as array_src[j][i][component] (obtained using DMDAVecGetArrayDOF).
-  *         array_dst - 2D array containing multi-component output data. Ordered as array_dst[j][i][component] (obtained using DMDAVecGetArrayDOF).
-  *         i_start   - Starting indices (global indexing) [ix_start, iy_start]
-  *         i_end     - Final indices (global indexing) [ix_end, iy_end]
-  *         N         - Global number of points excluding ghost points [Nx, Ny]
-  *         hi        - Inverse step length [hix, hiy]
+  for (PetscInt j = ind_j[0]; j < ind_j[1]; j++) { 
+    for (PetscInt i = ind_i[0]; i < ind_i[1]; i++) { 
+      dst(j,i,0) = -(std::forward<VelocityFunction>(a_x)(i,j)*D1.apply_x_right(src,hi[0],i,j,0) +
+                     std::forward<VelocityFunction>(a_y)(i,j)*D1.apply_y_left(src,hi[1],i,j,0));
+    }
+  }
+}
+
+/**
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    *    * ri *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
   **/
-  template <class SbpDerivative, typename VelocityFunction>
-  inline PetscErrorCode advection_apply_2D_1_inner(const SbpDerivative& D1, 
-                                           VelocityFunction&& a,
-                                           VelocityFunction&& b,
-                                           const PetscScalar *const *const *const array_src,
-                                           PetscScalar *const *const *const array_dst,
-                                           const std::array<PetscInt,2>& i_start, std::array<PetscInt,2>& i_end,
-                                           const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& hi, const PetscInt sw)
-  {
-    PetscInt i,j;
-    //Could pass use i_start and i_end using lvalue references and move semantics here aswell. Not sure what is best.
-    PetscInt i_xstart = i_start[0] + sw; 
-    PetscInt i_ystart = i_start[1] + sw;
-    PetscInt i_xend = i_end[0] - sw;
-    PetscInt i_yend = i_end[1] - sw;
-    const auto [iw, n_closures, closure_width] = D1.get_ranges();
-    // Left y 
-    if (i_start[1] == 0) 
-    {
-      // Left x
-      if (i_start[0] == 0)
-      {
-        for (j = 0; j < n_closures; j++)
-        { 
-          for (i = 0; i < n_closures; i++) 
-          { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) + 
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
-          }
-        }
-        i_xstart = n_closures;
-      }
-      // Right x
-      if (i_end[0] == N[0])
-      { 
-        for (j = 0; j < n_closures; j++)
-        { 
-          for (i = N[0]-n_closures; i < N[0]; i++)
-          {
-              array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) +
-                                     std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
-          }
-        }
-        i_xend = N[0]-n_closures;
-      }
-      // Interior x
-      for (j = 0; j < n_closures; j++)
-      { 
-        for (i = i_xstart; i < i_xend; i++)
-        {
-          array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                 std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(array_src,hi[1],i,j,0));
-        }
-      }
-      i_ystart = n_closures;
+template <class SbpDerivative, typename VelocityFunction>
+void advection_ri(grid::grid_function_2d<PetscScalar> dst,
+                    const grid::grid_function_2d<PetscScalar> src,
+                    const std::array<PetscInt,2> ind_j,
+                    const PetscInt cl_sz,
+                    const SbpDerivative& D1,
+                    const std::array<PetscScalar,2>& hi,
+                    VelocityFunction&& a_x,
+                    VelocityFunction&& a_y)
+{
+  const PetscInt nx = src.mapping().nx();
+  for (PetscInt j = ind_j[0]; j < ind_j[1]; j++) { 
+    for (PetscInt i = nx-cl_sz; i < nx; i++) {
+      dst(j,i,0) = -(std::forward<VelocityFunction>(a_x)(i,j)*D1.apply_x_right(src,hi[0],i,j,0) +
+                     std::forward<VelocityFunction>(a_y)(i,j)*D1.apply_y_interior(src,hi[1],i,j,0));
     }
-    // Right y
-    if (i_end[1] == N[1]) 
-    {
-      // Left x
-      if (i_start[0] == 0)
-      {
-        for (j = N[1]-n_closures; j < N[1]; j++)
-        { 
-          for (i = 0; i < n_closures; i++)
-          {
-              array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) +
-                                     std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
-          }
-        }
-        i_xstart = n_closures;
-      }
-      // Right x
-      if (i_end[0] == N[0])
-      {
-        for (j = N[1]-n_closures; j < N[1]; j++)
-        { 
-          for (i = N[0]-n_closures; i < N[0]; i++)
-          {
-              array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) +
-                                     std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
-          }
-        }
-        i_xend = N[0]-n_closures;
-      }
-      // Interior x
-      for (j = N[1]-n_closures; j < N[1]; j++)
-      { 
-        for (i = i_xstart + sw; i < i_xend - sw; i++)
-        {
-          array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                                 std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(array_src,hi[1],N[1],i,j,0));
-        }
-      }
-      i_yend = N[1]-n_closures;
-    }
-    // Interior y
-    // Left x
-    if (i_start[0] == 0)
-    { 
-      for (j = i_ystart; j < i_yend; j++)
-      { 
-        for (i = 0; i < n_closures; i++)
-        { 
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(array_src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-        }
-      }
-      i_xstart = n_closures;
-    }
-    // Right x
-    if (i_xend == N[0])
-    {
-      for (j = i_ystart; j < i_yend; j++)
-      { 
-        for (i = N[0]-n_closures; i < N[0]; i++)
-        {
-            array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(array_src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-        }
-      }
-      i_xend = N[0]-n_closures;
-    }
-    // Interior 
-    for (j = i_ystart; j < i_yend; j++)
-    { 
-      for (i = i_xstart; i < i_xend; i++)
-      {
-        array_dst[j][i][0] = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(array_src,hi[0],i,j,0) +
-                               std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(array_src,hi[1],i,j,0));
-      }
-    }
-    return 0;
-  };
+  }
+}
 
-  /**
-  * Approximate RHS of 2D a general advection problem, u_t = -(au_x+bu_y), between indices in i_start, i_end. Only applies to indices not requiring ghost points. Using direct looping.
-  * Inputs: D1        - SBP D1 operator
-  *         a         -  velocity field function in x-direction, parametrized on indices i.e a(x(i),y(j))
-  a         b         -  velocity field function in y-direction, parametrized on indices i.e b(x(i),y(j))
-  *         array_src - 2D array containing multi-component input data. Ordered as array_src[j][i][component] (obtained using DMDAVecGetArrayDOF).
-  *         array_dst - 2D array containing multi-component output data. Ordered as array_dst[j][i][component] (obtained using DMDAVecGetArrayDOF).
-  *         i_start   - Starting indices (global indexing) [ix_start, iy_start]
-  *         i_end     - Final indices (global indexing) [ix_end, iy_end]
-  *         N         - Global number of points excluding ghost points [Nx, Ny]
-  *         hi        - Inverse step length [hix, hiy]
+
+/**
+  *   ****************
+  *   * lr *    *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
   **/
-  template <class SbpDerivative, typename VelocityFunction>
-  inline PetscErrorCode advection_apply_2D_2_inner(const SbpDerivative& D1, 
-                                           VelocityFunction&& a,
-                                           VelocityFunction&& b,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           grid::grid_function_2d<PetscScalar> dst,
-                                           const std::array<PetscInt,2>& i_start, std::array<PetscInt,2>& i_end,
-                                           const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& hi, const PetscInt sw)
-  {
-    PetscInt i,j;
-    //Could pass use i_start and i_end using lvalue references and move semantics here aswell. Not sure what is best.
-    const PetscInt i_xstart = i_start[0] + sw; 
-    const PetscInt i_ystart = i_start[1] + sw;
-    const PetscInt i_xend = i_end[0] - sw;
-    const PetscInt i_yend = i_end[1] - sw;
-    const auto [iw, n_closures, closure_width] = D1.get_ranges();
-
-    if (i_start[1] == 0)  // BOTTOM
-    {
-      if (i_start[0] == 0) // BOTTOM LEFT
-      {
-        // x: closure, y: closure
-        for (j = 0; j < n_closures; j++)
-        { 
-          for (i = 0; i < n_closures; i++) 
-          { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) + 
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: closure
-        for (j = 0; j < n_closures; j++)
-        { 
-          for (i = n_closures; i < i_xend; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
-          }
-        }
-        // x: closure, y: inner
-        for (j = n_closures; j < i_yend; j++)
-        { 
-          for (i = 0; i < n_closures; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = n_closures; j < i_yend; j++)
-        { 
-          for (i = n_closures; i < i_xend ; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }    
-      } else if (i_end[0] == N[0]) // BOTTOM RIGHT
-      { 
-        // x: closure, y: closure
-        for (j = 0; j < n_closures; j++)
-        { 
-          for (i = N[0]-n_closures; i < N[0]; i++) 
-          { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) + 
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: closure
-        for (j = 0; j < n_closures; j++)
-        { 
-          for (i = i_xstart ; i < N[0]-n_closures; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
-          }
-        }
-        // x: closure, y: inner
-        for (j = n_closures; j < i_yend; j++)
-        { 
-          for (i = N[0]-n_closures; i < N[0]; i++) 
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = n_closures; j < i_yend; j++)
-        { 
-          for (i = i_xstart; i < N[0]-n_closures; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        } 
-      } else // BOTTOM CENTER
-      { 
-        // x: inner, y: closure
-        for (j = 0; j < n_closures; j++) 
-        {
-          for (i = i_xstart; i < i_xend; i++) 
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = n_closures; j < i_yend ; j++)
-        { 
-          for (i = i_xstart; i < i_xend; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-      }
-    } else if (i_end[1] == N[1]) // TOP
-    {
-      if (i_start[0] == 0) // TOP LEFT
-      {
-        // x: closure, y: closure
-        for (j = N[1]-n_closures; j < N[1]; j++) 
-        { 
-          for (i = 0; i < n_closures; i++) 
-          { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) + 
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
-          }
-        }
-        // x: inner, y: closure
-        for (j = N[1]-n_closures; j < N[1]; j++)
-        { 
-          for (i = n_closures; i < i_xend; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
-          }
-        }
-        // x: closure, y: inner
-        for (j = i_ystart; j < N[1] - n_closures; j++)
-        { 
-          for (i = 0; i < n_closures; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = i_ystart; j < N[1] - n_closures; j++)
-        { 
-          for (i = n_closures; i < i_xend; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }    
-      } else if (i_end[0] == N[0]) // TOP RIGHT
-      { 
-        // x: closure, y: closure
-        for (j = N[1]-n_closures; j < N[1]; j++)
-        { 
-          for (i = N[0]-n_closures; i < N[0]; i++) 
-          { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) + 
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
-          }
-        }
-        // x: inner, y: closure
-        for (j = N[1]-n_closures; j < N[1]; j++)
-        { 
-          for (i = i_xstart; i < N[0]-n_closures; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
-          }
-        }
-        // x: closure, y: inner
-        for (j = i_ystart; j < N[1] - n_closures; j++)
-        { 
-          for (i = N[0]-n_closures; i < N[0]; i++) 
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = i_ystart; j < N[1] - n_closures; j++)
-        { 
-          for (i = i_xstart; i < N[0] - n_closures; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        } 
-      } else // TOP CENTER
-      { 
-        // x: inner, y: closure
-        for (j = N[1]-n_closures; j < N[1]; j++)
-        {
-          for (i = i_xstart; i < i_xend; i++) 
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = i_ystart; j < N[1] - n_closures; j++)
-        { 
-          for (i = i_xstart; i < i_xend; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-      }
-    } else if (i_start[0] == 0) // LEFT NOT BOTTOM OR TOP
-    { 
-      // x: closure, y: inner
-      for (j = i_ystart; j < i_yend; j++)
-      { 
-        for (i = 0; i < n_closures; i++) 
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-      // x: inner, y: inner
-      for (j = i_ystart; j < i_yend; j++)
-      { 
-        for (i = n_closures; i < i_xend; i++) 
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-    } else if (i_end[0] == N[0]) // RIGHT NOT BOTTOM OR TOP
-    {
-      // x: closure, y: inner
-      for (j = i_ystart; j < i_yend; j++)
-      { 
-        for (i = N[0]-n_closures; i < N[0]; i++) 
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-      // x: inner, y: inner
-      for (j = i_ystart; j < i_yend; j++)
-      { 
-        for (i = i_xstart; i < N[0]-n_closures; i++)
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-    } else // CENTER
-    {
-      // x: inner, y: inner
-      for (j = i_ystart; j < i_yend; j++)
-      { 
-        for (i = i_xstart; i < i_xend; i++) 
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
+template <class SbpDerivative, typename VelocityFunction>
+void advection_lr(grid::grid_function_2d<PetscScalar> dst,
+                    const grid::grid_function_2d<PetscScalar> src,
+                    const PetscInt cl_sz,
+                    const SbpDerivative& D1,
+                    const std::array<PetscScalar,2>& hi,
+                    VelocityFunction&& a_x,
+                    VelocityFunction&& a_y)
+{
+  const PetscInt ny = src.mapping().ny();  
+  for (PetscInt j = ny-cl_sz; j < ny; j++) { 
+    for (PetscInt i = 0; i < cl_sz; i++) { 
+      dst(j,i,0) = -(std::forward<VelocityFunction>(a_x)(i,j)*D1.apply_x_left(src,hi[0],i,j,0) +
+                     std::forward<VelocityFunction>(a_y)(i,j)*D1.apply_y_right(src,hi[1],i,j,0));
     }
-    return 0;
-  };
+  }
+}
 
-  /**
-  * Approximate RHS of 2D a general advection problem, u_t = -(au_x+bu_y), between indices in i_start, i_end. Only applies to indices requiring ghost points. Using "direct looping.
-  * Inputs: D1        - SBP D1 operator
-  *         a         -  velocity field function in x-direction, parametrized on indices i.e a(x(i),y(j))
-  a         b         -  velocity field function in y-direction, parametrized on indices i.e b(x(i),y(j))
-  *         array_src - 2D array containing multi-component input data. Ordered as array_src[j][i][component] (obtained using DMDAVecGetArrayDOF).
-  *         array_dst - 2D array containing multi-component output data. Ordered as array_dst[j][i][component] (obtained using DMDAVecGetArrayDOF).
-  *         i_start   - Starting indices (global indexing) [ix_start, iy_start]
-  *         i_end     - Final indices (global indexing) [ix_end, iy_end]
-  *         N         - Global number of points excluding ghost points [Nx, Ny]
-  *         hi        - Inverse step length [hix, hiy]
+/**
+  *   ****************
+  *   *    * ir  *   *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
   **/
-  template <class SbpDerivative, typename VelocityFunction>
-  inline PetscErrorCode advection_apply_2D_outer(const SbpDerivative& D1, 
-                                           VelocityFunction&& a,
-                                           VelocityFunction&& b,
-                                           const grid::grid_function_2d<PetscScalar> src,
-                                           grid::grid_function_2d<PetscScalar> dst,
-                                           const std::array<PetscInt,2>& i_start, std::array<PetscInt,2>& i_end,
-                                           const std::array<PetscInt,2>& N, const std::array<PetscScalar,2>& hi, const PetscInt sw)
-  {
-    PetscInt i,j;
-    //Could pass use i_start and i_end using lvalue references and move semantics here aswell. Not sure what is best.
-    const PetscInt i_xstart = i_start[0]; 
-    const PetscInt i_ystart = i_start[1];
-    const PetscInt i_xend = i_end[0];
-    const PetscInt i_yend = i_end[1];
-    const auto [iw, n_closures, closure_width] = D1.get_ranges();
-    if (i_ystart == 0)  // BOTTOM
-    {
-      if (i_xstart == 0) // BOTTOM LEFT
-      {
-        // x: inner, y: closure
-        for (j = 0; j < n_closures; j++)
-        { 
-          for (i = i_xend - sw; i < i_xend; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
-          }
-        }
-        // x: closure, y: inner
-        for (j = i_yend - sw; j < i_yend; j++)
-        { 
-          for (i = 0; i < n_closures; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = i_yend - sw; j < i_yend; j++)
-        { 
-          for (i = n_closures; i < i_xend; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = n_closures; j < i_yend - sw; j++)
-        { 
-          for (i = i_xend - sw; i < i_xend; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }      
-      } else if (i_xend == N[0]) // BOTTOM RIGHT
-      { 
-        // x: inner, y: closure
-        for (j = 0; j < n_closures; j++)
-        { 
-          for (i = i_xstart; i < i_xstart + sw; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
-          }
-        }
-        // x: closure, y: inner
-        for (j = i_yend - sw; j < i_yend; j++)
-        { 
-          for (i = N[0]-n_closures; i < N[0]; i++) 
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = i_yend - sw; j < i_yend; j++)
-        { 
-          for (i = i_xstart; i < N[0]-n_closures; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = n_closures; j < i_yend - sw; j++)
-        { 
-          for (i = i_xstart; i < i_xstart + sw; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }  
-      } else // BOTTOM CENTER
-      { 
-        // x: inner, y: closure
-        for (j = 0; j < n_closures; j++) 
-        {
-          for (i = i_xstart; i < i_xstart + sw; i++) 
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: closure
-        for (j = 0; j < n_closures; j++) 
-        {
-          for (i = i_xend - sw; i < i_xend; i++) 
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_left(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = i_yend - sw; j < i_yend; j++)
-        { 
-          for (i = i_xstart; i < i_xend; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = n_closures; j < i_yend - sw; j++)
-        { 
-          for (i = i_xstart; i < i_xstart + sw; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = n_closures; j < i_yend - sw; j++)
-        { 
-          for (i = i_xend - sw; i < i_xend; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-      }
-    } else if (i_yend == N[1]) // TOP
-    {
-      if (i_xstart == 0) // TOP LEFT
-      {
-        // x: inner, y: closure
-        for (j = N[1]-n_closures; j < N[1]; j++)
-        { 
-          for (i = i_xend - sw; i < i_xend; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
-          }
-        }
-        // x: closure, y: inner
-        for (j = i_ystart; j < i_ystart + sw; j++)
-        { 
-          for (i = 0; i < n_closures; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = i_ystart; j < i_ystart + sw; j++)
-        { 
-          for (i = n_closures; i < i_xend; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = i_ystart + sw; j < i_yend - n_closures; j++)
-        { 
-          for (i = i_xend - sw; i < i_xend; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }      
-      } else if (i_xend == N[0]) // TOP RIGHT /////
-      { 
-        // x: inner, y: closure
-        for (j = N[1]-n_closures; j < N[1]; j++)
-        { 
-          for (i = i_xstart; i < i_xstart + sw; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
-          }
-        }
-        // x: closure, y: inner
-        for (j = i_ystart; j < i_ystart + sw; j++)
-        { 
-          for (i = N[0]-n_closures; i < N[0]; i++) 
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = i_ystart; j < i_ystart + sw; j++)
-        { 
-          for (i = i_xstart; i < N[0]-n_closures; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        } 
-        // x: inner, y: inner
-        for (j = i_ystart + sw; j < N[1] - n_closures; j++)
-        { 
-          for (i = i_xstart; i < i_xstart + sw; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        } 
-      } else // TOP CENTER
-      { 
-        // x: inner, y: closure
-        for (j = N[1]-n_closures; j < N[1]; j++)
-        {
-          for (i = i_xstart; i < i_xstart + sw; i++) 
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
-          }
-        }
-        // x: inner, y: closure
-        for (j = N[1]-n_closures; j < N[1]; j++)
-        {
-          for (i = i_xend - sw; i < i_xend; i++) 
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_right(src,hi[1],N[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = i_ystart; j < i_ystart + sw; j++)
-        { 
-          for (i = i_xstart; i < i_xend; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = i_ystart + sw; j < i_yend - n_closures; j++)
-        { 
-          for (i = i_xstart; i < i_xstart + sw; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-        // x: inner, y: inner
-        for (j = i_ystart + sw; j < i_yend - n_closures; j++)
-        { 
-          for (i = i_xend - sw; i < i_xend; i++)
-          {
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-          }
-        }
-      }
-    } else if (i_xstart == 0) // LEFT NOT BOTTOM OR TOP
-    { 
-      // x: closure, y: inner
-      for (j = i_ystart; j < i_ystart + sw; j++)
-      { 
-        for (i = 0; i < n_closures; i++) 
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-      // x: closure, y: inner
-      for (j = i_yend - sw; j < i_yend; j++)
-      { 
-        for (i = 0; i < n_closures; i++) 
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_left(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-      // x: inner, y: inner
-      for (j = i_ystart; j < i_yend; j++)
-      { 
-        for (i = i_xend - sw; i < i_xend; i++) 
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-      // x: inner, y: inner
-      for (j = i_ystart; j < i_ystart + sw; j++)
-      { 
-        for (i = n_closures; i < i_xend - sw; i++) 
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-      // x: inner, y: inner
-      for (j = i_yend - sw; j < i_yend; j++)
-      { 
-        for (i = n_closures; i < i_xend - sw; i++) 
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-    } else if (i_xend == N[0]) // RIGHT NOT BOTTOM OR TOP
-    {
-      // x: closure, y: inner
-      for (j = i_ystart; j < i_ystart + sw; j++)
-      { 
-        for (i = N[0]-n_closures; i < N[0]; i++) 
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-      // x: closure, y: inner
-      for (j = i_yend - sw; j < i_yend; j++)
-      { 
-        for (i = N[0]-n_closures; i < N[0]; i++) 
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_right(src,hi[0],N[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-      // x: inner, y: inner
-      for (j = i_ystart; j < i_yend; j++)
-      { 
-        for (i = i_xstart; i < i_xstart + sw; i++)
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-      // x: inner, y: inner
-      for (j = i_ystart; j < i_ystart + sw; j++)
-      { 
-        for (i = i_xstart + sw; i < i_xend - n_closures; i++)
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-      // x: inner, y: inner
-      for (j = i_yend - sw; j < i_yend; j++)
-      { 
-        for (i = i_xstart + sw; i < i_xend - n_closures; i++)
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-    } else // CENTER
-    {
-      // x: inner, y: inner
-      for (j = i_ystart; j < i_ystart + sw; j++)
-      { 
-        for (i = i_xstart; i < i_xend; i++) 
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-      // x: inner, y: inner
-      for (j = i_yend - sw; j < i_yend; j++)
-      { 
-        for (i = i_xstart; i < i_xend; i++) 
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-      // x: inner, y: inner
-      for (j = i_ystart + sw; j < i_yend - sw; j++)
-      { 
-        for (i = i_xstart; i < i_xstart + sw; i++) 
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
-      // x: inner, y: inner
-      for (j = i_ystart + sw; j < i_yend - sw; j++)
-      { 
-        for (i = i_xend - sw; i < i_xend; i++) 
-        { 
-            dst(j,i,0) = -(std::forward<VelocityFunction>(a)(i,j)*D1.apply_2D_x_interior(src,hi[0],i,j,0) +
-                                   std::forward<VelocityFunction>(b)(i,j)*D1.apply_2D_y_interior(src,hi[1],i,j,0));
-        }
-      }
+template <class SbpDerivative, typename VelocityFunction>
+void advection_ir(grid::grid_function_2d<PetscScalar> dst,
+                    const grid::grid_function_2d<PetscScalar> src,
+                    const std::array<PetscInt,2> ind_i,
+                    const PetscInt cl_sz,
+                    const SbpDerivative& D1,
+                    const std::array<PetscScalar,2>& hi,
+                    VelocityFunction&& a_x,
+                    VelocityFunction&& a_y)
+{
+  const PetscInt ny = src.mapping().ny();
+  for (PetscInt j = ny-cl_sz; j < ny; j++) { 
+    for (PetscInt i = ind_i[0]; i < ind_i[1]; i++) { 
+      dst(j,i,0) = -(std::forward<VelocityFunction>(a_x)(i,j)*D1.apply_x_interior(src,hi[0],i,j,0) +
+                     std::forward<VelocityFunction>(a_y)(i,j)*D1.apply_y_right(src,hi[1],i,j,0));
     }
-    return 0;
-  };
+  }
+}
+
+/**
+  *   ****************
+  *   *    *    * rr *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  *   *    *    *    *
+  *   ****************
+  **/
+template <class SbpDerivative, typename VelocityFunction>
+void advection_rr(grid::grid_function_2d<PetscScalar> dst,
+                  const grid::grid_function_2d<PetscScalar> src,
+                  const PetscInt cl_sz,
+                  const SbpDerivative& D1,
+                  const std::array<PetscScalar,2>& hi,
+                  VelocityFunction&& a_x,
+                  VelocityFunction&& a_y)
+{
+  const PetscInt nx = src.mapping().nx();
+  const PetscInt ny = src.mapping().ny();
+  for (PetscInt j = ny-cl_sz; j < ny; j++) { 
+    for (PetscInt i = nx-cl_sz; i < nx; i++) { 
+      dst(j,i,0) = -(std::forward<VelocityFunction>(a_x)(i,j)*D1.apply_x_right(src,hi[0],i,j,0) +
+                     std::forward<VelocityFunction>(a_y)(i,j)*D1.apply_y_right(src,hi[1],i,j,0));
+    }
+  }
+}
+
+template <class SbpDerivative, typename VelocityFunction>
+void advection_local(grid::grid_function_2d<PetscScalar> dst,
+                    const grid::grid_function_2d<PetscScalar> src,
+                    const std::array<PetscInt,2>& ind_i,
+                    const std::array<PetscInt,2>& ind_j,
+                    const PetscInt halo_sz,
+                    const SbpDerivative& D1,
+                    const std::array<PetscScalar,2>& hi,
+                    VelocityFunction&& a_x,
+                    VelocityFunction&& a_y)
+{
+  const PetscInt cl_sz = D1.closure_size();
+  rhs_local(advection_ll<decltype(D1),decltype(a_x)>,
+            advection_li<decltype(D1),decltype(a_x)>,
+            advection_lr<decltype(D1),decltype(a_x)>,
+            advection_il<decltype(D1),decltype(a_x)>,
+            advection_ii<decltype(D1),decltype(a_x)>,
+            advection_ir<decltype(D1),decltype(a_x)>,
+            advection_rl<decltype(D1),decltype(a_x)>,
+            advection_ri<decltype(D1),decltype(a_x)>,
+            advection_rr<decltype(D1),decltype(a_x)>,
+            dst,src,ind_i,ind_j,cl_sz,halo_sz,D1,hi,a_x,a_y);
+}
+
+template <class SbpDerivative, typename VelocityFunction>
+void advection_overlap(grid::grid_function_2d<PetscScalar> dst,
+                    const grid::grid_function_2d<PetscScalar> src,
+                    const std::array<PetscInt,2>& ind_i,
+                    const std::array<PetscInt,2>& ind_j,
+                    const PetscInt halo_sz,
+                    const SbpDerivative& D1,
+                    const std::array<PetscScalar,2>& hi,
+                    VelocityFunction&& a_x,
+                    VelocityFunction&& a_y)
+{
+  const PetscInt cl_sz = D1.closure_size();
+  rhs_overlap(advection_li<decltype(D1),decltype(a_x)>,
+              advection_il<decltype(D1),decltype(a_x)>,
+              advection_ii<decltype(D1),decltype(a_x)>,
+              advection_ir<decltype(D1),decltype(a_x)>,
+              advection_ri<decltype(D1),decltype(a_x)>,
+              dst,src,ind_i,ind_j,cl_sz,halo_sz,D1,hi,a_x,a_y);
+}
+
+template <class SbpDerivative, typename VelocityFunction>
+void advection_serial(grid::grid_function_2d<PetscScalar> dst,
+                     const grid::grid_function_2d<PetscScalar> src,
+                     const SbpDerivative& D1,
+                     const std::array<PetscScalar,2>& hi,
+                     VelocityFunction&& a_x,
+                     VelocityFunction&& a_y)
+{
+  const PetscInt cl_sz = D1.closure_size();
+  rhs_serial(advection_ll<decltype(D1),decltype(a_x)>,
+             advection_li<decltype(D1),decltype(a_x)>,
+             advection_lr<decltype(D1),decltype(a_x)>,
+             advection_il<decltype(D1),decltype(a_x)>,
+             advection_ii<decltype(D1),decltype(a_x)>,
+             advection_ir<decltype(D1),decltype(a_x)>,
+             advection_rl<decltype(D1),decltype(a_x)>,
+             advection_ri<decltype(D1),decltype(a_x)>,
+             advection_rr<decltype(D1),decltype(a_x)>,
+             dst,src,cl_sz,D1,hi,a_x,a_y);
+}
+
+template <class SbpInvQuad, typename VelocityFunction>
+void SAT_bc_west(grid::grid_function_2d<PetscScalar> dst,
+                           const grid::grid_function_2d<PetscScalar> src,
+                           const std::array<PetscInt,2>& ind_j,
+                           const SbpInvQuad& HI,
+                           const std::array<PetscScalar,2>& hi,
+                           VelocityFunction&& a_x)
+{
+  const PetscInt i = 0;
+  for (PetscInt j = ind_j[0]; j < ind_j[1]; j++) {
+    PetscScalar a_w = std::forward<VelocityFunction>(a_x)(i,j);
+    PetscScalar tau_w = -0.5*(a_w+std::abs(a_w));
+    dst(j, i, 0) += 0.5*tau_w*HI.apply_x_left(src, hi[0], i, j, 0);
+  }
+};
+
+template <class SbpInvQuad, typename VelocityFunction>
+void SAT_bc_south(grid::grid_function_2d<PetscScalar> dst,
+                           const grid::grid_function_2d<PetscScalar> src,
+                           const std::array<PetscInt,2>& ind_i,
+                           const SbpInvQuad& HI,
+                           const std::array<PetscScalar,2>& hi,
+                           VelocityFunction&& a_y)
+{
+  const PetscInt j = 0;
+  for (PetscInt i = ind_i[0]; i < ind_i[1]; i++) { 
+    PetscScalar a_s = std::forward<VelocityFunction>(a_y)(i,j);
+    PetscScalar tau_s = -0.5*(a_s+std::abs(a_s));
+    dst(j, i, 0) += 0.5*tau_s*HI.apply_x_left(src, hi[0], i, j, 0);
+  }
+};
+
+template <class SbpInvQuad, typename VelocityFunction>
+void SAT_bc_east(grid::grid_function_2d<PetscScalar> dst,
+                           const grid::grid_function_2d<PetscScalar> src,
+                           const std::array<PetscInt,2>& ind_j,
+                           const SbpInvQuad& HI,
+                           const std::array<PetscScalar,2>& hi,
+                           VelocityFunction&& a_x)
+{
+  const PetscInt nx = src.mapping().nx();
+  const PetscInt i = nx-1;
+  for (PetscInt j = ind_j[0]; j < ind_j[1]; j++) { 
+    PetscScalar a_e = std::forward<VelocityFunction>(a_x)(i,j);
+    PetscScalar tau_e = 0.5*(a_e-std::abs(a_e));
+    dst(j, i, 0) += 0.5*tau_e*HI.apply_x_right(src, hi[0], nx, i, j, 0);
+  }
+};
+
+template <class SbpInvQuad, typename VelocityFunction>
+void SAT_bc_north(grid::grid_function_2d<PetscScalar> dst,
+                           const grid::grid_function_2d<PetscScalar> src,
+                           const std::array<PetscInt,2>& ind_i,
+                           const SbpInvQuad& HI,
+                           const std::array<PetscScalar,2>& hi,
+                           VelocityFunction&& a_y)
+{
+  const PetscInt ny = src.mapping().ny();
+  const PetscInt j = ny-1;
+  for (PetscInt i = ind_i[0]; i < ind_i[1]; i++) {
+    PetscScalar a_n = std::forward<VelocityFunction>(a_y)(i,j);
+    PetscScalar tau_n = 0.5*(a_n-std::abs(a_n));
+    dst(j, i, 1) += 0.5*tau_n*HI.apply_y_right(src, hi[1], ny, i, j, 0);
+  }
+};
+
+template <class SbpInvQuad, typename VelocityFunction>
+void advection_bc_serial(grid::grid_function_2d<PetscScalar> dst,
+                         const grid::grid_function_2d<PetscScalar> src,
+                         const SbpInvQuad& HI,
+                         const std::array<PetscScalar,2>& hi,
+                         VelocityFunction&& a_x,
+                         VelocityFunction&& a_y)
+{
+  bc_serial(SAT_bc_west<decltype(HI),decltype(a_x)>,
+            SAT_bc_south<decltype(HI),decltype(a_x)>,
+            SAT_bc_east<decltype(HI),decltype(a_x)>,
+            SAT_bc_north<decltype(HI),decltype(a_x)>,dst,src,HI,hi,a_x,a_y);
+};
+
+template <class SbpInvQuad, typename VelocityFunction>
+void advection_bc(grid::grid_function_2d<PetscScalar> dst,
+                   const grid::grid_function_2d<PetscScalar> src,
+                   const std::array<PetscInt,2>& ind_i,
+                   const std::array<PetscInt,2>& ind_j,
+                   const SbpInvQuad& HI,
+                   const std::array<PetscScalar,2>& hi,
+                   VelocityFunction&& a_x,
+                   VelocityFunction&& a_y)
+{
+  bc(SAT_bc_west<decltype(HI),decltype(a_x)>,
+     SAT_bc_south<decltype(HI),decltype(a_x)>,
+     SAT_bc_east<decltype(HI),decltype(a_x)>,
+     SAT_bc_north<decltype(HI),decltype(a_x)>,dst,src,ind_i,ind_j,HI,hi,a_x,a_y);
+};
 
 } //namespace sbp
