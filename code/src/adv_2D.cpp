@@ -237,28 +237,16 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
 
   auto gf_src = grid::grid_function_2d<PetscScalar>(array_src, appctx->layout);
   auto gf_dst = grid::grid_function_2d<PetscScalar>(array_dst, appctx->layout);
-
+  const std::array<PetscInt,2> ind_i = {appctx->i_start[0], appctx->i_end[0]};
+  const std::array<PetscInt,2> ind_j = {appctx->i_start[1], appctx->i_end[1]};
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::advection_apply_2D_2_inner(appctx->D1, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
+  sbp::advection_local(gf_dst, gf_src, ind_i, ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->a, appctx->b);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::advection_apply_2D_outer(appctx->D1, appctx->a, appctx->b, gf_src, gf_dst, appctx->i_start, appctx->i_end, appctx->N, appctx->hi, appctx->sw);
+  sbp::advection_overlap(gf_dst, gf_src, ind_i, ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->a, appctx->b);
+  sbp::advection_bc(gf_dst, gf_src, ind_i, ind_j, appctx->HI, appctx->hi, appctx->a, appctx->b);
 
-  //Apply homogeneous Dirichlet BC via injection on west and north boundary
-  if (appctx->i_start[0] == 0)
-  {
-    for (PetscInt j = appctx->i_start[1]; j < appctx->i_end[1]; j++)
-    {
-      gf_dst(j,0,0) = 0;
-    }   
-  }
-
-  if (appctx->i_end[1] == appctx->N[1])
-  {
-    for (PetscInt i = appctx->i_start[0]; i < appctx->i_end[0]; i++)
-    {
-      gf_dst(appctx->N[1]-1,i,0) = 0;
-    }   
-  }
+  // sbp::advection_serial(gf_dst, gf_src, appctx->D1, appctx->hi, appctx->a, appctx->b);
+  // sbp::advection_bc_serial(gf_dst, gf_src, appctx->HI, appctx->hi, appctx->a, appctx->b);
 
   // Restore arrays
   VecRestoreArray(v_src,&array_src);

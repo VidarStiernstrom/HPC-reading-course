@@ -278,7 +278,7 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
   const std::array<PetscInt,2> ind_i = {appctx->i_start[0], appctx->i_end[0]};
   const std::array<PetscInt,2> ind_j = {appctx->i_start[1], appctx->i_end[1]};
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  wave_eq_local(gf_dst, gf_src, {appctx->i_start[0], appctx->i_end[0]}, {appctx->i_start[1], appctx->i_end[1]}, appctx->sw, appctx->D1, appctx->hi, appctx->xl, t);
+  wave_eq_local(gf_dst, gf_src, ind_i, ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->xl, t);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   wave_eq_overlap(gf_dst, gf_src, ind_i, ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->xl, t);
   wave_eq_free_surface_bc(gf_dst, gf_src, ind_i, ind_j, appctx->HI, appctx->hi);
