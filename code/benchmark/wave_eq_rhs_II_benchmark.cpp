@@ -23,21 +23,18 @@ void wave_eq_rhs_II_benchmark(
                               const PetscInt i_ystart,
                               const PetscInt i_yend,
                               const std::array<PetscScalar,2>& xl,
-                              const std::array<PetscScalar,2>& hi)
+                              const std::array<PetscScalar,2>& hi,
+                              const std::array<PetscScalar,2>& h)
 {
+  PetscScalar inv;
   PetscInt i,j;
   for (j = i_ystart; j < i_yend; j++)
   {
     for (i = i_xstart; i < i_xend; i++)
     {
-      // time
-      //   inv = -rho_inv(i, j, hi, xl)
-      // time
-      //   d1 = d1.apply
-      //   F[j][i][0]
-
-      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q, hi[0], i, j, 2);
-      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q, hi[1], i, j, 2);
+      inv = rho_inv(i, j, hi, xl);
+      F[j][i][0] = -inv*D1.apply_x_interior(q, hi[0], i, j, 2);
+      F[j][i][1] = -inv*D1.apply_y_interior(q, hi[1], i, j, 2);
       F[j][i][2] = -D1.apply_x_interior(q, hi[0], i, j, 0) - D1.apply_y_interior(q, hi[1], i, j, 1);
     }
   }
@@ -50,11 +47,12 @@ void wave_eq_rhs_serial_benchmark(
                                   PetscScalar *const *const *const F,
                                   const PetscInt N,
                                   const std::array<PetscScalar,2>& xl,
-                                  const std::array<PetscScalar,2>& hi)
+                                  const std::array<PetscScalar,2>& hi,
+                                  const std::array<PetscScalar,2>& h)
 {
   const PetscInt cl_sz = D1.closure_size();
 
-  wave_eq_rhs_II_benchmark(D1, q, F, cl_sz, N-cl_sz, cl_sz, N-cl_sz, xl, hi);
+  wave_eq_rhs_II_benchmark(D1, q, F, cl_sz, N-cl_sz, cl_sz, N-cl_sz, xl, hi, h);
 
 }
 
@@ -90,12 +88,13 @@ int main(int argc,char **argv)
   DM da;
   PetscMPIInt    size, rank;
   const DifferenceOp D1;
-  PetscInt turns = 1000;
-  PetscInt N = 401;
+  PetscInt turns = 2000;
+  PetscInt N = 801;
   PetscInt dofs = 3;
   PetscScalar hx = (2.)/(N-1);
   PetscScalar hy = (2.)/(N-1);
   std::array<PetscScalar,2> xl = {-1,-1};
+  std::array<PetscScalar,2> h = {hx, hy};
   std::array<PetscScalar,2> hi = {1./hx, 1./hy};
   Vec q,F;
   PetscScalar*** q_arr;
@@ -126,9 +125,8 @@ int main(int argc,char **argv)
   DMDAVecGetArrayDOF(da,q,&q_arr);
   DMDAVecGetArrayDOF(da,F,&F_arr);
 
-
   for (PetscInt i = 0; i < turns; i++) {
-    wave_eq_rhs_serial_benchmark(D1, q_arr, F_arr, N, xl, hi);
+    wave_eq_rhs_serial_benchmark(D1, q_arr, F_arr, N, xl, hi, h);
   }
 
   DMDAVecRestoreArrayDOF(da,q,&q_arr);
