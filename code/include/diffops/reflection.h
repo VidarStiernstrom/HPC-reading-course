@@ -62,13 +62,13 @@ template <class SbpDerivative>
 inline void reflection_local(grid::grid_function_1d<PetscScalar> dst,
                              const grid::grid_function_1d<PetscScalar> src,
                              const std::array<PetscInt,2>& ind_i,
-                             const PetscInt halo_size,
+                             const PetscInt halo_sz,
                              const SbpDerivative& D1,
                              const PetscScalar hi)
 {
   const PetscInt cls_sz = D1.closure_size();
   rhs_local(reflection_l<decltype(D1)>, reflection_i<decltype(D1)>, reflection_r<decltype(D1)>,
-            dst, src, ind_i, cls_sz, halo_size, D1, hi);
+            dst, src, ind_i, cls_sz, halo_sz, D1, hi);
 };
 
 /**
@@ -85,11 +85,11 @@ template <class SbpDerivative>
 inline void reflection_overlap(grid::grid_function_1d<PetscScalar> dst,
                                const grid::grid_function_1d<PetscScalar> src,
                                const std::array<PetscInt,2>& ind_i,
-                               const PetscInt halo_size,
+                               const PetscInt halo_sz,
                                const SbpDerivative& D1,
                                const PetscScalar hi)
 {
-  rhs_overlap(reflection_i<decltype(D1)>, dst, src,  ind_i, halo_size, D1, hi);
+  rhs_overlap(reflection_i<decltype(D1)>, dst, src,  ind_i, halo_sz, D1, hi);
 };
 
 /**
