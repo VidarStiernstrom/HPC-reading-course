@@ -1,25 +1,33 @@
 
 static char help[] ="Solves the 2D advection equation u_t + au_x +bu_y = 0.";
 
-#define PROBLEM_TYPE_2D_O6
-
 #include <petsc.h>
-#include "sbpops/D1_central.h"
-#include "sbpops/H_central.h"
-#include "sbpops/HI_central.h"
+#include "sbpops/op_defs.h"
 #include "diffops/advection.h"
 #include "timestepping.h"
-#include "appctx.h"
 #include "grids/grid_function.h"
 #include "grids/create_layout.h"
 #include "IO_utils.h"
 #include "scatter_ctx.h"
 
-extern PetscErrorCode analytic_solution(const DM&, const PetscScalar, const AppCtx&, Vec&);
+struct AppCtx{
+    std::array<PetscInt,2> N, ind_i, ind_j;
+    std::array<PetscScalar,2> hi, h, xl;
+    PetscInt dofs;
+    PetscScalar sw;
+    std::function<double(int, int)> a, b;
+    const FirstDerivativeOp D1;
+    const NormOp H;
+    const InverseNormOp HI;
+    VecScatter scatctx;
+    grid::partitioned_layout_2d layout;
+};
+
+extern PetscErrorCode analytic_solution(const DM, const PetscScalar, const AppCtx&, Vec);
 extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
-extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, AppCtx *);
+extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, void *);
 extern PetscScalar gaussian_2D(PetscScalar, PetscScalar);
-extern PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx);
+extern PetscErrorCode get_error(const DM da, const Vec v1, const Vec v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx);
 
 int main(int argc,char **argv)
 { 
@@ -91,8 +99,8 @@ int main(int argc,char **argv)
   appctx.hi = {hix, hiy};
   appctx.h = {1./hix, 1./hiy};
   appctx.xl = {xl, yl};
-  appctx.i_start = {i_xstart,i_ystart};
-  appctx.i_end = {i_xend,i_yend};
+  appctx.ind_i = {i_xstart,i_xend};
+  appctx.ind_j = {i_ystart,i_yend};
   appctx.a = a;
   appctx.b = b;
   appctx.sw = stencil_radius;
@@ -130,9 +138,9 @@ int main(int argc,char **argv)
   }
 
   if (use_custom_ts) {
-    RK4_custom(da, appctx, Tend, dt, vlocal, rhs);  
+    RK4_custom(da, Tend, dt, vlocal, rhs, &appctx);  
   } else {
-    RK4_petsc(da, appctx, Tend, dt, vlocal, rhs_TS);  
+    RK4_petsc(da, Tend, dt, vlocal, rhs_TS, &appctx);  
   }
   
   PetscBarrier((PetscObject) v);
@@ -178,15 +186,13 @@ int main(int argc,char **argv)
 
 PetscErrorCode rhs_TS(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx) // Function to utilize PETSc TS.
 {
-  AppCtx *appctx = (AppCtx*) ctx;
   DM                da;
-
   TSGetDM(ts,&da);
-  rhs(da, t, v_src, v_dst, appctx);
+  rhs(da, t, v_src, v_dst, ctx);
   return 0;
 }
 
-PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx) {
+PetscErrorCode get_error(const DM da, const Vec v1, const Vec v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx) {
   PetscScalar ***arr;
 
   VecWAXPY(*v_error,-1,v1,v2);
@@ -197,23 +203,23 @@ PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_erro
   VecNorm(*v_error,NORM_INFINITY,max_error);
   
   DMDAVecGetArrayDOF(da, *v_error, &arr);
-  *H_error = appctx.H.get_norm_2D(arr, appctx.h, appctx.N, appctx.i_start, appctx.i_end, appctx.dofs);
+  *H_error = appctx.H.get_norm_2D(arr, appctx.h, appctx.N, appctx.ind_i, appctx.ind_j, appctx.dofs);
 
   DMDAVecRestoreArrayDOF(da, *v_error, &arr);
 
   return 0;
 }
 
-PetscErrorCode analytic_solution(const DM& da, const PetscScalar t, const AppCtx& appctx, Vec& v_analytic)
+PetscErrorCode analytic_solution(const DM da, const PetscScalar t, const AppCtx& appctx, Vec v_analytic)
 { 
   PetscScalar x,y, **array_analytic;
   DMDAVecGetArray(da,v_analytic,&array_analytic);
-  for (PetscInt j = appctx.i_start[1]; j < appctx.i_end[1]; j++)
+  for (PetscInt j = appctx.ind_j[0]; j < appctx.ind_j[1]; j++)
   {
-    y = appctx.xl[1] + j/appctx.hi[1];
-    for (PetscInt i = appctx.i_start[0]; i < appctx.i_end[0]; i++)
+    y = appctx.xl[1] + j*appctx.h[1];
+    for (PetscInt i = appctx.ind_i[0]; i < appctx.ind_i[1]; i++)
     {
-      x = appctx.xl[0] + i/appctx.hi[0];
+      x = appctx.xl[0] + i*appctx.h[0];
       array_analytic[j][i] = gaussian_2D(x-appctx.a(i,j)*t,y-appctx.b(i,j)*t);
     }
   }
@@ -227,22 +233,20 @@ PetscScalar gaussian_2D(PetscScalar x, PetscScalar y) {
   return std::exp(-(x*x+y*y)/(rstar*rstar));
 }
 
-PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
+PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
 {
   PetscScalar       *array_src, *array_dst;
-
+  AppCtx *appctx = (AppCtx*) ctx;
   VecGetArray(v_src,&array_src);
   VecGetArray(v_dst,&array_dst);
 
   auto gf_src = grid::grid_function_2d<PetscScalar>(array_src, appctx->layout);
   auto gf_dst = grid::grid_function_2d<PetscScalar>(array_dst, appctx->layout);
-  const std::array<PetscInt,2> ind_i = {appctx->i_start[0], appctx->i_end[0]};
-  const std::array<PetscInt,2> ind_j = {appctx->i_start[1], appctx->i_end[1]};
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::advection_local(gf_dst, gf_src, ind_i, ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->a, appctx->b);
+  sbp::advection_local(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->a, appctx->b);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::advection_overlap(gf_dst, gf_src, ind_i, ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->a, appctx->b);
-  sbp::advection_bc(gf_dst, gf_src, ind_i, ind_j, appctx->HI, appctx->hi, appctx->a, appctx->b);
+  sbp::advection_overlap(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->a, appctx->b);
+  sbp::advection_bc(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->HI, appctx->hi, appctx->a, appctx->b);
 
   // sbp::advection_serial(gf_dst, gf_src, appctx->D1, appctx->hi, appctx->a, appctx->b);
   // sbp::advection_bc_serial(gf_dst, gf_src, appctx->HI, appctx->hi, appctx->a, appctx->b);

@@ -21,25 +21,32 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 * 
 **/
 
-#define PROBLEM_TYPE_2D_O6
-
 #include <petsc.h>
-#include "sbpops/D1_central.h"
-#include "sbpops/H_central.h"
-#include "sbpops/HI_central.h"
+#include "sbpops/op_defs.h"
 #include "diffops/wave_eq.h"
 #include "timestepping.h"
-#include "appctx.h"
 #include "grids/grid_function.h"
 #include "grids/create_layout.h"
 #include "IO_utils.h"
 #include "scatter_ctx.h"
 
-extern PetscErrorCode analytic_solution(DM, PetscScalar, AppCtx&, Vec&);
+struct AppCtx{
+    std::array<PetscInt,2> N, ind_i, ind_j;
+    std::array<PetscScalar,2> hi, h, xl;
+    PetscInt dofs;
+    PetscScalar sw;
+    const FirstDerivativeOp D1;
+    const NormOp H;
+    const InverseNormOp HI;
+    VecScatter scatctx;
+    grid::partitioned_layout_2d layout;
+};
+
+extern PetscErrorCode analytic_solution(const DM, const PetscScalar, const AppCtx&, Vec);
 extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
-extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, AppCtx *);
-extern PetscErrorCode set_initial_condition(DM da, Vec v, AppCtx& appctx);
-extern PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx);
+extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, void *);
+extern PetscErrorCode set_initial_condition(const DM da, Vec v, const AppCtx& appctx);
+extern PetscErrorCode get_error(const DM da, const Vec v1, const Vec v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx);
 
 int main(int argc,char **argv)
 { 
@@ -81,14 +88,6 @@ int main(int argc,char **argv)
   t0 = 0;
   dt = CFL/(std::min(hix,hiy));
 
-  // Velocity field a(i,j) = 1
-  auto a = [xl,yl,hix,hiy](const PetscInt i, const PetscInt j){  // 1/rho.
-    PetscScalar x = xl + i/hix;
-    PetscScalar y = yl + j/hiy;
-    return 1.0/(2 + x*y);
-  };
-  auto b = [](const PetscInt i, const PetscInt j){ return 1;}; // unused at the moment, K = 1.
-
   // Set if data should be written.
   write_data = PETSC_TRUE;
 
@@ -115,11 +114,9 @@ int main(int argc,char **argv)
   appctx.hi = {hix, hiy};
   appctx.h = {1./hix, 1./hiy};
   appctx.xl = {xl, yl};
-  appctx.i_start = {i_xstart,i_ystart};
-  appctx.i_end = {i_xend,i_yend};
+  appctx.ind_i = {i_xstart,i_xend};
+  appctx.ind_j = {i_ystart,i_yend};
   appctx.dofs = dofs;
-  appctx.a = a;
-  appctx.b = b;
   appctx.sw = stencil_radius;
   appctx.layout = grid::create_layout_2d(da);
 
@@ -156,9 +153,9 @@ int main(int argc,char **argv)
   }
 
   if (use_custom_ts) {
-    RK4_custom(da, appctx, Tend, dt, vlocal, rhs);  
+    RK4_custom(da, Tend, dt, vlocal, rhs, &appctx);  
   } else {
-    RK4_petsc(da, appctx, Tend, dt, vlocal, rhs_TS);  
+    RK4_petsc(da, Tend, dt, vlocal, rhs_TS, &appctx);  
   }
   
   PetscBarrier((PetscObject) v);
@@ -204,15 +201,13 @@ int main(int argc,char **argv)
 
 PetscErrorCode rhs_TS(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx) // Function to utilize PETSc TS.
 {
-  AppCtx *appctx = (AppCtx*) ctx;
   DM                da;
-
   TSGetDM(ts,&da);
-  rhs(da, t, v_src, v_dst, appctx);
+  rhs(da, t, v_src, v_dst, ctx);
   return 0;
 }
 
-PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx) {
+PetscErrorCode get_error(const DM da, const Vec v1, const Vec v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx) {
   PetscScalar ***arr;
 
   VecWAXPY(*v_error,-1,v1,v2);
@@ -223,14 +218,14 @@ PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_erro
   VecNorm(*v_error,NORM_INFINITY,max_error);
   
   DMDAVecGetArrayDOF(da, *v_error, &arr);
-  *H_error = appctx.H.get_norm_2D(arr, appctx.h, appctx.N, appctx.i_start, appctx.i_end, appctx.dofs);
+  *H_error = appctx.H.get_norm_2D(arr, appctx.h, appctx.N, appctx.ind_i, appctx.ind_j, appctx.dofs);
 
   DMDAVecRestoreArrayDOF(da, *v_error, &arr);
 
   return 0;
 }
 
-PetscErrorCode analytic_solution(DM da, PetscScalar t, AppCtx &appctx, Vec& v) {
+PetscErrorCode analytic_solution(const DM da, const PetscScalar t, const AppCtx &appctx, Vec v) {
   PetscInt i, j, n, m; 
   PetscScalar ***varr, x, y;
 
@@ -239,12 +234,12 @@ PetscErrorCode analytic_solution(DM da, PetscScalar t, AppCtx &appctx, Vec& v) {
 
   DMDAVecGetArrayDOF(da,v,&varr);    
 
-  for (j = appctx.i_start[1]; j < appctx.i_end[1]; j++)
+  for (j = appctx.ind_j[0]; j < appctx.ind_j[1]; j++)
   {
-    y = appctx.xl[1] + j/appctx.hi[1];
-    for (i = appctx.i_start[0]; i < appctx.i_end[0]; i++)
+    y = appctx.xl[1] + j*appctx.h[1];
+    for (i = appctx.ind_i[0]; i < appctx.ind_i[1]; i++)
     {
-      x = appctx.xl[0] + i/appctx.hi[0];
+      x = appctx.xl[0] + i*appctx.h[0];
       varr[j][i][0] = -n*cos(n*PETSC_PI*x)*sin(m*PETSC_PI*y)*sin(PETSC_PI*sqrt(n*n + m*m)*t)/sqrt(n*n + m*m);
       varr[j][i][1] = -m*sin(n*PETSC_PI*x)*cos(m*PETSC_PI*y)*sin(PETSC_PI*sqrt(n*n + m*m)*t)/sqrt(n*n + m*m);
       varr[j][i][2] = sin(PETSC_PI*n*x)*sin(PETSC_PI*m*y)*cos(PETSC_PI*sqrt(n*n + m*m)*t);
@@ -259,14 +254,15 @@ PetscErrorCode analytic_solution(DM da, PetscScalar t, AppCtx &appctx, Vec& v) {
 * Inputs: v      - vector to place initial data
 *         appctx - application context, contains necessary information
 **/
-PetscErrorCode set_initial_condition(DM da, Vec v, AppCtx& appctx) 
+PetscErrorCode set_initial_condition(const DM da, Vec v, const AppCtx& appctx) 
 {
   analytic_solution(da, 0, appctx, v);
   return 0;
 }
 
-PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
+PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
 {
+  AppCtx *appctx = (AppCtx*) ctx;
   PetscScalar       *array_src, *array_dst;
 
   VecGetArray(v_src,&array_src);
@@ -274,13 +270,11 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
 
   auto gf_src = grid::grid_function_2d<PetscScalar>(array_src, appctx->layout);
   auto gf_dst = grid::grid_function_2d<PetscScalar>(array_dst, appctx->layout);
-  const std::array<PetscInt,2> ind_i = {appctx->i_start[0], appctx->i_end[0]};
-  const std::array<PetscInt,2> ind_j = {appctx->i_start[1], appctx->i_end[1]};
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  wave_eq_local(gf_dst, gf_src, ind_i, ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->xl, t);
+  wave_eq_local(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->xl, t);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  wave_eq_overlap(gf_dst, gf_src, ind_i, ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->xl, t);
-  wave_eq_free_surface_bc(gf_dst, gf_src, ind_i, ind_j, appctx->HI, appctx->hi);
+  wave_eq_overlap(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->xl, t);
+  wave_eq_free_surface_bc(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->HI, appctx->hi);
   //wave_eq_serial(gf_dst, gf_src, appctx->D1, appctx->hi, appctx->xl, t);
   //wave_eq_free_surface_bc_serial(gf_dst, gf_src, appctx->HI, appctx->hi);
 

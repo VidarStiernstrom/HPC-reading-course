@@ -2,7 +2,7 @@
 
 #include<petsc.h>
 
-PetscErrorCode write_vector_to_binary(const Vec&, const std::string, const std::string);
+PetscErrorCode write_vector_to_binary(const Vec, const std::string, const std::string);
 
 PetscErrorCode write_data_to_file(const std::string data_string, const std::string folder, const std::string file);
 

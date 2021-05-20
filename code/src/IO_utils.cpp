@@ -1,7 +1,7 @@
 #include<petsc.h>
 #include <filesystem>
 
-PetscErrorCode write_vector_to_binary(const Vec& v, const std::string folder, const std::string file)
+PetscErrorCode write_vector_to_binary(const Vec v, const std::string folder, const std::string file)
 { 
   std::filesystem::create_directories(folder);
   PetscErrorCode ierr;

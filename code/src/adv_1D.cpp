@@ -1,31 +1,38 @@
 static char help[] = "Solves advection 1D problem u_t + u_x = 0.\n";
 
-#define PROBLEM_TYPE_1D_O6
-
 #include <petsc.h>
-#include "sbpops/D1_central.h"
-#include "sbpops/H_central.h"
-#include "sbpops/HI_central.h"
+#include "sbpops/op_defs.h"
 #include "diffops/advection.h"
 #include "timestepping.h"
-#include "appctx.h"
 #include "grids/grid_function.h"
 #include "grids/create_layout.h"
 #include "IO_utils.h"
 #include "scatter_ctx.h"
 
-extern PetscErrorCode analytic_solution(const DM&, const PetscScalar, const AppCtx&, Vec&);
+struct AppCtx{
+    std::array<PetscInt,2> ind_i;
+    PetscScalar hi, h, xl, sw;;
+    PetscInt N, dofs;
+    std::function<double(int)> a;
+    const FirstDerivativeOp D1;
+    const NormOp H;
+    const InverseNormOp HI;
+    VecScatter scatctx;
+    grid::partitioned_layout_1d layout;
+};
+
+extern PetscErrorCode analytic_solution(const DM, const PetscScalar, const AppCtx&, Vec);
 extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
-extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, AppCtx *);
+extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, void *);
 extern PetscScalar gaussian(PetscScalar);
-extern PetscErrorCode write_vector_to_binary(const Vec&, const std::string, const std::string);
-extern PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx);
+extern PetscErrorCode write_vector_to_binary(const Vec, const std::string, const std::string);
+extern PetscErrorCode get_error(const DM da, const Vec v1, const Vec v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx);
 
 int main(int argc,char **argv)
 { 
   DM             da;
   Vec            v, v_analytic, v_error, vlocal;
-  PetscInt       stencil_radius, i_xstart, i_xend, N, n, dofs;
+  PetscInt       stencil_radius, i_start, i_end, N, n, dofs;
   PetscScalar    xl, xr, hi, h, dt, t0, Tend, CFL;
   PetscReal      l2_error, max_error, H_error;
 
@@ -72,15 +79,14 @@ int main(int argc,char **argv)
   ierr = DMDACreate1d(PETSC_COMM_WORLD, DM_BOUNDARY_NONE, N, dofs, stencil_radius, NULL, &da);CHKERRQ(ierr);
   DMSetFromOptions(da);
   DMSetUp(da);
-  DMDAGetCorners(da,&i_xstart,NULL,NULL,&n,NULL,NULL);
-  i_xend = i_xstart + n;
+  DMDAGetCorners(da,&i_start,NULL,NULL,&n,NULL,NULL);
+  i_end = i_start + n;
   // Populate application context.
-  appctx.N = {N};
-  appctx.hi = {hi};
-  appctx.h = {h};
+  appctx.N = N;
+  appctx.hi = hi;
+  appctx.h = h;
   appctx.xl = xl;
-  appctx.i_start = {i_xstart};
-  appctx.i_end = {i_xend};
+  appctx.ind_i = {i_start, i_end};
   appctx.dofs = dofs;
   appctx.a = a;
   appctx.sw = stencil_radius;
@@ -118,9 +124,9 @@ int main(int argc,char **argv)
   }
 
   if (use_custom_ts) {
-    RK4_custom(da, appctx, Tend, dt, vlocal, rhs);  
+    RK4_custom(da, Tend, dt, vlocal, rhs, &appctx);  
   } else {
-    RK4_petsc(da, appctx, Tend, dt, vlocal, rhs_TS);  
+    RK4_petsc(da, Tend, dt, vlocal, rhs_TS, &appctx);  
   }
   
   PetscBarrier((PetscObject) v);
@@ -165,38 +171,37 @@ int main(int argc,char **argv)
 
 PetscErrorCode rhs_TS(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx) // Function to utilize PETSc TS.
 {
-  AppCtx *appctx = (AppCtx*) ctx;
+  
   DM                da;
-
   TSGetDM(ts,&da);
-  rhs(da, t, v_src, v_dst, appctx);
+  rhs(da, t, v_src, v_dst, ctx);
   return 0;
 }
 
-PetscErrorCode get_error(const DM& da, const Vec& v1, const Vec& v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx) {
+PetscErrorCode get_error(const DM da, const Vec v1, const Vec v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx) {
   PetscScalar **arr;
 
   VecWAXPY(*v_error,-1,v1,v2);
 
   VecNorm(*v_error,NORM_2,l2_error);
-  *l2_error = sqrt(appctx.h[0])*(*l2_error);
+  *l2_error = sqrt(appctx.h)*(*l2_error);
 
   VecNorm(*v_error,NORM_INFINITY,max_error);
   
   DMDAVecGetArrayDOF(da, *v_error, &arr);
-  *H_error = appctx.H.get_norm_1D(arr, appctx.h[0], appctx.N[0], appctx.i_start[0], appctx.i_end[0], appctx.dofs);
+  *H_error = appctx.H.get_norm_1D(arr, appctx.h, appctx.N, appctx.ind_i[0], appctx.ind_i[1], appctx.dofs);
   DMDAVecRestoreArrayDOF(da, *v_error, &arr);
 
   return 0;
 }
 
-PetscErrorCode analytic_solution(const DM& da, const PetscScalar t, const AppCtx& appctx, Vec& v_analytic)
+PetscErrorCode analytic_solution(const DM da, const PetscScalar t, const AppCtx& appctx, Vec v_analytic)
 { 
   PetscScalar x, *array_analytic;
   DMDAVecGetArray(da,v_analytic,&array_analytic);
-  for (PetscInt i = appctx.i_start[0]; i < appctx.i_end[0]; i++)
+  for (PetscInt i = appctx.ind_i[0]; i < appctx.ind_i[1]; i++)
   {
-    x = appctx.xl + i/appctx.hi[0];
+    x = appctx.xl + i*appctx.h;
     array_analytic[i] = gaussian(x-appctx.a(i)*t);
   }
   DMDAVecRestoreArray(da,v_analytic,&array_analytic);  
@@ -209,21 +214,20 @@ PetscScalar gaussian(PetscScalar x) {
   return exp(-x*x/(rstar*rstar));
 }
 
-PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, AppCtx *appctx)
+PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, void* ctx)
 {
   PetscScalar       *array_src, *array_dst;
-
+  AppCtx *appctx = (AppCtx*) ctx;
   VecGetArray(v_src,&array_src);
   VecGetArray(v_dst,&array_dst);
 
   auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, appctx->layout);
   auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, appctx->layout);
-  const std::array<PetscInt,2> ind_i = {appctx->i_start[0], appctx->i_end[0]};
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::advection_local(gf_dst, gf_src, ind_i, appctx->sw, appctx->D1, appctx->hi[0], appctx->a);
+  sbp::advection_local(gf_dst, gf_src, appctx->ind_i, appctx->sw, appctx->D1, appctx->hi, appctx->a);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::advection_overlap(gf_dst ,gf_src, ind_i, appctx->sw, appctx->D1, appctx->hi[0], appctx->a);
-  sbp::advection_bc(gf_dst, gf_src, ind_i, appctx->HI, appctx->hi[0], appctx->a);
+  sbp::advection_overlap(gf_dst ,gf_src, appctx->ind_i, appctx->sw, appctx->D1, appctx->hi, appctx->a);
+  sbp::advection_bc(gf_dst, gf_src, appctx->ind_i, appctx->HI, appctx->hi, appctx->a);
   // sbp::advection_serial(gf_dst, gf_src, appctx->D1, appctx->hi[0], appctx->a);
   // sbp::advection_bc_serial(gf_dst, gf_src, appctx->HI, appctx->hi[0], appctx->a);
 

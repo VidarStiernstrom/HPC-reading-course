@@ -1,41 +1,39 @@
 #pragma once
 
-#include <array>
 #include <petscdmda.h>
-#include "appctx.h"
 
 /**
 * Time steps system of ODEs with RK4 using the built-in PETSc routines TS.
 * Inputs: da        - DMDA object
-*         appctx    - Application context
-a         Tend      - Final time
+*         Tend      - Final time
 *         dt        - Time step
 *         v         - Working vector. Should contain initial data.
 *         rhs       - RHS function. Inputs (required by petsc): (TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx) 
+*         ctx       - User defined context
 **/
-PetscErrorCode RK4_petsc(const DM da, AppCtx appctx, const PetscScalar Tend, const PetscScalar dt, Vec v, PetscErrorCode (*rhs)(TS, PetscReal, Vec, Vec, void *));
+PetscErrorCode RK4_petsc(const DM da, const PetscScalar Tend, const PetscScalar dt, Vec v, PetscErrorCode (*rhs)(TS, PetscReal, Vec, Vec, void *), void* ctx);
 
 
 /**
 * Time steps system of ODEs with RK4 using standard looping.
 * Inputs: da        - DMDA object
-*         appctx    - Application context
-a         Tend      - Final time
+*         Tend      - Final time
 *         dt        - Time step
 *         v         - Working vector. Should contain initial data.
-*         rhs       - RHS function. Inputs: (DM da, PetscReal t, Vec v_src, Vec v_dst, void *ctx) 
+*         rhs       - RHS function. Inputs: (DM da, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
+*         ctx       - User defined context
 **/
-PetscErrorCode RK4_custom(const DM da, AppCtx appctx, const PetscScalar Tend, PetscScalar dt, Vec v, PetscErrorCode (*rhs)(DM, PetscReal, Vec, Vec, AppCtx *)); 
+PetscErrorCode RK4_custom(const DM da, const PetscScalar Tend, PetscScalar dt, Vec v, PetscErrorCode (*rhs)(DM, PetscReal, Vec, Vec, void *), void* ctx); 
 
 
 /**
 * Finds local indices of inner points (no ghost points).
 * Inputs: da          - 1D, 2D or 3D DMDA object.
-*         appctx      - Application context.
-a         ln_tot      - Pointer to integer representing number of inner points.
+*         ctx      - Application context.
+*         ln_tot      - Pointer to integer representing number of inner points.
 *         linner_ids  - Pointer to array containing inner indices.
 **/
-PetscErrorCode get_local_inner_ids(DM da, AppCtx appctx, PetscInt *ln_tot, PetscInt **linner_ids);
+PetscErrorCode get_local_inner_ids(const DM da, PetscInt *ln_tot, PetscInt **linner_ids);
 
 
 /**
@@ -60,7 +58,7 @@ PetscErrorCode rk4_util(Vec v, const Vec k1, const Vec k2, const Vec k3, const V
 
 /////////// IMPLEMENTATIONS ///////////
 
-PetscErrorCode RK4_petsc(const DM da, AppCtx appctx, const PetscScalar Tend, const PetscScalar dt, Vec v, PetscErrorCode (*rhs)(TS, PetscReal, Vec, Vec, void *))
+PetscErrorCode RK4_petsc(const DM da, const PetscScalar Tend, const PetscScalar dt, Vec v, PetscErrorCode (*rhs)(TS, PetscReal, Vec, Vec, void *), void* ctx)
 {
   TS             ts;
   TSAdapt        adapt;
@@ -69,7 +67,7 @@ PetscErrorCode RK4_petsc(const DM da, AppCtx appctx, const PetscScalar Tend, con
   
   // Problem type and RHS function
   TSSetProblemType(ts, TS_LINEAR);
-  TSSetRHSFunction(ts, NULL, rhs, &appctx);
+  TSSetRHSFunction(ts, NULL, rhs, ctx);
   
   // Integrator
   TSSetType(ts,TSRK);
@@ -97,7 +95,7 @@ PetscErrorCode RK4_petsc(const DM da, AppCtx appctx, const PetscScalar Tend, con
   return 0;
 }
 
-PetscErrorCode RK4_custom(const DM da, AppCtx appctx, const PetscScalar Tend, PetscScalar dt, Vec v, PetscErrorCode (*rhs)(DM, PetscReal, Vec, Vec, AppCtx *)) 
+PetscErrorCode RK4_custom(const DM da, const PetscScalar Tend, PetscScalar dt, Vec v, PetscErrorCode (*rhs)(DM, PetscReal, Vec, Vec, void *), void* ctx) 
 {
   Vec k1, k2, k3, k4, tmp;
   PetscScalar t = 0.0, dtDIV2, dtDIV6;
@@ -115,7 +113,7 @@ PetscErrorCode RK4_custom(const DM da, AppCtx appctx, const PetscScalar Tend, Pe
   dtDIV6 = dt/6;
 
   // Find which local indices to update (non-ghost points)
-  get_local_inner_ids(da, appctx, &ln_tot, &linner_ids);
+  get_local_inner_ids(da, &ln_tot, &linner_ids);
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Apply RK4
@@ -127,16 +125,16 @@ PetscErrorCode RK4_custom(const DM da, AppCtx appctx, const PetscScalar Tend, Pe
   DMGetLocalVector(da, &tmp);
 
   for (tidx = 0; tidx < tlen; tidx++) {
-    rhs(da, t, v, k1, &appctx); // k1 = D*v
+    rhs(da, t, v, k1, ctx); // k1 = D*v
     apply_WAXPY(tmp, dtDIV2, k1, v, ln_tot, linner_ids); // tmp = v + 0.5*dt*k1
 
-    rhs(da, t + dtDIV2, tmp, k2, &appctx); // k2 = D*(v + 0.5*dt*k1)
+    rhs(da, t + dtDIV2, tmp, k2, ctx); // k2 = D*(v + 0.5*dt*k1)
     apply_WAXPY(tmp, dtDIV2, k2, v, ln_tot, linner_ids); // tmp = v + 0.5*dt*k2
 
-    rhs(da, t + dtDIV2, tmp, k3, &appctx); // k3 = D*(v + 0.5*dt*k2)
+    rhs(da, t + dtDIV2, tmp, k3, ctx); // k3 = D*(v + 0.5*dt*k2)
     apply_WAXPY(tmp, dt, k3, v, ln_tot, linner_ids); // tmp = v + dt*k3
 
-    rhs(da, t + dt, tmp, k4, &appctx); // k4 = D*(v + dt*k3)
+    rhs(da, t + dt, tmp, k4, ctx); // k4 = D*(v + dt*k3)
 
     rk4_util(v, k1, k2, k3,k4, dtDIV6, ln_tot, linner_ids); // v = v + dt/6*(k1 + 2*k2 + 2*k3 + k4)
 
@@ -153,27 +151,26 @@ PetscErrorCode RK4_custom(const DM da, AppCtx appctx, const PetscScalar Tend, Pe
   return 0;
 }
 
-PetscErrorCode get_local_inner_ids(DM da, AppCtx appctx, PetscInt *ln_tot, PetscInt **linner_ids)
+PetscErrorCode get_local_inner_ids(const DM da, PetscInt *ln_tot, PetscInt **linner_ids)
 {
-  PetscInt i, j, k, l, idx, nx, ny, nz, lnx, lny, sw, dof;
-  int dim;
-
-  DMDAGetStencilWidth(da, &sw);
-  DMDAGetCorners(da,NULL,NULL,NULL,&nx,&ny,&nz);
+  PetscInt i_xstart, i_ystart, i_zstart, nx, ny, nz, lnx, lny;
+  PetscInt dim, Nx, Ny, Nz, dof, sw;
+  DMDAGetCorners(da,&i_xstart,&i_ystart,&i_zstart,&nx,&ny,&nz);
   DMDAGetGhostCorners(da,NULL,NULL,NULL,&lnx,&lny,NULL);
-  DMDAGetInfo(da,&dim,NULL,NULL,NULL,NULL,NULL,NULL,&dof,NULL,NULL,NULL,NULL,NULL);
+  DMDAGetInfo(da,&dim,&Nx,&Ny,&Nz,NULL,NULL,NULL,&dof,&sw,NULL,NULL,NULL,NULL);
 
   PetscInt li_start[3] = {0,0,0}, li_end[3] = {1,1,1};
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Find starting and stopping indices in each dimension
   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+  const PetscInt i_xend = i_xstart + nx;
   if (dim > 0) 
   {
-    if (appctx.i_start[0] == 0) {                 // Left x
+    if (i_xstart == 0) {                 // Left x
       li_start[0] = 0;
       li_end[0] = nx*dof;
-    } else if (appctx.i_end[0] == appctx.N[0]) {  // Right x
+    } else if (i_xend == Nx) {  // Right x
       li_start[0] = sw*dof;
       li_end[0] = (sw + nx)*dof;
     } else {                                      // Center x
@@ -181,13 +178,13 @@ PetscErrorCode get_local_inner_ids(DM da, AppCtx appctx, PetscInt *ln_tot, Petsc
       li_end[0] = (sw + nx)*dof;
     }
   }
-
+  const PetscInt i_yend = i_ystart + ny;
   if (dim > 1)
   {
-    if (appctx.i_start[1] == 0) {                 // Left y
+    if (i_ystart == 0) {                 // Left y
       li_start[1] = 0;
       li_end[1] = ny*dof;
-    } else if (appctx.i_end[1] == appctx.N[1]) {  // Right y
+    } else if (i_yend == Ny) {  // Right y
       li_start[1] = sw*dof;
       li_end[1] = (sw + ny)*dof;
     } else {                                      // Center y
@@ -195,13 +192,13 @@ PetscErrorCode get_local_inner_ids(DM da, AppCtx appctx, PetscInt *ln_tot, Petsc
       li_end[1] = (sw + ny)*dof;
     }      
   }
-
+  const PetscInt i_zend = i_zstart + nz;
   if (dim > 2) // NOT BUG TESTED!
   {
-    if (appctx.i_start[2] == 0) {                 // Left z
+    if (i_zstart == 0) {                 // Left z
       li_start[2] = 0;
       li_end[2] = nz*dof;
-    } else if (appctx.i_end[2] == appctx.N[2]) {  // Right z
+    } else if (i_zend == Nz) {  // Right z
       li_start[2] = sw*dof;
       li_end[2] = (sw + nz)*dof;
     } else {                                      // Center z
@@ -216,10 +213,11 @@ PetscErrorCode get_local_inner_ids(DM da, AppCtx appctx, PetscInt *ln_tot, Petsc
   *ln_tot = nx*ny*nz*dof;
   *linner_ids = (PetscInt *) malloc(*ln_tot*sizeof(PetscInt));
   PetscInt count = 0;
-  for (l = 0; l < dof; l++) {
-    for (k = li_start[2]; k < li_end[2]; k+=dof) {
-      for (j = li_start[1]; j < li_end[1]; j+=dof) {
-        for (i = li_start[0]; i < li_end[0]; i+=dof) {
+  PetscInt idx;
+  for (PetscInt l = 0; l < dof; l++) {
+    for (PetscInt k = li_start[2]; k < li_end[2]; k+=dof) {
+      for (PetscInt j = li_start[1]; j < li_end[1]; j+=dof) {
+        for (PetscInt i = li_start[0]; i < li_end[0]; i+=dof) {
           idx = l + i + lnx*(j + lny*k);
           (*linner_ids)[count] = idx;
           count++;
