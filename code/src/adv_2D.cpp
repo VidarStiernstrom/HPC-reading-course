@@ -71,8 +71,7 @@ int main(int argc,char **argv)
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Create distributed array (DMDA) to manage parallel grid and vectors
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  auto [stencil_width, nc, cw] = appctx.D1.get_ranges();
-  stencil_radius = (stencil_width-1)/2;
+  stencil_radius = (appctx.D1.interior_stencil_width()-1)/2;
   DMDACreate2d(PETSC_COMM_WORLD,DM_BOUNDARY_NONE,DM_BOUNDARY_NONE,DMDA_STENCIL_STAR,
                Nx,Ny,PETSC_DECIDE,PETSC_DECIDE,dofs,stencil_radius,NULL,NULL,&da);
   DMSetFromOptions(da);

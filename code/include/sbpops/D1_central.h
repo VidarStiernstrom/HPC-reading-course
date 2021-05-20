@@ -1,6 +1,5 @@
 #pragma once
 
-#include <tuple>
 #include<petscsystypes.h>
 #include "grids/grid_function.h"
 
@@ -17,20 +16,29 @@ namespace sbp {
   class D1_central{
   public:
     constexpr D1_central(){};
+    
     /**
-    * Convenience function returning the ranges (int_width,cls_sz,cls_width)
+    *  Returns the width of the interior stencil
     **/
-    inline constexpr std::tuple<PetscInt,PetscInt,PetscInt> get_ranges() const
+    constexpr PetscInt interior_stencil_width() const
     {
-      return std::make_tuple(int_width,cls_sz,cls_width);
+      return int_width;
     };
 
     /**
-    * Convenience function returning the size of the closure cls_sz (number of points with a closure stencil)
+    *  Returns the size of the closure (number of points with a closure stencil)
     **/
-    inline constexpr PetscInt closure_size() const
+    constexpr PetscInt closure_size() const
     {
       return cls_sz;
+    };
+
+    /**
+    *  Returns the width of the closure stencils
+    **/
+    constexpr PetscInt closure_stencil_width() const
+    {
+      return cls_width;
     };
 
     //=============================================================================
