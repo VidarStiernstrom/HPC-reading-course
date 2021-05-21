@@ -122,7 +122,7 @@ int main(int argc,char **argv)
 
   // Extract local to local scatter context
   if (use_custom_sc) {
-    scatter_ctx_ltol(da, &appctx.scatctx);
+    scatter_ctx_ltol(da, appctx.scatctx);
   } else {
     DMDAGetScatter(da, NULL, &appctx.scatctx);
   }

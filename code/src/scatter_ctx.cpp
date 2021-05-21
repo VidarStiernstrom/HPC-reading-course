@@ -6,7 +6,7 @@
 * Inputs: da        - DMDA object
 *         ltol      - pointer to local to local scatter context
 **/
-PetscErrorCode build_ltol_1D(DM da, VecScatter *ltol)
+PetscErrorCode build_ltol_1D(DM da, VecScatter ltol)
 {
   PetscInt    stencil_radius, i_xstart, i_xend, ig_xstart, ig_xend, n, i, j, ln, no_com_vals, count, N, dof;
   IS          ix, iy;
@@ -81,7 +81,7 @@ PetscErrorCode build_ltol_1D(DM da, VecScatter *ltol)
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Map 1D global to local scatter context to local to local (petsc source code)
   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  VecScatterCopy(gtol,ltol);
+  VecScatterCopy(gtol,&ltol);
   VecScatterDestroy(&gtol);
 
   PetscInt *idx,left;
@@ -92,7 +92,7 @@ PetscErrorCode build_ltol_1D(DM da, VecScatter *ltol)
   {
     idx[j] = left + j;
   }
-  VecScatterRemap(*ltol,idx,NULL);
+  VecScatterRemap(ltol,idx,NULL);
 
   return 0;
 }
@@ -102,7 +102,7 @@ PetscErrorCode build_ltol_1D(DM da, VecScatter *ltol)
 * Inputs: da        - DMDA object
 *         ltol      - pointer to local to local scatter context
 **/
-PetscErrorCode build_ltol_2D(DM da, VecScatter *ltol)
+PetscErrorCode build_ltol_2D(DM da, VecScatter ltol)
 {
   AO          ao;
   PetscInt    stencil_radius, i_xstart, i_xend, i_ystart, i_yend, ig_xstart, ig_xend, ig_ystart, ig_yend, nx, ny, i, j, l, lnx, lny, no_com_vals, count, Nx, Ny, dof;
@@ -213,7 +213,7 @@ PetscErrorCode build_ltol_2D(DM da, VecScatter *ltol)
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     Map 2D global to local scatter context to local to local (petsc source code)
   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-  VecScatterCopy(gtol,ltol);
+  VecScatterCopy(gtol,&ltol);
   VecScatterDestroy(&gtol);
 
   PetscInt *idx,left,up,down;
@@ -226,7 +226,7 @@ PetscErrorCode build_ltol_2D(DM da, VecScatter *ltol)
       idx[count++] = left + i*(dd->Xe-dd->Xs) + j;
     }
   }
-  VecScatterRemap(*ltol,idx,NULL);
+  VecScatterRemap(ltol,idx,NULL);
 
   return 0;
 }
