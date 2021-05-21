@@ -6,16 +6,16 @@ Parallelization is carried out using the PETSc library. For instructions on how 
 In order to build you must first set the environment variables PETSC_DIR and PETSC_ARCH. See https://www.mcs.anl.gov/petsc/documentation/installation.html#envvars
 
 The following demos are available: 
-Acoustic wave equation on first order form in 2D (`acowave_2D`)
-Advection equation in 1D and 2D (`adv_1D`, `adv_2D`)
-The reflection problem (`ref_1D`)
+- Acoustic wave equation on first order form in 2D (`acowave_2D`)
+- Advection equation in 1D and 2D (`adv_1D`, `adv_2D`)
+- The reflection problem (`ref_1D`)
 
 To build a demo, from the code directory do `make target order=N` where target is one of `acowave_2D`, `adv_1D`, `adv_2D`, `ref_1D`)
 `N` is one of 2,4,6, specifying the order of accuracy of the SBP operators used in the simulation. If not specified, the default order used is 4.
 
-To build with optimization flags do `make opt app=target order=N`
-To build with debug flags do `make debug app=target order=N`
-To build with optimization and debug flags do `make opt-debug app=target order=N`
+- To build with optimization flags do `make opt app=target order=N`
+- To build with debug flags do `make debug app=target order=N`
+- To build with optimization and debug flags do `make opt-debug app=target order=N`
 
 To run the solver, from the code directory do `mpirun -n Nprocs bin/target` to get more information on inputs for the demo.
 
