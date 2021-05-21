@@ -4,7 +4,7 @@ static char help[] ="Solves the 2D advection equation u_t + au_x +bu_y = 0.";
 #include <petsc.h>
 #include "sbpops/op_defs.h"
 #include "diffops/advection.h"
-#include "timestepping.h"
+#include "time_stepping/ts_rk.h"
 #include "grids/grid_function.h"
 #include "grids/create_layout.h"
 #include "IO_utils.h"
@@ -38,7 +38,7 @@ int main(int argc,char **argv)
   PetscReal      l2_error, max_error, H_error;
 
   AppCtx         appctx;
-  PetscBool      write_data, use_custom_ts, use_custom_sc;
+  PetscBool      write_data, use_custom_sc;
   PetscLogDouble v1,v2,elapsed_time = 0;
 
   PetscErrorCode ierr;
@@ -48,7 +48,7 @@ int main(int argc,char **argv)
   ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
 
-  if (get_inputs_2d(argc, argv, &Nx, &Ny, &Tend, &CFL, &use_custom_ts, &use_custom_sc) == -1) {
+  if (get_inputs_2d(argc, argv, &Nx, &Ny, &Tend, &CFL, &use_custom_sc) == -1) {
     PetscFinalize();
     return -1;
   }
@@ -137,11 +137,8 @@ int main(int argc,char **argv)
     PetscTime(&v1);
   }
 
-  if (use_custom_ts) {
-    RK4_custom(da, Tend, dt, vlocal, rhs, &appctx);  
-  } else {
-    RK4_petsc(da, Tend, dt, vlocal, rhs_TS, &appctx);  
-  }
+
+  ts_rk4(da, Tend, dt, vlocal, rhs_TS, &appctx);
   
   PetscBarrier((PetscObject) v);
   if (rank == 0) {
