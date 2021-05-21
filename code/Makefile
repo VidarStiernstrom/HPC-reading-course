@@ -57,7 +57,7 @@ $(OBJ_PATH)create_layout.o: $(SRC_PATH)grids/create_layout.cpp
 $(OBJ_PATH)IO_utils.o: $(SRC_PATH)IO_utils.cpp
 	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
 
-$(OBJ_PATH)scatter_ctx.o: $(SRC_PATH)scatter_ctx.cpp
+$(OBJ_PATH)scatter_ctx.o: $(SRC_PATH)scatter_ctx/scatter_ctx.cpp
 	-${CXX} ${CXXFLAGS} -c $^ -o $@ 
 
 $(OBJ_PATH)ts_rk.o: $(SRC_PATH)time_stepping/ts_rk.cpp

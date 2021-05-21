@@ -28,7 +28,7 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 #include "grids/grid_function.h"
 #include "grids/create_layout.h"
 #include "IO_utils.h"
-#include "scatter_ctx.h"
+#include "scatter_ctx/scatter_ctx.h"
 
 struct AppCtx{
     std::array<PetscInt,2> N, ind_i, ind_j;
@@ -122,7 +122,7 @@ int main(int argc,char **argv)
 
   // Extract local to local scatter context
   if (use_custom_sc) {
-    build_ltol_2D(da, &appctx.scatctx);
+    scatter_ctx_ltol(da, &appctx.scatctx);
   } else {
     DMDAGetScatter(da, NULL, &appctx.scatctx);
   }
