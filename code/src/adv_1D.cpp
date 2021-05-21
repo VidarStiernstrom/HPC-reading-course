@@ -6,7 +6,7 @@ static char help[] = "Solves advection 1D problem u_t + u_x = 0.\n";
 #include "time_stepping/ts_rk.h"
 #include "grids/grid_function.h"
 #include "grids/create_layout.h"
-#include "IO_utils.h"
+#include "io/io_utils.h"
 #include "scatter_ctx/scatter_ctx.h"
 
 struct AppCtx{
@@ -47,7 +47,7 @@ int main(int argc,char **argv)
   ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
 
-  if (get_inputs_1d(argc, argv, &N, &Tend, &CFL, &use_custom_sc) == -1) {
+  if (get_inputs(argc, argv, N, Tend, CFL, use_custom_sc) == -1) {
     PetscFinalize();
     return -1;
   }

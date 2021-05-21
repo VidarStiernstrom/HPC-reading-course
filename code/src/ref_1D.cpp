@@ -48,7 +48,7 @@ int main(int argc,char **argv)
   ierr = MPI_Comm_size(PETSC_COMM_WORLD,&size);CHKERRQ(ierr);
   ierr = MPI_Comm_rank(PETSC_COMM_WORLD,&rank);CHKERRQ(ierr);
 
-  if (get_inputs_1d(argc, argv, &N, &Tend, &CFL, &use_custom_sc) == -1) {
+  if (get_inputs(argc, argv, N, Tend, CFL, use_custom_sc) == -1) {
     PetscFinalize();
     return -1;
   }
