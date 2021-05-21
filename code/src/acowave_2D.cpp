@@ -27,7 +27,7 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 #include "time_stepping/ts_rk.h"
 #include "grids/grid_function.h"
 #include "grids/create_layout.h"
-#include "IO_utils.h"
+#include "io/io_utils.h"
 #include "scatter_ctx/scatter_ctx.h"
 
 struct AppCtx{

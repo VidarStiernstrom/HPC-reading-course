@@ -6,7 +6,7 @@ static char help[] = "Solves 1D reflection problem.\n";
 #include "time_stepping/ts_rk.h"
 #include "grids/create_layout.h"
 #include "grids/grid_function.h"
-#include "IO_utils.h"
+#include "io/io_utils.h"
 #include "scatter_ctx/scatter_ctx.h"
 
 struct AppCtx{
