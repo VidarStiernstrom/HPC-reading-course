@@ -16,11 +16,11 @@ DEBUGFLAGS		= -Wall -g
 COPTFLAGS		= -O3 -march=native -mtune=native -ffast-math
 CPPFLAGS		= -DVERSION=${PETSC_VERSION_NUM}
 
-ifeq ($(strip $(ORDER)),)
-ORDER		= 4
-ORDER_MSG	= ORDER not set. Compiling with $(ORDER)
+ifeq ($(strip $(order)),)
+order		= 4
+ORDER_MSG	= order not set. Compiling with $(order)
 else
-ORDER_MSG	= Compiling with $(ORDER)
+ORDER_MSG	= Compiling with $(order)
 endif
 CXX 			= mpicc 
 CXXFLAGS		= -std=c++17 $(IFLAGS)
@@ -29,10 +29,10 @@ include ${PETSC_DIR}/lib/petsc/conf/variables
 include ${PETSC_DIR}/lib/petsc/conf/rules
 include ${PETSC_DIR}/lib/petsc/conf/test
 
-debug: CXXFLAGS += -DDEBUG $(DEBUGFLAGS)
-debug: $(app)	
 opt: CXXFLAGS += -DNDEBUG $(COPTFLAGS)
 opt: $(app)
+debug: CXXFLAGS += -DDEBUG $(DEBUGFLAGS)
+debug: $(app)	
 opt-debug: CXXFLAGS += -DDEBUG $(DEBUGFLAGS) $(COPTFLAGS)
 opt-debug: $(app)
 all: acowave_2D adv_2D adv_1D ref_1D
@@ -57,22 +57,22 @@ ref_1D: ref_1D.o io_utils.o ts_rk.o scatter_ctx.o create_layout.o
 # Compile object files to OBJ_PATH/
 acowave_2D.o: $(SRC_PATH)/acowave_2D.cpp $(INCLUDE_PATH)/diffops/wave_eq.h $(INCLUDE_PATH)/$(wildcard sbpops/*.h)
 	echo $(ORDER_MSG)
-	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)/acowave_2D.cpp -DSBP_OPERATOR_ORDER=$(ORDER)
+	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)/acowave_2D.cpp -DSBP_OPERATOR_ORDER=$(order)
 	mv acowave_2D.o $(OBJ_PATH)/acowave_2D.o
 
 adv_2D.o: $(SRC_PATH)/adv_2D.cpp $(INCLUDE_PATH)/diffops/advection.h $(INCLUDE_PATH)/$(wildcard sbpops/*.h)
 	echo $(ORDER_MSG)
-	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)/adv_2D.cpp -DSBP_OPERATOR_ORDER=$(ORDER)
+	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)/adv_2D.cpp -DSBP_OPERATOR_ORDER=$(order)
 	mv adv_2D.o $(OBJ_PATH)/adv_2D.o
 
 adv_1D.o: $(SRC_PATH)/adv_1D.cpp $(INCLUDE_PATH)/diffops/advection.h $(INCLUDE_PATH)/$(wildcard sbpops/*.h)
 	echo $(ORDER_MSG)
-	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)/adv_1D.cpp -DSBP_OPERATOR_ORDER=$(ORDER)
+	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)/adv_1D.cpp -DSBP_OPERATOR_ORDER=$(order)
 	mv adv_1D.o $(OBJ_PATH)/adv_1D.o
 
 ref_1D.o: $(SRC_PATH)/ref_1D.cpp $(INCLUDE_PATH)/diffops/reflection.h $(INCLUDE_PATH)/$(wildcard sbpops/*.h)
 	echo $(ORDER_MSG)
-	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)/ref_1D.cpp -DSBP_OPERATOR_ORDER=$(ORDER)
+	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)/ref_1D.cpp -DSBP_OPERATOR_ORDER=$(order)
 	mv ref_1D.o $(OBJ_PATH)/ref_1D.o	
 	
 create_layout.o: $(SRC_PATH)/grids/create_layout.cpp  $(INCLUDE_PATH)/grids/create_layout.h $(INCLUDE_PATH)/grids/layout.h
