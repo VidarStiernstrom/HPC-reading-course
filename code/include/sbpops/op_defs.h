@@ -5,8 +5,7 @@
 #include "sbpops/HI_central.h"
 
 #ifndef SBP_OPERATOR_ORDER
-//#error "SBP_OPERATOR_ORDER not defined (must be one of 2,4,6)"
-#define SBP_OPERATOR_ORDER 6
+#error "SBP_OPERATOR_ORDER not defined (must be one of 2,4,6)"
 #endif
 
 // TODO: In the future we can add a preprocessor flag for different
