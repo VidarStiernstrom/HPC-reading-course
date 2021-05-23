@@ -39,7 +39,7 @@ all: acowave_2D adv_2D adv_1D ref_1D
 
 # Link object files to create binaries in BIN_PATH/
 acowave_2D: acowave_2D.o io_utils.o ts_rk.o scatter_ctx.o create_layout.o
-	-${CXX} -o $@ $(OBJ_PATH)/acowave_2D.o $(OBJ_PATH)/io_utils.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o  ${PETSC_SYS_LIB}
+	-${CXX} -o $@ $(OBJ_PATH)/acowave_2D.o $(OBJ_PATH)/io_utils.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o  ${PETSC_SYS_LIB} -lstdc++fs
 	mv acowave_2D $(BIN_PATH)/acowave_2D
 
 adv_2D: adv_2D.o io_utils.o ts_rk.o scatter_ctx.o create_layout.o

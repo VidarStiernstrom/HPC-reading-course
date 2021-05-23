@@ -22,6 +22,7 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 **/
 
 #include <petsc.h>
+#include <functional>
 #include "sbpops/op_defs.h"
 #include "diffops/wave_eq.h"
 #include "time_stepping/ts_rk.h"
