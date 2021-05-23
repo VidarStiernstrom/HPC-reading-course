@@ -110,6 +110,10 @@ int main(int argc,char **argv)
     PetscPrintf(PETSC_COMM_WORLD,"--- Warning ---\nOne dimensional topology\n");
   }
 
+  if (procx != procy) {
+    PetscPrintf(PETSC_COMM_WORLD,"--- Warning ---\nNon-square topology\n");
+  }
+
   // Populate application context.
   appctx.N = {Nx, Ny};
   appctx.hi = {hix, hiy};
@@ -169,6 +173,9 @@ int main(int argc,char **argv)
   analytic_solution(da, Tend, appctx, v_analytic);
   get_error(da, v, v_analytic, &v_error, &H_error, &l2_error, &max_error, appctx);
   PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %g, the H-error is: %g and the maximum error is %g\n",l2_error,H_error,max_error);
+
+  // Print outs to generate .csv file. Headers: mode, order, custom sc, size, Nx, nx, error, elap time
+  // PetscPrintf(PETSC_COMM_WORLD,"local,%s,%d,%d,%d,%d,%f,%f\n",getenv("order"),use_custom_sc,size,Nx,nx,l2_error,elapsed_time);
 
   // Write solution to file
   if (write_data)
