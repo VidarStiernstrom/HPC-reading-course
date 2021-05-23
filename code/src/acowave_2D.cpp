@@ -266,11 +266,21 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
 
   auto gf_src = grid::grid_function_2d<PetscScalar>(array_src, appctx->layout);
   auto gf_dst = grid::grid_function_2d<PetscScalar>(array_dst, appctx->layout);
+
+  // Overlapping
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   wave_eq_local(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->xl, t);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   wave_eq_overlap(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->xl, t);
   wave_eq_free_surface_bc(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->HI, appctx->hi);
+
+  // Non-overlapping
+  // VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
+  // VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
+  // wave_eq_all(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->xl, t);
+  // wave_eq_free_surface_bc(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->HI, appctx->hi);
+
+  // Single core
   //wave_eq_serial(gf_dst, gf_src, appctx->D1, appctx->hi, appctx->xl, t);
   //wave_eq_free_surface_bc_serial(gf_dst, gf_src, appctx->HI, appctx->hi);
 

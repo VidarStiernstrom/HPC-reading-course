@@ -325,6 +325,30 @@ void wave_eq_rr(grid::grid_function_2d<PetscScalar> F,
 }
 
 template <class SbpDerivative>
+void wave_eq_all(grid::grid_function_2d<PetscScalar> F,
+                    const grid::grid_function_2d<PetscScalar> q,
+                    const std::array<PetscInt,2>& ind_i,
+                    const std::array<PetscInt,2>& ind_j,
+                    const PetscInt halo_sz,
+                    const SbpDerivative& D1,
+                    const std::array<PetscScalar,2>& hi,
+                    const std::array<PetscScalar,2>& xl,
+                    const PetscScalar t)
+{
+  const PetscInt cl_sz = D1.closure_size();
+  rhs_all(wave_eq_ll<decltype(D1)>,
+            wave_eq_li<decltype(D1)>,
+            wave_eq_lr<decltype(D1)>,
+            wave_eq_il<decltype(D1)>,
+            wave_eq_ii<decltype(D1)>,
+            wave_eq_ir<decltype(D1)>,
+            wave_eq_rl<decltype(D1)>,
+            wave_eq_ri<decltype(D1)>,
+            wave_eq_rr<decltype(D1)>,
+            F,q,ind_i,ind_j,cl_sz,halo_sz,D1,hi,xl,t);
+}
+
+template <class SbpDerivative>
 void wave_eq_local(grid::grid_function_2d<PetscScalar> F,
                     const grid::grid_function_2d<PetscScalar> q,
                     const std::array<PetscInt,2>& ind_i,

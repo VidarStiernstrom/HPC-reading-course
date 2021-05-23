@@ -93,6 +93,93 @@ void rhs_serial(const RhsLeft& rhs_l,
  *   * ll * il * rl *
  *   ****************
  **/
+
+template <typename RhsLL,
+          typename RhsLI,
+          typename RhsLR,
+          typename RhsIL,
+          typename RhsII,
+          typename RhsIR,
+          typename RhsRL,
+          typename RhsRI,
+          typename RhsRR,
+          typename... Args>
+void rhs_all(const RhsLL& rhs_ll,
+               const RhsLI& rhs_li,
+               const RhsLR& rhs_lr,
+               const RhsIL& rhs_il,
+               const RhsII& rhs_ii,
+               const RhsIR& rhs_ir,
+               const RhsRL& rhs_rl,
+               const RhsRI& rhs_ri,
+               const RhsRR& rhs_rr,
+                     grid::grid_function_2d<PetscScalar> dst,
+               const grid::grid_function_2d<PetscScalar> src,
+               const std::array<PetscInt,2>& ind_i,
+               const std::array<PetscInt,2>& ind_j,
+               const PetscInt cls_sz,
+               const PetscInt halo_sz,
+               Args... args)
+{
+  const PetscInt i_start = ind_i[0]; 
+  const PetscInt i_end = ind_i[1];
+  const PetscInt j_start = ind_j[0];
+  const PetscInt j_end = ind_j[1];
+  const PetscInt nx = src.mapping().nx();
+  const PetscInt ny = src.mapping().ny();
+
+  if (ind_j[0] == 0)  // BOTTOM
+  {
+    if (ind_i[0] == 0) // BOTTOM LEFT
+    {
+      rhs_ll(dst, src, cls_sz, args...);
+      rhs_il(dst, src, {cls_sz, i_end}, cls_sz, args...);
+      rhs_li(dst, src, {cls_sz, j_end}, cls_sz, args...);
+      rhs_ii(dst, src, {cls_sz, i_end}, {cls_sz, j_end}, args...); 
+    } else if (ind_i[1] == nx) // BOTTOM RIGHT
+    { 
+      rhs_rl(dst, src, cls_sz, args...);
+      rhs_il(dst, src, {i_start, nx-cls_sz}, cls_sz, args...);
+      rhs_ri(dst, src, {cls_sz, j_end}, cls_sz, args...);
+      rhs_ii(dst, src, {i_start, nx-cls_sz}, {cls_sz, j_end}, args...); 
+    } else // BOTTOM CENTER
+    { 
+      rhs_il(dst, src, {i_start, i_end}, cls_sz, args...);
+      rhs_ii(dst, src, {i_start, i_end}, {cls_sz, j_end}, args...); 
+    }
+  } else if (ind_j[1] == ny) // TOP
+  {
+    if (ind_i[0] == 0) // TOP LEFT
+    {
+      rhs_lr(dst, src, cls_sz, args...);
+      rhs_ir(dst, src, {cls_sz, i_end}, cls_sz, args...);
+      rhs_li(dst, src, {j_start, ny - cls_sz}, cls_sz, args...);
+      rhs_ii(dst, src, {cls_sz, i_end}, {j_start, ny-cls_sz}, args...);  
+    } else if (ind_i[1] == nx) // TOP RIGHT
+    { 
+      rhs_rr(dst, src, cls_sz, args...);
+      rhs_ir(dst, src, {i_start, nx-cls_sz}, cls_sz, args...);
+      rhs_ri(dst, src, {j_start, ny - cls_sz}, cls_sz, args...);
+      rhs_ii(dst, src, {i_start, nx-cls_sz}, {j_start, ny - cls_sz}, args...);
+    } else // TOP CENTER
+    { 
+      rhs_ir(dst, src, {i_start, i_end}, cls_sz, args...);
+      rhs_ii(dst, src, {i_start, i_end}, {j_start,  ny - cls_sz}, args...);
+    }
+  } else if (ind_i[0] == 0) // LEFT NOT BOTTOM OR TOP
+  { 
+    rhs_li(dst, src, {j_start, j_end}, cls_sz, args...);
+    rhs_ii(dst, src, {cls_sz, i_end}, {j_start, j_end}, args...);
+  } else if (ind_i[1] == nx) // RIGHT NOT BOTTOM OR TOP
+  {
+    rhs_ri(dst, src, {j_start, j_end}, cls_sz, args...);
+    rhs_ii(dst, src, {i_start, nx - cls_sz}, {j_start, j_end}, args...);
+  } else // CENTER
+  {
+    rhs_ii(dst, src, {i_start, i_end}, {j_start, j_end}, args...);
+  }
+}
+
 template <typename RhsLL,
           typename RhsLI,
           typename RhsLR,
