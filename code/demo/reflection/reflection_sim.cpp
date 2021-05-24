@@ -65,7 +65,7 @@ int main(int argc,char **argv)
   dt = CFL*h;
 
   // Set if data should be written.
-  write_data = PETSC_TRUE;
+  write_data = PETSC_FALSE;
 
   PetscScalar L = xr - xl; // domain width
   if ((Tend < L - L/4) || (Tend > L + L/4)) {
