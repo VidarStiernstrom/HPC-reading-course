@@ -1,4 +1,5 @@
 SRC_PATH = src
+DEMO_PATH = demo
 BIN_PATH = bin
 OBJ_PATH = obj
 INCLUDE_PATH = include
@@ -35,12 +36,12 @@ debug: CXXFLAGS += -DDEBUG $(DEBUGFLAGS)
 debug: $(app)	
 opt-debug: CXXFLAGS += -DDEBUG $(DEBUGFLAGS) $(COPTFLAGS)
 opt-debug: $(app)
-all: acowave_2D adv_2D adv_1D ref_1D
+all: wave adv_2D adv_1D ref_1D
 
 # Link object files to create binaries in BIN_PATH/
-acowave_2D: acowave_2D.o io_utils.o ts_rk.o scatter_ctx.o create_layout.o
-	-${CXX} -o $@ $(OBJ_PATH)/acowave_2D.o $(OBJ_PATH)/io_utils.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o  ${PETSC_SYS_LIB}
-	mv acowave_2D $(BIN_PATH)/acowave_2D
+wave: wave.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
+	-${CXX} -o $@ $(OBJ_PATH)/wave.o $(OBJ_PATH)/io_utils.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o  ${PETSC_SYS_LIB}
+	mv wave $(BIN_PATH)/wave
 
 adv_2D: adv_2D.o io_utils.o ts_rk.o scatter_ctx.o create_layout.o
 	-${CXX} -o $@ $(OBJ_PATH)/adv_2D.o $(OBJ_PATH)/io_utils.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o  ${PETSC_SYS_LIB}
@@ -55,10 +56,10 @@ ref_1D: ref_1D.o io_utils.o ts_rk.o scatter_ctx.o create_layout.o
 	mv ref_1D $(BIN_PATH)/ref_1D
 
 # Compile object files to OBJ_PATH/
-acowave_2D.o: $(SRC_PATH)/acowave_2D.cpp $(INCLUDE_PATH)/diffops/wave_eq.h $(INCLUDE_PATH)/$(wildcard sbpops/*.h)
+wave.o: $(DEMO_PATH)/wave/wave_eq_sim.cpp $(DEMO_PATH)/wave/wave_eq_rhs.h $(INCLUDE_PATH)/$(wildcard partitioned_rhs/*.h) $(INCLUDE_PATH)/$(wildcard sbpops/*.h) $(INCLUDE_PATH)/util/vec_util.h
 	echo $(ORDER_MSG)
-	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)/acowave_2D.cpp -DSBP_OPERATOR_ORDER=$(order)
-	mv acowave_2D.o $(OBJ_PATH)/acowave_2D.o
+	-${CXX} ${CXXFLAGS} -o wave.o -c $(DEMO_PATH)/wave/wave_eq_sim.cpp -DSBP_OPERATOR_ORDER=$(order)
+	mv wave.o $(OBJ_PATH)/wave.o
 
 adv_2D.o: $(SRC_PATH)/adv_2D.cpp $(INCLUDE_PATH)/diffops/advection.h $(INCLUDE_PATH)/$(wildcard sbpops/*.h)
 	echo $(ORDER_MSG)
@@ -79,9 +80,9 @@ create_layout.o: $(SRC_PATH)/grids/create_layout.cpp  $(INCLUDE_PATH)/grids/crea
 	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)/grids/create_layout.cpp
 	mv create_layout.o $(OBJ_PATH)/create_layout.o
 
-io_utils.o: $(SRC_PATH)/io/io_utils.cpp $(INCLUDE_PATH)/io/io_utils.h
-	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)/io/io_utils.cpp
-	mv io_utils.o $(OBJ_PATH)/io_utils.o
+io_util.o: $(SRC_PATH)/util/io_util.cpp $(INCLUDE_PATH)/util/io_util.h
+	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)/util/io_util.cpp
+	mv io_util.o $(OBJ_PATH)/io_util.o
 
 scatter_ctx.o: $(SRC_PATH)/scatter_ctx/scatter_ctx.cpp $(INCLUDE_PATH)/scatter_ctx/scatter_ctx.h
 	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)/scatter_ctx/scatter_ctx.cpp

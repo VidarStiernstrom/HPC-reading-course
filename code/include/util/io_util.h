@@ -1,6 +1,7 @@
 #pragma once
 
 #include<petsc.h>
+#include<string>
 
 PetscErrorCode write_vector_to_binary(const Vec, const std::string, const std::string);
 

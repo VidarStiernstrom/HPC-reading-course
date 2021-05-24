@@ -6,7 +6,6 @@
 #include "partitioned_rhs/boundary_conditions.h"
 #include "grids/grid_function.h"
 
-using namespace sbp;
 /**
 * Functions for computing the righ-hand-side of the acoustic wave equation
 * 
@@ -35,8 +34,6 @@ using namespace sbp;
 * Furthermore, along the boundary points, additional SBP operators are used to impose free surface boundary conditions,
 * i.e, zero pressure conditions.
 * 
-* NOTE: The division of the grid into the above regions is not related to processor topology. Typically multiple processes will 
-* act on the interior regions.
 **/
   
 /**

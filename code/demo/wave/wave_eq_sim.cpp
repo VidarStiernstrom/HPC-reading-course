@@ -18,17 +18,19 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 * pt = -K(x)*(ux + vy)
 * 
 * F1, F2 - velocity forcing data
+* Material parameters and forcing functions are defined in wave_eq_rhs.h
 * 
 **/
 
 #include <petsc.h>
+#include "wave_eq_rhs.h"
 #include "sbpops/op_defs.h"
-#include "diffops/wave_eq.h"
 #include "time_stepping/ts_rk.h"
 #include "grids/grid_function.h"
 #include "grids/create_layout.h"
-#include "io/io_utils.h"
 #include "scatter_ctx/scatter_ctx.h"
+#include "util/io_util.h"
+#include "util/vec_util.h"
 
 struct AppCtx{
     std::array<PetscInt,2> N, ind_i, ind_j;
@@ -42,11 +44,10 @@ struct AppCtx{
     grid::partitioned_layout_2d layout;
 };
 
-extern PetscErrorCode analytic_solution(const DM, const PetscScalar, const AppCtx&, Vec);
-extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
-extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, void *);
-extern PetscErrorCode set_initial_condition(const DM da, Vec v, const AppCtx& appctx);
-extern PetscErrorCode get_error(const DM da, const Vec v1, const Vec v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx);
+PetscErrorCode initial_condition(const DM da, Vec v, const AppCtx& appctx);
+PetscErrorCode analytic_solution(const DM, const PetscScalar, const AppCtx&, Vec);
+PetscErrorCode rhs(TS, PetscReal, Vec, Vec, void *);
+PetscErrorCode rhs_serial(TS, PetscReal, Vec, Vec, void *);
 
 int main(int argc,char **argv)
 { 
@@ -54,7 +55,7 @@ int main(int argc,char **argv)
   Vec            v, v_analytic, v_error, vlocal;
   PetscInt       stencil_radius, i_xstart, i_xend, i_ystart, i_yend, Nx, Ny, nx, ny, procx, procy, dofs;
   PetscScalar    xl, xr, yl, yr, hix, hiy, dt, t0, Tend, CFL;
-  PetscReal      l2_error, max_error, H_error;
+  PetscReal      l2_error, max_error;
 
   AppCtx         appctx;
   PetscBool      write_data, use_custom_sc;
@@ -89,7 +90,7 @@ int main(int argc,char **argv)
   dt = CFL/(std::min(hix,hiy));
 
   // Set if data should be written.
-  write_data = PETSC_TRUE;
+  write_data = PETSC_FALSE;
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Create distributed array (DMDA) to manage parallel grid and vectors
@@ -136,7 +137,7 @@ int main(int argc,char **argv)
   VecDuplicate(v,&v_error);
   
   // Initial solution, starting time and end time.
-  set_initial_condition(da, v, appctx);
+  initial_condition(da, v, appctx);
 
   if (write_data) write_vector_to_binary(v,"data/acowave_2D","v_init");
 
@@ -152,7 +153,12 @@ int main(int argc,char **argv)
     PetscTime(&v1);
   }
 
-  ts_rk4(da, Tend, dt, vlocal, rhs_TS, &appctx);  
+  if (size == 1) {
+    ts_rk4(da, Tend, dt, vlocal, rhs_serial, &appctx);  
+  }
+  else {
+    ts_rk4(da, Tend, dt, vlocal, rhs, &appctx); 
+  }
   
   PetscBarrier((PetscObject) v);
   if (rank == 0) {
@@ -166,18 +172,17 @@ int main(int argc,char **argv)
   DMLocalToGlobalEnd(da,vlocal,INSERT_VALUES,v);
 
   analytic_solution(da, Tend, appctx, v_analytic);
-  get_error(da, v, v_analytic, &v_error, &H_error, &l2_error, &max_error, appctx);
-  PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %g, the H-error is: %g and the maximum error is %g\n",l2_error,H_error,max_error);
+  l2_error = error_l2(v,v_analytic, appctx.h);
+  max_error = error_max(v,v_analytic);
+  PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %g, and the maximum error is %g\n",l2_error,max_error);
 
   // Write solution to file
-  if (write_data)
-  {
+  if (write_data) {
     write_vector_to_binary(v,"data/acowave_2D","v");
     write_vector_to_binary(v_error,"data/acowave_2D","v_error");
-
     char tmp_str[200];
     std::string data_string;
-    sprintf(tmp_str,"%d\t%d\t%d\t%e\t%f\t%f\t%e\t%e\t%e\n",size,Nx,Ny,dt,Tend,elapsed_time,l2_error,H_error,max_error);
+    sprintf(tmp_str,"%d\t%d\t%d\t%e\t%f\t%f\t%e\t%e\n",size,Nx,Ny,dt,Tend,elapsed_time,l2_error,max_error);
     data_string.assign(tmp_str);
     write_data_to_file(data_string, "data/acowave_2D", "data.tsv");
   }
@@ -193,32 +198,6 @@ int main(int argc,char **argv)
   
   ierr = PetscFinalize();
   return ierr;
-}
-
-PetscErrorCode rhs_TS(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx) // Function to utilize PETSc TS.
-{
-  DM                da;
-  TSGetDM(ts,&da);
-  rhs(da, t, v_src, v_dst, ctx);
-  return 0;
-}
-
-PetscErrorCode get_error(const DM da, const Vec v1, const Vec v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx) {
-  PetscScalar ***arr;
-
-  VecWAXPY(*v_error,-1,v1,v2);
-
-  VecNorm(*v_error,NORM_2,l2_error);
-  *l2_error = sqrt(appctx.h[0]*appctx.h[1])*(*l2_error);
-
-  VecNorm(*v_error,NORM_INFINITY,max_error);
-  
-  DMDAVecGetArrayDOF(da, *v_error, &arr);
-  *H_error = appctx.H.get_norm_2D(arr, appctx.h, appctx.N, appctx.ind_i, appctx.ind_j, appctx.dofs);
-
-  DMDAVecRestoreArrayDOF(da, *v_error, &arr);
-
-  return 0;
 }
 
 PetscErrorCode analytic_solution(const DM da, const PetscScalar t, const AppCtx &appctx, Vec v) {
@@ -250,16 +229,18 @@ PetscErrorCode analytic_solution(const DM da, const PetscScalar t, const AppCtx 
 * Inputs: v      - vector to place initial data
 *         appctx - application context, contains necessary information
 **/
-PetscErrorCode set_initial_condition(const DM da, Vec v, const AppCtx& appctx) 
+PetscErrorCode initial_condition(const DM da, Vec v, const AppCtx& appctx) 
 {
   analytic_solution(da, 0, appctx, v);
   return 0;
 }
 
-PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
+PetscErrorCode rhs(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
 {
+  DM                da;
   AppCtx *appctx = (AppCtx*) ctx;
   PetscScalar       *array_src, *array_dst;
+  TSGetDM(ts,&da);
 
   VecGetArray(v_src,&array_src);
   VecGetArray(v_dst,&array_dst);
@@ -271,8 +252,27 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   wave_eq_overlap(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->xl, t);
   wave_eq_free_surface_bc(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->HI, appctx->hi);
-  //wave_eq_serial(gf_dst, gf_src, appctx->D1, appctx->hi, appctx->xl, t);
-  //wave_eq_free_surface_bc_serial(gf_dst, gf_src, appctx->HI, appctx->hi);
+
+  // Restore arrays
+  VecRestoreArray(v_src,&array_src);
+  VecRestoreArray(v_dst,&array_dst);
+  return 0;
+}
+
+PetscErrorCode rhs_serial(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
+{
+  DM                da;
+  AppCtx *appctx = (AppCtx*) ctx;
+  PetscScalar       *array_src, *array_dst;
+  TSGetDM(ts,&da);
+
+  VecGetArray(v_src,&array_src);
+  VecGetArray(v_dst,&array_dst);
+
+  auto gf_src = grid::grid_function_2d<PetscScalar>(array_src, appctx->layout);
+  auto gf_dst = grid::grid_function_2d<PetscScalar>(array_dst, appctx->layout);
+  wave_eq_serial(gf_dst, gf_src, appctx->D1, appctx->hi, appctx->xl, t);
+  wave_eq_free_surface_bc_serial(gf_dst, gf_src, appctx->HI, appctx->hi);
 
   // Restore arrays
   VecRestoreArray(v_src,&array_src);
