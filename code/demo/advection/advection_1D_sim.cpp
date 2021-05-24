@@ -1,6 +1,8 @@
 static char help[] = "Solves advection 1D problem u_t + u_x = 0.\n";
 
 #include <petsc.h>
+#include <array>
+#include <functional>
 #include "advection_rhs.h"
 #include "sbpops/op_defs.h"
 #include "time_stepping/ts_rk.h"

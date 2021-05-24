@@ -2,6 +2,8 @@
 static char help[] ="Solves the 2D advection equation u_t + au_x +bu_y = 0.";
 
 #include <petsc.h>
+#include <array>
+#include <functional>
 #include "advection_rhs.h"
 #include "sbpops/op_defs.h"
 #include "time_stepping/ts_rk.h"

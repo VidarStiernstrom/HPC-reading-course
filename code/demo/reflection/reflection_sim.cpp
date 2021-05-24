@@ -1,6 +1,7 @@
 static char help[] = "Solves 1D reflection problem.\n";
 
 #include <petsc.h>
+#include <array>
 #include "reflection_rhs.h"
 #include "sbpops/op_defs.h"
 #include "time_stepping/ts_rk.h"
