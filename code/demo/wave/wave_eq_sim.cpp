@@ -52,7 +52,7 @@ PetscErrorCode rhs_serial(TS, PetscReal, Vec, Vec, void *);
 int main(int argc,char **argv)
 { 
   DM             da;
-  Vec            v, v_analytic, v_error, vlocal;
+  Vec            v, v_analytic, vlocal;
   PetscInt       stencil_radius, i_xstart, i_xend, i_ystart, i_yend, Nx, Ny, nx, ny, procx, procy, dofs;
   PetscScalar    xl, xr, yl, yr, hix, hiy, dt, t0, Tend, CFL;
   PetscReal      l2_error, max_error;
@@ -133,9 +133,7 @@ int main(int argc,char **argv)
       vectors that are the same types
     - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   DMCreateGlobalVector(da,&v);
-  VecDuplicate(v,&v_analytic);
-  VecDuplicate(v,&v_error);
-  
+  VecDuplicate(v,&v_analytic);  
   // Initial solution, starting time and end time.
   initial_condition(da, v, appctx);
 
@@ -179,7 +177,9 @@ int main(int argc,char **argv)
   // Write solution to file
   if (write_data) {
     write_vector_to_binary(v,"data/acowave_2D","v");
+    Vec v_error = compute_error(v,v_analytic);
     write_vector_to_binary(v_error,"data/acowave_2D","v_error");
+    VecDestroy(&v_error);
     char tmp_str[200];
     std::string data_string;
     sprintf(tmp_str,"%d\t%d\t%d\t%e\t%f\t%f\t%e\t%e\n",size,Nx,Ny,dt,Tend,elapsed_time,l2_error,max_error);
@@ -193,7 +193,6 @@ int main(int argc,char **argv)
     - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   VecDestroy(&v);
   VecDestroy(&v_analytic);
-  VecDestroy(&v_error);
   DMDestroy(&da);
   
   ierr = PetscFinalize();
