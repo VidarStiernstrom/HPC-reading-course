@@ -137,7 +137,7 @@ int main(int argc,char **argv)
   // Initial solution, starting time and end time.
   initial_condition(da, v, appctx);
 
-  if (write_data) write_vector_to_binary(v,"data/acowave_2D","v_init");
+  if (write_data) write_vector_to_binary(v,"data/wave","v_init");
 
   ierr = DMCreateLocalVector(da,&vlocal);CHKERRQ(ierr);
   DMGlobalToLocalBegin(da,v,INSERT_VALUES,vlocal);  
@@ -176,15 +176,15 @@ int main(int argc,char **argv)
 
   // Write solution to file
   if (write_data) {
-    write_vector_to_binary(v,"data/acowave_2D","v");
+    write_vector_to_binary(v,"data/wave","v");
     Vec v_error = compute_error(v,v_analytic);
-    write_vector_to_binary(v_error,"data/acowave_2D","v_error");
+    write_vector_to_binary(v_error,"data/wave","v_error");
     VecDestroy(&v_error);
     char tmp_str[200];
     std::string data_string;
     sprintf(tmp_str,"%d\t%d\t%d\t%e\t%f\t%f\t%e\t%e\n",size,Nx,Ny,dt,Tend,elapsed_time,l2_error,max_error);
     data_string.assign(tmp_str);
-    write_data_to_file(data_string, "data/acowave_2D", "data.tsv");
+    write_data_to_file(data_string, "data/wave", "data.tsv");
   }
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

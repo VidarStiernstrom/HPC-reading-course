@@ -103,7 +103,6 @@ int main(int argc,char **argv)
     - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   DMCreateGlobalVector(da,&v);
   VecDuplicate(v,&v_analytic);
-  VecDuplicate(v,&v_error);
   
   // Initial solution, starting time and end time.
   analytic_solution(da, 0, appctx, v);

@@ -31,7 +31,7 @@ PetscErrorCode rhs_serial(TS, PetscReal, Vec, Vec, void *);
 int main(int argc,char **argv)
 { 
   DM             da;
-  Vec            v, v_analytic, v_error, vlocal;
+  Vec            v, v_analytic, vlocal;
   PetscInt       stencil_radius, i_xstart, i_xend, i_ystart, i_yend, Nx, Ny, nx, ny, procx, procy, dofs;
   PetscScalar    xl, xr, yl, yr, hix, hiy, dt, t0, Tend, CFL;
   PetscReal      l2_error, max_error;
@@ -118,7 +118,6 @@ int main(int argc,char **argv)
     - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   DMCreateGlobalVector(da,&v);
   VecDuplicate(v,&v_analytic);
-  VecDuplicate(v,&v_error);
   
   // Initial solution, starting time and end time.
   analytic_solution(da, 0, appctx, v);
