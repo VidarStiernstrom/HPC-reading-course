@@ -236,10 +236,8 @@ PetscErrorCode initial_condition(const DM da, Vec v, const AppCtx& appctx)
 
 PetscErrorCode rhs(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
 {
-  DM                da;
   AppCtx *appctx = (AppCtx*) ctx;
   PetscScalar       *array_src, *array_dst;
-  TSGetDM(ts,&da);
 
   VecGetArray(v_src,&array_src);
   VecGetArray(v_dst,&array_dst);
@@ -260,10 +258,8 @@ PetscErrorCode rhs(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
 
 PetscErrorCode rhs_serial(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
 {
-  DM                da;
   AppCtx *appctx = (AppCtx*) ctx;
   PetscScalar       *array_src, *array_dst;
-  TSGetDM(ts,&da);
 
   VecGetArray(v_src,&array_src);
   VecGetArray(v_dst,&array_dst);
