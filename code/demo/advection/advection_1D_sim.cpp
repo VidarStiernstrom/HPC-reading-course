@@ -29,10 +29,10 @@ PetscErrorCode rhs_serial(TS, PetscReal, Vec, Vec, void *);
 int main(int argc,char **argv)
 { 
   DM             da;
-  Vec            v, v_analytic, v_error, vlocal;
+  Vec            v, v_analytic, vlocal;
   PetscInt       stencil_radius, i_start, i_end, N, n, dofs;
   PetscScalar    xl, xr, hi, h, dt, t0, Tend, CFL;
-  PetscReal      l2_error, max_error, H_error;
+  PetscReal      l2_error, max_error;
 
   AppCtx         appctx;
   PetscBool      write_data, use_custom_sc;
@@ -143,11 +143,11 @@ int main(int argc,char **argv)
   max_error = error_max(v,v_analytic);
   PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %g, and the maximum error is %g\n",l2_error,max_error);
 
-  if (write_data)
-  {
+  if (write_data) {
     write_vector_to_binary(v,"data/adv_1D","v");
-    v_error = compute_error(v,v_analytic);
+    Vec v_error = compute_error(v,v_analytic);
     write_vector_to_binary(v_error,"data/adv_1D","v_error");
+    VecDestroy(&v_error);
     char tmp_str[200];
     std::string data_string;
     sprintf(tmp_str,"%d\t%d\t%d\t%e\t%f\t%f\t%e\t%e\n",size,N,-1,dt,Tend,elapsed_time,l2_error,max_error);
@@ -161,7 +161,6 @@ int main(int argc,char **argv)
     - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   VecDestroy(&v);
   VecDestroy(&v_analytic);
-  VecDestroy(&v_error);
   DMDestroy(&da);
   
   ierr = PetscFinalize();
@@ -189,11 +188,9 @@ PetscErrorCode analytic_solution(const DM da, const PetscScalar t, const AppCtx&
 
 PetscErrorCode rhs(TS ts, PetscReal t, Vec v_src, Vec v_dst, void* ctx)
 {
-  DM                da;
   PetscScalar       *array_src, *array_dst;
   AppCtx *appctx = (AppCtx*) ctx;
 
-  TSGetDM(ts,&da);
   VecGetArray(v_src,&array_src);
   VecGetArray(v_dst,&array_dst);
 
@@ -213,11 +210,9 @@ PetscErrorCode rhs(TS ts, PetscReal t, Vec v_src, Vec v_dst, void* ctx)
 
 PetscErrorCode rhs_serial(TS ts, PetscReal t, Vec v_src, Vec v_dst, void* ctx)
 {
-  DM                da;
   PetscScalar       *array_src, *array_dst;
   AppCtx *appctx = (AppCtx*) ctx;
 
-  TSGetDM(ts,&da);
   VecGetArray(v_src,&array_src);
   VecGetArray(v_dst,&array_dst);
   auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, appctx->layout);
