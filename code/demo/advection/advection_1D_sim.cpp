@@ -1,12 +1,13 @@
 static char help[] = "Solves advection 1D problem u_t + u_x = 0.\n";
 
 #include <petsc.h>
+#include "advection_rhs.h"
 #include "sbpops/op_defs.h"
-#include "diffops/advection.h"
 #include "time_stepping/ts_rk.h"
 #include "grids/grid_function.h"
 #include "grids/create_layout.h"
-#include "io/io_utils.h"
+#include "util/io_util.h"
+#include "util/vec_util.h"
 #include "scatter_ctx/scatter_ctx.h"
 
 struct AppCtx{
@@ -15,18 +16,15 @@ struct AppCtx{
     PetscInt N, dofs;
     std::function<double(int)> a;
     const FirstDerivativeOp D1;
-    const NormOp H;
     const InverseNormOp HI;
     VecScatter scatctx;
     grid::partitioned_layout_1d layout;
 };
 
-extern PetscErrorCode analytic_solution(const DM, const PetscScalar, const AppCtx&, Vec);
-extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
-extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, void *);
-extern PetscScalar gaussian(PetscScalar);
-extern PetscErrorCode write_vector_to_binary(const Vec, const std::string, const std::string);
-extern PetscErrorCode get_error(const DM da, const Vec v1, const Vec v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx);
+PetscScalar gaussian(PetscScalar);
+PetscErrorCode analytic_solution(const DM, const PetscScalar, const AppCtx&, Vec);
+PetscErrorCode rhs(TS, PetscReal, Vec, Vec, void *);
+PetscErrorCode rhs_serial(TS, PetscReal, Vec, Vec, void *);
 
 int main(int argc,char **argv)
 { 
@@ -122,7 +120,13 @@ int main(int argc,char **argv)
   if (rank == 0) {
     PetscTime(&v1);
   }
-  ts_rk4(da, Tend, dt, vlocal, rhs_TS, &appctx);  
+  if (size == 1) {
+    ts_rk4(da, Tend, dt, vlocal, rhs_serial, &appctx);
+  }
+  else {
+    ts_rk4(da, Tend, dt, vlocal, rhs, &appctx);  
+  }
+  
   PetscBarrier((PetscObject) v);
   if (rank == 0) {
     PetscTime(&v2);
@@ -135,17 +139,18 @@ int main(int argc,char **argv)
   DMLocalToGlobalEnd(da,vlocal,INSERT_VALUES,v);
 
   analytic_solution(da, Tend, appctx, v_analytic);
-  get_error(da, v, v_analytic, &v_error, &H_error, &l2_error, &max_error, appctx);
-  PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %g, the H-error is: %g and the maximum error is %g\n",l2_error,H_error,max_error);
+  l2_error = error_l2(v,v_analytic, appctx.h);
+  max_error = error_max(v,v_analytic);
+  PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %g, and the maximum error is %g\n",l2_error,max_error);
 
   if (write_data)
   {
     write_vector_to_binary(v,"data/adv_1D","v");
+    v_error = compute_error(v,v_analytic);
     write_vector_to_binary(v_error,"data/adv_1D","v_error");
-
     char tmp_str[200];
     std::string data_string;
-    sprintf(tmp_str,"%d\t%d\t%d\t%e\t%f\t%f\t%e\t%e\t%e\n",size,N,-1,dt,Tend,elapsed_time,l2_error,H_error,max_error);
+    sprintf(tmp_str,"%d\t%d\t%d\t%e\t%f\t%f\t%e\t%e\n",size,N,-1,dt,Tend,elapsed_time,l2_error,max_error);
     data_string.assign(tmp_str);
     write_data_to_file(data_string, "data/adv_1D", "data.tsv");
   }
@@ -163,30 +168,9 @@ int main(int argc,char **argv)
   return ierr;
 }
 
-PetscErrorCode rhs_TS(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx) // Function to utilize PETSc TS.
-{
-  
-  DM                da;
-  TSGetDM(ts,&da);
-  rhs(da, t, v_src, v_dst, ctx);
-  return 0;
-}
-
-PetscErrorCode get_error(const DM da, const Vec v1, const Vec v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx) {
-  PetscScalar **arr;
-
-  VecWAXPY(*v_error,-1,v1,v2);
-
-  VecNorm(*v_error,NORM_2,l2_error);
-  *l2_error = sqrt(appctx.h)*(*l2_error);
-
-  VecNorm(*v_error,NORM_INFINITY,max_error);
-  
-  DMDAVecGetArrayDOF(da, *v_error, &arr);
-  *H_error = appctx.H.get_norm_1D(arr, appctx.h, appctx.N, appctx.ind_i[0], appctx.ind_i[1], appctx.dofs);
-  DMDAVecRestoreArrayDOF(da, *v_error, &arr);
-
-  return 0;
+PetscScalar gaussian(PetscScalar x) {
+  PetscScalar rstar = 0.1;
+  return exp(-x*x/(rstar*rstar));
 }
 
 PetscErrorCode analytic_solution(const DM da, const PetscScalar t, const AppCtx& appctx, Vec v_analytic)
@@ -201,29 +185,45 @@ PetscErrorCode analytic_solution(const DM da, const PetscScalar t, const AppCtx&
   DMDAVecRestoreArray(da,v_analytic,&array_analytic);  
 
   return 0;
-};
-
-PetscScalar gaussian(PetscScalar x) {
-  PetscScalar rstar = 0.1;
-  return exp(-x*x/(rstar*rstar));
 }
 
-PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, void* ctx)
+PetscErrorCode rhs(TS ts, PetscReal t, Vec v_src, Vec v_dst, void* ctx)
 {
+  DM                da;
   PetscScalar       *array_src, *array_dst;
   AppCtx *appctx = (AppCtx*) ctx;
+
+  TSGetDM(ts,&da);
   VecGetArray(v_src,&array_src);
   VecGetArray(v_dst,&array_dst);
 
   auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, appctx->layout);
   auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, appctx->layout);
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::advection_local(gf_dst, gf_src, appctx->ind_i, appctx->sw, appctx->D1, appctx->hi, appctx->a);
+  advection_local(gf_dst, gf_src, appctx->ind_i, appctx->sw, appctx->D1, appctx->hi, appctx->a);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::advection_overlap(gf_dst ,gf_src, appctx->ind_i, appctx->sw, appctx->D1, appctx->hi, appctx->a);
-  sbp::advection_bc(gf_dst, gf_src, appctx->ind_i, appctx->HI, appctx->hi, appctx->a);
-  // sbp::advection_serial(gf_dst, gf_src, appctx->D1, appctx->hi[0], appctx->a);
-  // sbp::advection_bc_serial(gf_dst, gf_src, appctx->HI, appctx->hi[0], appctx->a);
+  advection_overlap(gf_dst ,gf_src, appctx->ind_i, appctx->sw, appctx->D1, appctx->hi, appctx->a);
+  advection_bc(gf_dst, gf_src, appctx->ind_i, appctx->HI, appctx->hi, appctx->a);
+  
+  // Restore arrays
+  VecRestoreArray(v_src, &array_src);
+  VecRestoreArray(v_dst, &array_dst);
+  return 0;
+}
+
+PetscErrorCode rhs_serial(TS ts, PetscReal t, Vec v_src, Vec v_dst, void* ctx)
+{
+  DM                da;
+  PetscScalar       *array_src, *array_dst;
+  AppCtx *appctx = (AppCtx*) ctx;
+
+  TSGetDM(ts,&da);
+  VecGetArray(v_src,&array_src);
+  VecGetArray(v_dst,&array_dst);
+  auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, appctx->layout);
+  auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, appctx->layout);
+  advection_serial(gf_dst, gf_src, appctx->D1, appctx->hi, appctx->a);
+  advection_bc_serial(gf_dst, gf_src, appctx->HI, appctx->hi, appctx->a);
 
   // Restore arrays
   VecRestoreArray(v_src, &array_src);

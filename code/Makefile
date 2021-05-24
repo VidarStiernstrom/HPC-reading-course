@@ -40,19 +40,19 @@ all: wave adv_2D adv_1D ref_1D
 
 # Link object files to create binaries in BIN_PATH/
 wave: wave.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
-	-${CXX} -o $@ $(OBJ_PATH)/wave.o $(OBJ_PATH)/io_utils.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o  ${PETSC_SYS_LIB}
+	-${CXX} -o $@ $(OBJ_PATH)/wave.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o  ${PETSC_SYS_LIB}
 	mv wave $(BIN_PATH)/wave
 
-adv_2D: adv_2D.o io_utils.o ts_rk.o scatter_ctx.o create_layout.o
-	-${CXX} -o $@ $(OBJ_PATH)/adv_2D.o $(OBJ_PATH)/io_utils.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o  ${PETSC_SYS_LIB}
+adv_2D: adv_2D.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
+	-${CXX} -o $@ $(OBJ_PATH)/adv_2D.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o  ${PETSC_SYS_LIB}
 	mv adv_2D $(BIN_PATH)/adv_2D
 
-adv_1D: adv_1D.o io_utils.o ts_rk.o scatter_ctx.o create_layout.o
-	-${CXX} -o $@ $(OBJ_PATH)/adv_1D.o $(OBJ_PATH)/io_utils.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o ${PETSC_SYS_LIB}
+adv_1D: adv_1D.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
+	-${CXX} -o $@ $(OBJ_PATH)/adv_1D.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o ${PETSC_SYS_LIB}
 	mv adv_1D $(BIN_PATH)/adv_1D
 
-ref_1D: ref_1D.o io_utils.o ts_rk.o scatter_ctx.o create_layout.o
-	-${CXX} -o $@ $(OBJ_PATH)/ref_1D.o $(OBJ_PATH)/io_utils.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o ${PETSC_SYS_LIB}
+ref_1D: ref_1D.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
+	-${CXX} -o $@ $(OBJ_PATH)/ref_1D.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o ${PETSC_SYS_LIB}
 	mv ref_1D $(BIN_PATH)/ref_1D
 
 # Compile object files to OBJ_PATH/
@@ -66,9 +66,9 @@ adv_2D.o: $(SRC_PATH)/adv_2D.cpp $(INCLUDE_PATH)/diffops/advection.h $(INCLUDE_P
 	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)/adv_2D.cpp -DSBP_OPERATOR_ORDER=$(order)
 	mv adv_2D.o $(OBJ_PATH)/adv_2D.o
 
-adv_1D.o: $(SRC_PATH)/adv_1D.cpp $(INCLUDE_PATH)/diffops/advection.h $(INCLUDE_PATH)/$(wildcard sbpops/*.h)
+adv_1D.o: $(DEMO_PATH)/advection/advection_1D_sim.cpp $(DEMO_PATH)/advection/advection_rhs.h $(INCLUDE_PATH)/$(wildcard partitioned_rhs/*.h) $(INCLUDE_PATH)/$(wildcard sbpops/*.h) $(INCLUDE_PATH)/util/vec_util.h
 	echo $(ORDER_MSG)
-	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)/adv_1D.cpp -DSBP_OPERATOR_ORDER=$(order)
+	-${CXX} ${CXXFLAGS} -o adv_1D.o -c $(DEMO_PATH)/advection/advection_1D_sim.cpp -DSBP_OPERATOR_ORDER=$(order)
 	mv adv_1D.o $(OBJ_PATH)/adv_1D.o
 
 ref_1D.o: $(SRC_PATH)/ref_1D.cpp $(INCLUDE_PATH)/diffops/reflection.h $(INCLUDE_PATH)/$(wildcard sbpops/*.h)

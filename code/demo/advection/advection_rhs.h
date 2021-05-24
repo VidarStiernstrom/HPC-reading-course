@@ -6,9 +6,6 @@
 #include "partitioned_rhs/rhs.h"
 #include "partitioned_rhs/boundary_conditions.h"
 
-
-namespace sbp{
-
 //=============================================================================
 // 1D functions
 //=============================================================================
@@ -559,5 +556,3 @@ void advection_bc(grid::grid_function_2d<PetscScalar> dst,
      SAT_bc_east<decltype(HI),decltype(a_y)>,
      SAT_bc_north<decltype(HI),decltype(a_y)>,dst,src,ind_i,ind_j,HI,hi,a_x,a_y);
 };
-
-} //namespace sbp
