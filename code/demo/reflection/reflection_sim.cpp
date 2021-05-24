@@ -1,12 +1,13 @@
 static char help[] = "Solves 1D reflection problem.\n";
 
 #include <petsc.h>
+#include "reflection_rhs.h"
 #include "sbpops/op_defs.h"
-#include "diffops/reflection.h"
 #include "time_stepping/ts_rk.h"
 #include "grids/create_layout.h"
 #include "grids/grid_function.h"
-#include "io/io_utils.h"
+#include "util/io_util.h"
+#include "util/vec_util.h"
 #include "scatter_ctx/scatter_ctx.h"
 
 struct AppCtx{
@@ -14,28 +15,24 @@ struct AppCtx{
     PetscScalar hi, h, xl, sw;;
     PetscInt N, dofs;
     const FirstDerivativeOp D1;
-    const NormOp H;
-    const InverseNormOp HI;
     VecScatter scatctx;
     grid::partitioned_layout_1d layout;
 };
 
-extern PetscScalar theta1(PetscScalar x, PetscScalar t);
-extern PetscScalar theta2(PetscScalar x, PetscScalar t);
-extern PetscErrorCode analytic_solution(const DM da, const PetscScalar t, const AppCtx& appctx, const Vec v_analytic, const PetscScalar W);
-extern PetscErrorCode get_error(const DM da, const Vec v1, const Vec v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx);
-extern PetscErrorCode set_initial_condition(const DM da, Vec v, const AppCtx& appctx);
-extern PetscErrorCode rhs_TS(TS, PetscReal, Vec, Vec, void *);
-extern PetscErrorCode rhs(DM, PetscReal, Vec, Vec, void *);
-extern PetscScalar gaussian(PetscScalar);
+PetscScalar theta1(PetscScalar x, PetscScalar t);
+PetscScalar theta2(PetscScalar x, PetscScalar t);
+PetscErrorCode initial_condition(const DM da, Vec v, const AppCtx& appctx);
+PetscErrorCode analytic_solution(const DM da, const PetscScalar t, const AppCtx& appctx, const Vec v_analytic, const PetscScalar W);
+PetscErrorCode rhs(TS, PetscReal, Vec, Vec, void *);
+PetscErrorCode rhs_serial(TS, PetscReal, Vec, Vec, void *);
 
 int main(int argc,char **argv)
 { 
   DM             da;
-  Vec            v, v_analytic, v_error, vlocal;
+  Vec            v, v_analytic, vlocal;
   PetscInt       stencil_radius, i_xstart, i_xend, N, n, dofs;
   PetscScalar    xl, xr, h, hi, dt, t0, Tend, CFL;
-  PetscReal      l2_error, max_error, H_error;
+  PetscReal      l2_error, max_error;
 
   AppCtx         appctx;
   PetscBool      write_data, use_custom_sc;
@@ -108,12 +105,11 @@ int main(int argc,char **argv)
     - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   DMCreateGlobalVector(da,&v);
   VecDuplicate(v,&v_analytic);
-  VecDuplicate(v,&v_error);
   
   // Initial solution, starting time and end time.
-  set_initial_condition(da, v, appctx);
+  initial_condition(da, v, appctx);
 
-  if (write_data) write_vector_to_binary(v,"data/ref_1D","v_init");
+  if (write_data) write_vector_to_binary(v,"data/reflection","v_init");
 
   ierr = DMCreateLocalVector(da,&vlocal);CHKERRQ(ierr);
   DMGlobalToLocalBegin(da,v,INSERT_VALUES,vlocal);  
@@ -127,7 +123,12 @@ int main(int argc,char **argv)
     PetscTime(&v1);
   }
   
-  ts_rk4(da, Tend, dt, vlocal, rhs_TS, &appctx);
+  if (size == 1) {
+    ts_rk4(da, Tend, dt, vlocal, rhs_serial, &appctx);
+  }
+  else {
+    ts_rk4(da, Tend, dt, vlocal, rhs, &appctx);  
+  }
   
   PetscBarrier((PetscObject) v);
   if (rank == 0) {
@@ -141,19 +142,20 @@ int main(int argc,char **argv)
   DMLocalToGlobalEnd(da,vlocal,INSERT_VALUES,v);
 
   analytic_solution(da, Tend, appctx, v_analytic, xr-xl);
-  get_error(da, v, v_analytic, &v_error, &H_error, &l2_error, &max_error, appctx);
-  PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %g, the H-error is: %g and the maximum error is %g\n",l2_error,H_error,max_error);
+  l2_error = error_l2(v,v_analytic, appctx.h);
+  max_error = error_max(v,v_analytic);
+  PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %g, and the maximum error is %g\n",l2_error,max_error);
 
-  if (write_data)
-  {
-    write_vector_to_binary(v,"data/ref_1D","v");
-    write_vector_to_binary(v_error,"data/ref_1D","v_error");
-
+  if (write_data) {
+    write_vector_to_binary(v,"data/reflection","v");
+    Vec v_error = compute_error(v,v_analytic);
+    write_vector_to_binary(v_error,"data/reflection","v_error");
+    VecDestroy(&v_error);
     char tmp_str[200];
     std::string data_string;
-    sprintf(tmp_str,"%d\t%d\t%d\t%e\t%f\t%f\t%e\t%e\t%e\n",size,N,-1,dt,Tend,elapsed_time,l2_error,H_error,max_error);
+    sprintf(tmp_str,"%d\t%d\t%d\t%e\t%f\t%f\t%e\t%e\n",size,N,-1,dt,Tend,elapsed_time,l2_error,max_error);
     data_string.assign(tmp_str);
-    write_data_to_file(data_string, "data/ref_1D", "data.tsv");
+    write_data_to_file(data_string, "data/reflection", "data.tsv");
   }
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -162,36 +164,27 @@ int main(int argc,char **argv)
     - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
   VecDestroy(&v);
   VecDestroy(&v_analytic);
-  VecDestroy(&v_error);
   DMDestroy(&da);
   
   ierr = PetscFinalize();
   return ierr;
 }
 
-PetscErrorCode rhs_TS(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx) // Function to utilize PETSc TS.
+/**
+* Required function for initial and analytical solution
+**/
+PetscScalar theta1(PetscScalar x, PetscScalar t) 
 {
-  DM                da;
-  TSGetDM(ts,&da);
-  rhs(da, t, v_src, v_dst, ctx);
-  return 0;
+  PetscScalar rstar = 0.1;
+  return exp(-(x - t)*(x - t)/(rstar*rstar));
 }
 
-PetscErrorCode get_error(const DM da, const Vec v1, const Vec v2, Vec *v_error, PetscReal *H_error, PetscReal *l2_error, PetscReal *max_error, const AppCtx& appctx) {
-  PetscScalar **arr;
-
-  VecWAXPY(*v_error,-1,v1,v2);
-
-  VecNorm(*v_error,NORM_2,l2_error);
-  *l2_error = sqrt(appctx.h)*(*l2_error);
-
-  VecNorm(*v_error,NORM_INFINITY,max_error);
-  
-  DMDAVecGetArrayDOF(da, *v_error, &arr);
-  *H_error = appctx.H.get_norm_1D(arr, appctx.h, appctx.N, appctx.ind_i[0], appctx.ind_i[1], appctx.dofs);
-  DMDAVecRestoreArrayDOF(da, *v_error, &arr);
-
-  return 0;
+/**
+* Required function for initial and analytical solution
+**/
+PetscScalar theta2(PetscScalar x, PetscScalar t) 
+{
+  return -theta1(x,t);
 }
 
 PetscErrorCode analytic_solution(const DM da, const PetscScalar t, const AppCtx& appctx, const Vec v_analytic, const PetscScalar W)
@@ -214,7 +207,7 @@ PetscErrorCode analytic_solution(const DM da, const PetscScalar t, const AppCtx&
 * Inputs: v      - vector to place initial data
 *         appctx - application context, contains necessary information
 **/
-PetscErrorCode set_initial_condition(const DM da, Vec v, const AppCtx& appctx) 
+PetscErrorCode initial_condition(const DM da, Vec v, const AppCtx& appctx) 
 {
   PetscInt i; 
   PetscScalar **varr, x;
@@ -230,24 +223,8 @@ PetscErrorCode set_initial_condition(const DM da, Vec v, const AppCtx& appctx)
   return 0;
 }
 
-/**
-* Required function for initial and analytical solution
-**/
-PetscScalar theta1(PetscScalar x, PetscScalar t) 
-{
-  PetscScalar rstar = 0.1;
-  return exp(-(x - t)*(x - t)/(rstar*rstar));
-}
 
-/**
-* Required function for initial and analytical solution
-**/
-PetscScalar theta2(PetscScalar x, PetscScalar t) 
-{
-  return -theta1(x,t);
-}
-
-PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
+PetscErrorCode rhs(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
 {
   PetscScalar       *array_src, *array_dst;
   AppCtx *appctx = (AppCtx*) ctx;
@@ -256,12 +233,10 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
   auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, appctx->layout);
   auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, appctx->layout);
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::reflection_local(gf_dst, gf_src, appctx->ind_i, appctx->sw, appctx->D1, appctx->hi);
-  sbp::reflection_bc(gf_dst, gf_src, appctx->ind_i);
+  reflection_local(gf_dst, gf_src, appctx->ind_i, appctx->sw, appctx->D1, appctx->hi);
+  reflection_bc(gf_dst, gf_src, appctx->ind_i);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
-  sbp::reflection_overlap(gf_dst, gf_src, appctx->ind_i, appctx->sw, appctx->D1, appctx->hi);
-  // sbp::reflection_serial(gf_dst, gf_src, appctx->D1, appctx->hi[0]);
-  // sbp::reflection_bc_serial(gf_dst, gf_src);  
+  reflection_overlap(gf_dst, gf_src, appctx->ind_i, appctx->sw, appctx->D1, appctx->hi);
   
 
   // Restore arrays
@@ -269,5 +244,24 @@ PetscErrorCode rhs(DM da, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
   VecRestoreArray(v_dst, &array_dst);
   return 0;
 }
+
+PetscErrorCode rhs_serial(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
+{
+  PetscScalar       *array_src, *array_dst;
+  AppCtx *appctx = (AppCtx*) ctx;
+  VecGetArray(v_src,&array_src);
+  VecGetArray(v_dst,&array_dst);  
+  auto gf_src = grid::grid_function_1d<PetscScalar>(array_src, appctx->layout);
+  auto gf_dst = grid::grid_function_1d<PetscScalar>(array_dst, appctx->layout);
+  reflection_serial(gf_dst, gf_src, appctx->D1, appctx->hi);
+  reflection_bc_serial(gf_dst, gf_src);  
+  
+
+  // Restore arrays
+  VecRestoreArray(v_src, &array_src);
+  VecRestoreArray(v_dst, &array_dst);
+  return 0;
+}
+
 
 

@@ -6,8 +6,6 @@
 #include "partitioned_rhs/boundary_conditions.h"
 
 // Approximate RHS of reflection problem, [u;v]_t = [v_x;u_x]
-namespace sbp{
-
 template <class SbpDerivative>
 inline void reflection_l(grid::grid_function_1d<PetscScalar> dst,
                           const grid::grid_function_1d<PetscScalar> src, 
@@ -133,7 +131,3 @@ inline void reflection_bc_serial(grid::grid_function_1d<PetscScalar> dst,
 {
   bc_serial(proj_dirichlet_bc_l,proj_dirichlet_bc_r,dst,src);
 };
-
-
-
-} //namespace sbp

@@ -36,7 +36,7 @@ debug: CXXFLAGS += -DDEBUG $(DEBUGFLAGS)
 debug: $(app)	
 opt-debug: CXXFLAGS += -DDEBUG $(DEBUGFLAGS) $(COPTFLAGS)
 opt-debug: $(app)
-all: wave adv_2D adv_1D ref_1D
+all: wave adv_2D adv_1D reflection
 
 # Link object files to create binaries in BIN_PATH/
 wave: wave.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
@@ -48,8 +48,8 @@ adv_2D: adv_2D.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
 adv_1D: adv_1D.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
 	-${CXX} -o $(BIN_PATH)/$@ $(OBJ_PATH)/adv_1D.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o ${PETSC_SYS_LIB}
 
-ref_1D: ref_1D.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
-	-${CXX} -o $(BIN_PATH)/$@ $(OBJ_PATH)/ref_1D.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o ${PETSC_SYS_LIB}
+reflection: reflection.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
+	-${CXX} -o $(BIN_PATH)/$@ $(OBJ_PATH)/reflection.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o ${PETSC_SYS_LIB}
 
 # Compile object files to OBJ_PATH/
 wave.o: $(DEMO_PATH)/wave/wave_eq_sim.cpp $(DEMO_PATH)/wave/wave_eq_rhs.h $(INCLUDE_PATH)/$(wildcard partitioned_rhs/*.h) $(INCLUDE_PATH)/$(wildcard sbpops/*.h) $(INCLUDE_PATH)/util/vec_util.h
@@ -64,9 +64,9 @@ adv_1D.o: $(DEMO_PATH)/advection/advection_1D_sim.cpp $(DEMO_PATH)/advection/adv
 	echo $(ORDER_MSG)
 	-${CXX} ${CXXFLAGS} -o $(OBJ_PATH)/$@ -c $(DEMO_PATH)/advection/advection_1D_sim.cpp -DSBP_OPERATOR_ORDER=$(order)
 
-ref_1D.o: $(SRC_PATH)/ref_1D.cpp $(INCLUDE_PATH)/diffops/reflection.h $(INCLUDE_PATH)/$(wildcard sbpops/*.h)
+reflection.o: $(DEMO_PATH)/reflection/reflection_sim.cpp $(DEMO_PATH)/reflection/reflection_rhs.h $(INCLUDE_PATH)/$(wildcard partitioned_rhs/*.h) $(INCLUDE_PATH)/$(wildcard sbpops/*.h) $(INCLUDE_PATH)/util/vec_util.h
 	echo $(ORDER_MSG)
-	-${CXX} ${CXXFLAGS} -o $(OBJ_PATH)/$@ -c $(SRC_PATH)/ref_1D.cpp -DSBP_OPERATOR_ORDER=$(order)	
+	-${CXX} ${CXXFLAGS} -o $(OBJ_PATH)/$@ -c $(DEMO_PATH)/reflection/reflection_sim.cpp -DSBP_OPERATOR_ORDER=$(order)	
 	
 create_layout.o: $(SRC_PATH)/grids/create_layout.cpp  $(INCLUDE_PATH)/grids/create_layout.h $(INCLUDE_PATH)/grids/layout.h
 	-${CXX} ${CXXFLAGS} -o $(OBJ_PATH)/$@ -c $(SRC_PATH)/grids/create_layout.cpp
