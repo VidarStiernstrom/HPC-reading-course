@@ -21,7 +21,7 @@ ifeq ($(strip $(order)),)
 order		= 4
 ORDER_MSG	= order not set. Compiling with $(order)
 else
-ORDER_MSG	= Compiling with $(order)
+ORDER_MSG	= Compiling with order $(order)
 endif
 CXX 			= mpicc 
 CXXFLAGS		= -std=c++17 $(IFLAGS)
@@ -29,6 +29,12 @@ CXXFLAGS		= -std=c++17 $(IFLAGS)
 include ${PETSC_DIR}/lib/petsc/conf/variables
 include ${PETSC_DIR}/lib/petsc/conf/rules
 include ${PETSC_DIR}/lib/petsc/conf/test
+
+LDFLAGS 		= ${PETSC_SYS_LIB}
+DETECTED_OS		= $(shell uname -s)
+ifneq ($(strip $(DETECTED_OS)),Darwin)
+    LDFLAGS += -lstdc++fs
+endif
 
 opt: CXXFLAGS += -DNDEBUG $(COPTFLAGS)
 opt: $(app)
@@ -40,16 +46,16 @@ all: wave adv_2D adv_1D reflection
 
 # Link object files to create binaries in BIN_PATH/
 wave: wave.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
-	-${CXX} -o $(BIN_PATH)/$@ $(OBJ_PATH)/wave.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o  ${PETSC_SYS_LIB}
+	-${CXX} -o $(BIN_PATH)/$@ $(OBJ_PATH)/wave.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o $(LDFLAGS)
 
 adv_2D: adv_2D.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
-	-${CXX} -o $(BIN_PATH)/$@ $(OBJ_PATH)/adv_2D.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o  ${PETSC_SYS_LIB}
+	-${CXX} -o $(BIN_PATH)/$@ $(OBJ_PATH)/adv_2D.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o $(LDFLAGS)
 
 adv_1D: adv_1D.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
-	-${CXX} -o $(BIN_PATH)/$@ $(OBJ_PATH)/adv_1D.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o ${PETSC_SYS_LIB}
+	-${CXX} -o $(BIN_PATH)/$@ $(OBJ_PATH)/adv_1D.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o $(LDFLAGS)
 
 reflection: reflection.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
-	-${CXX} -o $(BIN_PATH)/$@ $(OBJ_PATH)/reflection.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o ${PETSC_SYS_LIB}
+	-${CXX} -o $(BIN_PATH)/$@ $(OBJ_PATH)/reflection.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o $(LDFLAGS)
 
 # Compile object files to OBJ_PATH/
 wave.o: $(DEMO_PATH)/wave/wave_eq_sim.cpp $(DEMO_PATH)/wave/wave_eq_rhs.h $(INCLUDE_PATH)/$(wildcard partitioned_rhs/*.h) $(INCLUDE_PATH)/$(wildcard sbpops/*.h) $(INCLUDE_PATH)/util/vec_util.h

@@ -23,6 +23,7 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 **/
 
 #include <petsc.h>
+#include <array>
 #include "wave_eq_rhs.h"
 #include "sbpops/op_defs.h"
 #include "time_stepping/ts_rk.h"
@@ -38,7 +39,6 @@ struct AppCtx{
     PetscInt dofs;
     PetscScalar sw;
     const FirstDerivativeOp D1;
-    const NormOp H;
     const InverseNormOp HI;
     VecScatter scatctx;
     grid::partitioned_layout_2d layout;
@@ -47,6 +47,7 @@ struct AppCtx{
 PetscErrorCode initial_condition(const DM da, Vec v, const AppCtx& appctx);
 PetscErrorCode analytic_solution(const DM, const PetscScalar, const AppCtx&, Vec);
 PetscErrorCode rhs(TS, PetscReal, Vec, Vec, void *);
+PetscErrorCode rhs_non_overlapping(TS, PetscReal, Vec, Vec, void *);
 PetscErrorCode rhs_serial(TS, PetscReal, Vec, Vec, void *);
 
 int main(int argc,char **argv)
@@ -110,6 +111,10 @@ int main(int argc,char **argv)
     PetscPrintf(PETSC_COMM_WORLD,"--- Warning ---\nOne dimensional topology\n");
   }
 
+  if (procx != procy) {
+    PetscPrintf(PETSC_COMM_WORLD,"--- Warning ---\nNon-square topology\n");
+  }
+
   // Populate application context.
   appctx.N = {Nx, Ny};
   appctx.hi = {hix, hiy};
@@ -151,6 +156,7 @@ int main(int argc,char **argv)
     PetscTime(&v1);
   }
 
+  // TODO: Add runtime flag checking for overlapping or non-overlapping RHS
   if (size == 1) {
     ts_rk4(da, Tend, dt, vlocal, rhs_serial, &appctx);  
   }
@@ -173,6 +179,9 @@ int main(int argc,char **argv)
   l2_error = error_l2(v,v_analytic, appctx.h);
   max_error = error_max(v,v_analytic);
   PetscPrintf(PETSC_COMM_WORLD,"The l2-error is: %g, and the maximum error is %g\n",l2_error,max_error);
+
+  // Print outs to generate .csv file. Headers: mode, order, custom sc, size, Nx, nx, error, elap time
+  // PetscPrintf(PETSC_COMM_WORLD,"local,%s,%d,%d,%d,%d,%f,%f\n",getenv("order"),use_custom_sc,size,Nx,nx,l2_error,elapsed_time);
 
   // Write solution to file
   if (write_data) {
@@ -244,10 +253,33 @@ PetscErrorCode rhs(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
 
   auto gf_src = grid::grid_function_2d<PetscScalar>(array_src, appctx->layout);
   auto gf_dst = grid::grid_function_2d<PetscScalar>(array_dst, appctx->layout);
+
+  // Overlapping
   VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   wave_eq_local(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->xl, t);
   VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
   wave_eq_overlap(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->xl, t);
+  wave_eq_free_surface_bc(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->HI, appctx->hi);
+
+  // Restore arrays
+  VecRestoreArray(v_src,&array_src);
+  VecRestoreArray(v_dst,&array_dst);
+  return 0;
+}
+
+PetscErrorCode rhs_non_overlapping(TS ts, PetscReal t, Vec v_src, Vec v_dst, void *ctx)
+{
+  AppCtx *appctx = (AppCtx*) ctx;
+  PetscScalar       *array_src, *array_dst;
+
+  VecGetArray(v_src,&array_src);
+  VecGetArray(v_dst,&array_dst);
+
+  auto gf_src = grid::grid_function_2d<PetscScalar>(array_src, appctx->layout);
+  auto gf_dst = grid::grid_function_2d<PetscScalar>(array_dst, appctx->layout);
+  VecScatterBegin(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
+  VecScatterEnd(appctx->scatctx,v_src,v_src,INSERT_VALUES,SCATTER_FORWARD);
+  wave_eq_all(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->sw, appctx->D1, appctx->hi, appctx->xl, t);
   wave_eq_free_surface_bc(gf_dst, gf_src, appctx->ind_i, appctx->ind_j, appctx->HI, appctx->hi);
 
   // Restore arrays
