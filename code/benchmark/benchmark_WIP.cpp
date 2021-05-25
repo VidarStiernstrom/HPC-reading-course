@@ -15,12 +15,20 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 
 #define H_INV 1
 
+
+// create struct for arrays with time
+
+
+
+
 static double get_wall_seconds() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     double seconds = tv.tv_sec + (double)tv.tv_usec / 1000000;
     return seconds;
 }
+
+
 
 // #if H_INV
 // /**
@@ -58,14 +66,16 @@ void wave_eq_rhs_II_benchmark(
                               const std::array<PetscScalar,2>& xl,
                               const std::array<PetscScalar,2>& hi)
 {
-  PetscScalar inv, D1_y, D1_x, D1_x0, D1_y1, time;
-  PetscInt i,j;
-  time = get_wall_seconds();
+  PetscScalar inv, D1_y, D1_x, D1_x0, D1_y1, inv_t, D1_t;
+  PetscInt j,i;
+  D1_t = get_wall_seconds();
   for (j = i_ystart; j < i_yend; j++)
   {
     for (i = i_xstart; i < i_xend; i++)
     {
+      inv_t = get_wall_seconds();
       inv = -rho_inv(i, j, hi, xl);
+      inv_t = get_wall_seconds()-inv_t;
       D1_x = D1.apply_x_interior(q, hi[0], i, j, 2);
       D1_y = D1.apply_y_interior(q, hi[1], i, j, 2);
       D1_x0 = D1.apply_x_interior(q, hi[0], i, j, 0);
@@ -80,7 +90,7 @@ void wave_eq_rhs_II_benchmark(
       // F[j][i][2] = -D1.apply_x_interior(q, hi[0], i, j, 0) - D1.apply_y_interior(q, hi[1], i, j, 1);
     }
   }
-  printf("cummulative time is %7.3f wall seconds.\n", get_wall_seconds()-time);
+  printf("cummulative time is %7.3f wall seconds.\n", inv_t);
 }
 
 template <class SbpDerivative>
@@ -114,7 +124,6 @@ PetscErrorCode setup(DM da, PetscInt n, Vec q) {
   {
     for (i = 0; i < n; i++)
     {
-      // change rhs to random doubles
       q_arr[j][i][0] = (PetscScalar)rand() / RAND_MAX;
       q_arr[j][i][1] = (PetscScalar)rand() / RAND_MAX;
       q_arr[j][i][2] = (PetscScalar)rand() / RAND_MAX;

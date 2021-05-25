@@ -32,9 +32,13 @@ void wave_eq_rhs_II_benchmark(
   {
     for (i = i_xstart; i < i_xend; i++)
     {
-      inv = rho_inv(i, j, hi, xl);
-      F[j][i][0] = -inv*D1.apply_x_interior(q, hi[0], i, j, 2);
-      F[j][i][1] = -inv*D1.apply_y_interior(q, hi[1], i, j, 2);
+      // inv = rho_inv(i, j, hi, xl);
+      // F[j][i][0] = -inv*D1.apply_x_interior(q, hi[0], i, j, 2);
+      // F[j][i][1] = -inv*D1.apply_y_interior(q, hi[1], i, j, 2);
+      // F[j][i][2] = -D1.apply_x_interior(q, hi[0], i, j, 0) - D1.apply_y_interior(q, hi[1], i, j, 1);
+
+      F[j][i][0] = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q, hi[0], i, j, 2);
+      F[j][i][1] = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q, hi[1], i, j, 2);
       F[j][i][2] = -D1.apply_x_interior(q, hi[0], i, j, 0) - D1.apply_y_interior(q, hi[1], i, j, 1);
     }
   }

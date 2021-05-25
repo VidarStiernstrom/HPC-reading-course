@@ -23,7 +23,7 @@ GCOV	    	= -fprofile-arcs -ftest-coverage #-fprofile-dir=/$(PROF_PATH)
 GPROF			= -pg -fprofile-dir=/$(PROF_PATH)
 PROFILING		= false
 COVERAGE		= false
-
+VGR				= valgrind --tool=cachegrind
 
 ifeq ($(strip $(ORDER)),)
 ORDER			= 4
@@ -140,17 +140,34 @@ endif
 # Link object files to create binaries in BIN_PATH/
 wave_eq_benchmark: benchmark/wave_eq_rhs_II_benchmark.cpp $(INCLUDE_PATH)$(wildcard sbpops/*.h) $(INCLUDE_PATH)acoustic_wave_eq/wave_eq_rhs.h
 ifeq (${PROFILING}, true)
-	-${CXX} ${CXXFLAGS} ${GPROF} -fopt-info-vec-optimized -o wave_eq_benchmark benchmark/wave_eq_rhs_II_benchmark.cpp -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
+	-${CXX} ${CXXFLAGS} ${GPROF} $(COPTFLAGS) -o wave_eq_benchmark benchmark/wave_eq_rhs_II_benchmark.cpp -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
 	mv wave_eq_benchmark $(BIN_PATH)
 else
 ifeq (${COVERAGE}, true)
 	-${CXX} ${CXXFLAGS} $(COPTFLAGS) ${GCOV} -o wave_eq_benchmark benchmark/wave_eq_rhs_II_benchmark.cpp -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
 	mv wave_eq_benchmark $(BIN_PATH)
 else
-	-${CXX} ${CXXFLAGS} $(COPTFLAGS) -fopt-info-vec-optimized -fno-inline -o wave_eq_benchmark benchmark/wave_eq_rhs_II_benchmark.cpp -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
+	-${CXX} ${CXXFLAGS} $(COPTFLAGS) $(DEBUG) -o wave_eq_benchmark benchmark/wave_eq_rhs_II_benchmark.cpp -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
 	mv wave_eq_benchmark $(BIN_PATH)
 endif
 endif
+
+
+# # Link object files to create binaries in BIN_PATH/
+# wave_eq_benchmark_WIP: benchmark/wave_eq_rhs_II_benchmark.cpp $(INCLUDE_PATH)$(wildcard sbpops/*.h) $(INCLUDE_PATH)acoustic_wave_eq/wave_eq_rhs.h
+# ifeq (${PROFILING}, true)
+# 	-${CXX} ${CXXFLAGS} ${GPROF} -fopt-info-vec-optimized -o wave_eq_benchmark benchmark/wave_eq_rhs_II_benchmark.cpp -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
+# 	mv wave_eq_benchmark $(BIN_PATH)
+# else
+# ifeq (${COVERAGE}, true)
+# 	-${CXX} ${CXXFLAGS} $(COPTFLAGS) ${GCOV} -o wave_eq_benchmark benchmark/wave_eq_rhs_II_benchmark.cpp -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
+# 	mv wave_eq_benchmark $(BIN_PATH)
+# else
+# 	-${CXX} ${CXXFLAGS} $(COPTFLAGS) $(DEBUG) -fopt-info-vec-optimized -o wave_eq_benchmark benchmark/wave_eq_rhs_II_benchmark.cpp -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
+# 	mv wave_eq_benchmark $(BIN_PATH)
+# endif
+# endif
+
 
 #.PHONY : clean
 init:

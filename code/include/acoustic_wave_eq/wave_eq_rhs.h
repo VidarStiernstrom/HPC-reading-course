@@ -904,23 +904,33 @@ PetscErrorCode wave_eq_rhs_serial(const PetscScalar t,
   return 0;
 }
 
-// /**
-// * Inverse of density rho(x,y) at grid point i,j
-// **/
-// PetscScalar rho_inv(const PetscInt i, const PetscInt j, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) {
-//   PetscScalar x = xl[0] + i/hi[0]; // multiplicera med h istället för division med hi
-//   PetscScalar y = xl[1] + j/hi[1];
-//   return 1./(2 + x*y);
-// }
-
 /**
 * Inverse of density rho(x,y) at grid point i,j
 **/
-PetscScalar rho_inv(const PetscInt i, const PetscInt j, const std::array<PetscScalar,2>& h, const std::array<PetscScalar,2>& xl) {
-  PetscScalar x = xl[0] + i * h[0]; // multiplicera med h istället för division med hi
-  PetscScalar y = xl[1] + j * h[1];
+// inline PetscScalar rho_inv(const PetscInt i, const PetscInt j, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) __attribute__((pure));
+inline PetscScalar rho_inv(const PetscInt i, const PetscInt j, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) {
+  PetscScalar x = xl[0] + i/hi[0];
+  PetscScalar y = xl[1] + j/hi[1];
   return 1./(2 + x*y);
 }
+
+// /**
+// * Inverse of density rho(x,y) at grid point i,j
+// **/
+// inline PetscScalar rho_inv(const PetscInt i, const PetscInt j, const std::array<PetscScalar,2>& h, const std::array<PetscScalar,2>& xl) {
+//   PetscScalar x = xl[0] + i * h[0];
+//   PetscScalar y = xl[1] + j * h[1];
+//   return 1./(2 + x*y);
+// }
+
+// /**
+// * Inverse of density rho(x,y) at grid point i,j
+// **/
+// inline PetscScalar rho_inv(const PetscInt i, const PetscInt j, const std::array<PetscScalar,2>& h, const std::array<PetscScalar,2>& xl) {
+//   PetscScalar x = xl[0] + i * h[0];
+//   PetscScalar y = xl[1] + j * h[1];
+//   return (2 + x*y);
+// }
 
 /**
 * TODO WIP optimized version
