@@ -48,6 +48,9 @@ all: wave adv_2D adv_1D reflection
 wave: wave.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
 	-${CXX} -o $(BIN_PATH)/$@ $(OBJ_PATH)/wave.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o $(LDFLAGS)
 
+wave_hom: wave_hom.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
+	-${CXX} -o $(BIN_PATH)/$@ $(OBJ_PATH)/wave_hom.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o $(LDFLAGS)
+
 adv_2D: adv_2D.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
 	-${CXX} -o $(BIN_PATH)/$@ $(OBJ_PATH)/adv_2D.o $(OBJ_PATH)/io_util.o  $(OBJ_PATH)/scatter_ctx.o $(OBJ_PATH)/create_layout.o $(OBJ_PATH)/ts_rk.o $(LDFLAGS)
 
@@ -61,6 +64,10 @@ reflection: reflection.o io_util.o ts_rk.o scatter_ctx.o create_layout.o
 wave.o: $(DEMO_PATH)/wave/wave_eq_sim.cpp $(DEMO_PATH)/wave/wave_eq_rhs.h $(INCLUDE_PATH)/$(wildcard partitioned_rhs/*.h) $(INCLUDE_PATH)/$(wildcard sbpops/*.h) $(INCLUDE_PATH)/util/vec_util.h
 	echo $(ORDER_MSG)
 	-${CXX} ${CXXFLAGS} -o $(OBJ_PATH)/$@ -c $(DEMO_PATH)/wave/wave_eq_sim.cpp -DSBP_OPERATOR_ORDER=$(order)
+
+wave_hom.o: $(DEMO_PATH)/wave_hom/wave_eq_hom_sim.cpp $(DEMO_PATH)/wave_hom/wave_eq_hom_rhs.h $(INCLUDE_PATH)/$(wildcard partitioned_rhs/*.h) $(INCLUDE_PATH)/$(wildcard sbpops/*.h) $(INCLUDE_PATH)/util/vec_util.h
+	echo $(ORDER_MSG)
+	-${CXX} ${CXXFLAGS} -o $(OBJ_PATH)/$@ -c $(DEMO_PATH)/wave_hom/wave_eq_hom_sim.cpp -DSBP_OPERATOR_ORDER=$(order)
 
 adv_2D.o: $(DEMO_PATH)/advection/advection_2D_sim.cpp $(DEMO_PATH)/advection/advection_rhs.h $(INCLUDE_PATH)/$(wildcard partitioned_rhs/*.h) $(INCLUDE_PATH)/$(wildcard sbpops/*.h) $(INCLUDE_PATH)/util/vec_util.h
 	echo $(ORDER_MSG)
