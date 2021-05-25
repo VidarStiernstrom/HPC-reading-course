@@ -11,20 +11,21 @@ static char help[] ="Solves the 2D acoustic wave equation on first order form: u
 #include <petsc.h>
 #include <stdlib.h>
 #include "acoustic_wave_eq/wave_eq_rhs.h"
-
+#include "flat_index.h"
 
 template <class SbpDerivative>
 void wave_eq_rhs_II_benchmark(
                               const SbpDerivative& D1,
-                              const PetscScalar *const *const *const q,
-                              PetscScalar *const *const *const F,
+                              const PetscScalar *const __restrict q,
+                              PetscScalar *const __restrict F,
                               const PetscInt i_xstart,
                               const PetscInt i_xend,
                               const PetscInt i_ystart,
                               const PetscInt i_yend,
                               const std::array<PetscScalar,2>& xl,
                               const std::array<PetscScalar,2>& hi,
-                              const std::array<PetscScalar,2>& h)
+                              const std::array<PetscScalar,2>& h,
+                              const PetscInt N)
 {
   PetscScalar inv;
   PetscInt i,j;
@@ -33,9 +34,9 @@ void wave_eq_rhs_II_benchmark(
     for (i = i_xstart; i < i_xend; i++)
     {
       inv = rho_inv(i, j, hi, xl);
-      F[j][i][0] = -inv*D1.apply_x_interior(q, hi[0], i, j, 2);
-      F[j][i][1] = -inv*D1.apply_y_interior(q, hi[1], i, j, 2);
-      F[j][i][2] = -D1.apply_x_interior(q, hi[0], i, j, 0) - D1.apply_y_interior(q, hi[1], i, j, 1);
+      F[INDEX(N,j,i,0)] = -inv*D1.apply_x_interior(q, hi[0], i, j, 2, N);
+      F[INDEX(N,j,i,1)] = -inv*D1.apply_y_interior(q, hi[1], i, j, 2, N);
+      F[INDEX(N,j,i,2)] = -D1.apply_x_interior(q, hi[0], i, j, 0, N) - D1.apply_y_interior(q, hi[1], i, j, 1, N);
     }
   }
 }
@@ -43,8 +44,8 @@ void wave_eq_rhs_II_benchmark(
 template <class SbpDerivative>
 void wave_eq_rhs_serial_benchmark(
                                   const SbpDerivative& D1,
-                                  const PetscScalar *const *const *const q,
-                                  PetscScalar *const *const *const F,
+                                  const PetscScalar *const __restrict q,
+                                  PetscScalar *const __restrict F,
                                   const PetscInt N,
                                   const std::array<PetscScalar,2>& xl,
                                   const std::array<PetscScalar,2>& hi,
@@ -52,7 +53,7 @@ void wave_eq_rhs_serial_benchmark(
 {
   const PetscInt cl_sz = D1.closure_size();
 
-  wave_eq_rhs_II_benchmark(D1, q, F, cl_sz, N-cl_sz, cl_sz, N-cl_sz, xl, hi, h);
+  wave_eq_rhs_II_benchmark(D1, q, F, cl_sz, N-cl_sz, cl_sz, N-cl_sz, xl, hi, h, N);
 
 }
 
@@ -97,8 +98,8 @@ int main(int argc,char **argv)
   std::array<PetscScalar,2> h = {hx, hy};
   std::array<PetscScalar,2> hi = {1./hx, 1./hy};
   Vec q,F;
-  PetscScalar*** q_arr;
-  PetscScalar*** F_arr;
+  PetscScalar* q_arr;
+  PetscScalar* F_arr;
 
   PetscInitialize(&argc,&argv,(char*)0,help);
   MPI_Comm_size(PETSC_COMM_WORLD,&size);
@@ -122,15 +123,15 @@ int main(int argc,char **argv)
 
   setup(da, N, q);
 
-  DMDAVecGetArrayDOF(da,q,&q_arr);
-  DMDAVecGetArrayDOF(da,F,&F_arr);
+  VecGetArray(q,&q_arr);
+  VecGetArray(F,&F_arr);
 
   for (PetscInt i = 0; i < turns; i++) {
     wave_eq_rhs_serial_benchmark(D1, q_arr, F_arr, N, xl, hi, h);
   }
 
-  DMDAVecRestoreArrayDOF(da,q,&q_arr);
-  DMDAVecRestoreArrayDOF(da,F,&F_arr);
+  VecRestoreArray(q,&q_arr);
+  VecRestoreArray(F,&F_arr);
 
   VecDestroy(&q);
   VecDestroy(&F);

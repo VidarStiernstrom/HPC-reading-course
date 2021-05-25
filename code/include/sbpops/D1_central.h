@@ -2,6 +2,7 @@
 
 #include<petscsystypes.h>
 #include <tuple>
+#include "flat_index.h"
 
 namespace sbp {
   
@@ -85,12 +86,12 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    PetscScalar apply_x_interior(const PetscScalar *const *const *const v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    PetscScalar apply_x_interior(const PetscScalar *const v, const PetscScalar hix, const PetscInt i, const PetscInt j, const PetscInt comp, const PetscInt N) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<interior_width; is++)
       {
-        u += static_cast<const Stencils&>(*this).interior_stencil[is]*v[j][i-(interior_width-1)/2+is][comp];
+        u += static_cast<const Stencils&>(*this).interior_stencil[is]*v[INDEX(N,j,i-(interior_width-1)/2+is,comp)];
       }
       return hix*u;
     };
@@ -105,12 +106,12 @@ namespace sbp {
     *
     * Output: derivative v_x[j][i][comp]
     **/
-    PetscScalar apply_y_interior(const PetscScalar *const *const *const v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp) const
+    PetscScalar apply_y_interior(const PetscScalar *const v, const PetscScalar hiy, const PetscInt i, const PetscInt j, const PetscInt comp, const PetscInt N) const
     {
       PetscScalar u = 0;
       for (PetscInt is = 0; is<interior_width; is++)
       {
-        u += static_cast<const Stencils&>(*this).interior_stencil[is]*v[j-(interior_width-1)/2+is][i][comp];
+        u += static_cast<const Stencils&>(*this).interior_stencil[is]*v[INDEX(N,j-(interior_width-1)/2+is,i,comp)];
       }
       return hiy*u;
     };

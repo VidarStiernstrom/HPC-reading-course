@@ -147,7 +147,7 @@ ifeq (${COVERAGE}, true)
 	-${CXX} ${CXXFLAGS} $(COPTFLAGS) ${GCOV} -o wave_eq_benchmark benchmark/wave_eq_rhs_II_benchmark.cpp -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
 	mv wave_eq_benchmark $(BIN_PATH)
 else
-	-${CXX} ${CXXFLAGS} $(COPTFLAGS) -fopt-info-vec-optimized -fno-inline -o wave_eq_benchmark benchmark/wave_eq_rhs_II_benchmark.cpp -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
+	-${CXX} ${CXXFLAGS} $(COPTFLAGS) -o wave_eq_benchmark benchmark/wave_eq_rhs_II_benchmark.cpp -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
 	mv wave_eq_benchmark $(BIN_PATH)
 endif
 endif
