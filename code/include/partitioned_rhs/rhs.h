@@ -84,6 +84,23 @@ void rhs_serial(const RhsLeft& rhs_l,
 // =============================================================================
 // 2D functions
 // =============================================================================
+
+template <typename RhsFun,
+          typename... Args>
+void rhs_patch(const RhsFun& rhs,
+               grid::grid_function_2d<PetscScalar> dst,
+               const grid::grid_function_2d<PetscScalar> src,
+               const std::array<PetscInt,2>& ind_i,
+               const std::array<PetscInt,2>& ind_j,
+               Args... args)
+{
+  for (PetscInt j = ind_j[0]; j < ind_j[1]; j++) { 
+    for (PetscInt i = ind_i[0]; i < ind_i[1]; i++) { 
+      rhs(dst, src, i, j, args...);
+    }
+  }
+};
+
 /**
  *   ****************
  *   * lr * ir * rr *

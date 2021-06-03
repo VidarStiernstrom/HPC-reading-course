@@ -5,6 +5,7 @@
 #include "partitioned_rhs/rhs.h"
 #include "partitioned_rhs/boundary_conditions.h"
 #include "grids/grid_function.h"
+#include "sbpops/region.h"
 
 /**
 * Functions for computing the righ-hand-side of the acoustic wave equation
@@ -39,7 +40,7 @@
 /**
 * Inverse of density rho(x,y) at grid point i,j
 **/
-PetscScalar rho_inv(const PetscInt i, const PetscInt j, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) {
+inline PetscScalar rho_inv(const PetscInt i, const PetscInt j, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) {
   PetscScalar x = xl[0] + i/hi[0]; // multiplicera med h istället för division med hi
   PetscScalar y = xl[1] + j/hi[1];
   return 1./(2 + x*y);
@@ -48,7 +49,7 @@ PetscScalar rho_inv(const PetscInt i, const PetscInt j, const std::array<PetscSc
 /**
 * Forcing function on u component
 **/
-PetscScalar forcing_u(const PetscInt i, const PetscInt j, const PetscScalar t, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) {
+inline PetscScalar forcing_u(const PetscInt i, const PetscInt j, const PetscScalar t, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) {
   PetscScalar x = xl[0] + i/hi[0];
   PetscScalar y = xl[1] + j/hi[1];
   return -(3*PETSC_PI*cos(5*PETSC_PI*t)*cos(3*PETSC_PI*x)*sin(4*PETSC_PI*y)*(x*y + 1))/(x*y + 2);
@@ -57,10 +58,25 @@ PetscScalar forcing_u(const PetscInt i, const PetscInt j, const PetscScalar t, c
 /**
 * Forcing function on v component
 **/
-PetscScalar forcing_v(const PetscInt i, const PetscInt j, const PetscScalar t, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) {
+inline PetscScalar forcing_v(const PetscInt i, const PetscInt j, const PetscScalar t, const std::array<PetscScalar,2>& hi, const std::array<PetscScalar,2>& xl) {
   PetscScalar x = xl[0] + i/hi[0];
   PetscScalar y = xl[1] + j/hi[1];
   return -(4*PETSC_PI*cos(5*PETSC_PI*t)*cos(4*PETSC_PI*y)*sin(3*PETSC_PI*x)*(x*y + 1))/(x*y + 2);
+};
+
+template <class SbpDerivative, Region r1, Region r2>
+inline void wave_eq_rhs(grid::grid_function_2d<PetscScalar> F,
+                    const grid::grid_function_2d<PetscScalar> q,
+                    const PetscInt i,
+                    const PetscInt j,
+                    const SbpDerivative& D1,
+                    const std::array<PetscScalar,2>& hi,
+                    const std::array<PetscScalar,2>& xl,
+                    const PetscScalar t)
+{
+  F(j, i, 0) = -rho_inv(i, j, hi, xl)*D1.template apply<1,r1>(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
+  F(j, i, 1) = -rho_inv(i, j, hi, xl)*D1.template apply<2,r2>(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
+  F(j, i, 2) = -D1.template apply<1,r1>(q, hi[0], i, j, 0) - D1.template apply<2,r2>(q, hi[1], i, j, 1);
 };
 
  /**
@@ -74,20 +90,14 @@ PetscScalar forcing_v(const PetscInt i, const PetscInt j, const PetscScalar t, c
   **/
 template <class SbpDerivative>
 void wave_eq_ll(grid::grid_function_2d<PetscScalar> F,
-                    const grid::grid_function_2d<PetscScalar> q,
-                    const PetscInt cl_sz,
-                    const SbpDerivative& D1,
-                    const std::array<PetscScalar,2>& hi,
-                    const std::array<PetscScalar,2>& xl,
-                    const PetscScalar t)
+                const grid::grid_function_2d<PetscScalar> q,
+                const PetscInt cl_sz,
+                const SbpDerivative& D1,
+                const std::array<PetscScalar,2>& hi,
+                const std::array<PetscScalar,2>& xl,
+                const PetscScalar t)
 {
-  for (PetscInt j = 0; j < cl_sz; j++) { 
-    for (PetscInt i = 0; i < cl_sz; i++) { 
-      F(j, i, 0) = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-      F(j, i, 1) = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-      F(j, i, 2) = -D1.apply_x_left(q, hi[0], i, j, 0) - D1.apply_y_left(q, hi[1], i, j, 1);
-    }
-  }
+  rhs_patch(wave_eq_rhs<decltype(D1),left,left>, F, q, {0, cl_sz}, {0, cl_sz}, D1, hi, xl, t);
 }
 
 
@@ -110,13 +120,7 @@ void wave_eq_il(grid::grid_function_2d<PetscScalar> F,
                     const std::array<PetscScalar,2>& xl,
                     const PetscScalar t)
 {
-  for (PetscInt j = 0; j < cl_sz; j++) { 
-    for (PetscInt i = ind_i[0]; i < ind_i[1]; i++) {  
-      F(j, i, 0) = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-      F(j, i, 1) = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-      F(j, i, 2) = -D1.apply_x_interior(q, hi[0], i, j, 0) - D1.apply_y_left(q, hi[1], i, j, 1);
-    }
-  }
+  rhs_patch(wave_eq_rhs<decltype(D1),interior,left>, F, q, ind_i, {0, cl_sz}, D1, hi, xl, t);
 }
 
 /**
@@ -138,13 +142,7 @@ void wave_eq_rl(grid::grid_function_2d<PetscScalar> F,
                     const PetscScalar t)
 {
   const PetscInt nx = q.mapping().nx();
-  for (PetscInt j = 0; j < cl_sz; j++) { 
-    for (PetscInt i = nx-cl_sz; i < nx; i++) { 
-      F(j, i, 0) = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-      F(j, i, 1) = -rho_inv(i, j, hi, xl)*D1.apply_y_left(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-      F(j, i, 2) = -D1.apply_x_right(q, hi[0], i, j, 0) - D1.apply_y_left(q, hi[1], i, j, 1);
-    }
-  }
+  rhs_patch(wave_eq_rhs<decltype(D1),right,left>, F, q, {nx-cl_sz, nx}, {0, cl_sz}, D1, hi, xl, t);
 }
 
 /**
@@ -158,22 +156,15 @@ void wave_eq_rl(grid::grid_function_2d<PetscScalar> F,
   **/
 template <class SbpDerivative>
 void wave_eq_li(grid::grid_function_2d<PetscScalar> F,
-                    const grid::grid_function_2d<PetscScalar> q,
-                    const std::array<PetscInt,2> ind_j,
-                    const PetscInt cl_sz,
-                    const SbpDerivative& D1,
-                    const std::array<PetscScalar,2>& hi,
-                    const std::array<PetscScalar,2>& xl,
-                    const PetscScalar t)
+                const grid::grid_function_2d<PetscScalar> q,
+                const std::array<PetscInt,2> ind_j,
+                const PetscInt cl_sz,
+                const SbpDerivative& D1,
+                const std::array<PetscScalar,2>& hi,
+                const std::array<PetscScalar,2>& xl,
+                const PetscScalar t)
 {
- 
- for (PetscInt j = ind_j[0]; j < ind_j[1]; j++) { 
-    for (PetscInt i = 0; i < cl_sz; i++) { 
-      F(j, i, 0) = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-      F(j, i, 1) = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-      F(j, i, 2) = -D1.apply_x_left(q, hi[0], i, j, 0) - D1.apply_y_interior(q, hi[1], i, j, 1);
-    }
-  }
+ rhs_patch(wave_eq_rhs<decltype(D1),left,interior>, F, q, {0, cl_sz}, ind_j, D1, hi, xl, t);
 }
 
 /**
@@ -187,23 +178,17 @@ void wave_eq_li(grid::grid_function_2d<PetscScalar> F,
   **/
 template <class SbpDerivative>
 void wave_eq_ii(grid::grid_function_2d<PetscScalar> F,
-                    const grid::grid_function_2d<PetscScalar> q,
-                    const std::array<PetscInt,2> ind_i,
-                    const std::array<PetscInt,2> ind_j,
-                    const SbpDerivative& D1,
-                    const std::array<PetscScalar,2>& hi,
-                    const std::array<PetscScalar,2>& xl,
-                    const PetscScalar t)
+                const grid::grid_function_2d<PetscScalar> q,
+                const std::array<PetscInt,2> ind_i,
+                const std::array<PetscInt,2> ind_j,
+                const SbpDerivative& D1,
+                const std::array<PetscScalar,2>& hi,
+                const std::array<PetscScalar,2>& xl,
+                const PetscScalar t)
 {
-
-  for (PetscInt j = ind_j[0]; j < ind_j[1]; j++) { 
-    for (PetscInt i = ind_i[0]; i < ind_i[1]; i++) { 
-      F(j, i, 0) = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-      F(j, i, 1) = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-      F(j, i, 2) = -D1.apply_x_interior(q, hi[0], i, j, 0) - D1.apply_y_interior(q, hi[1], i, j, 1);
-    }
-  }
+  rhs_patch(wave_eq_rhs<decltype(D1),interior,interior>, F, q, ind_i, ind_j, D1, hi, xl, t);
 }
+
 
 /**
   *   ****************
@@ -225,13 +210,7 @@ void wave_eq_ri(grid::grid_function_2d<PetscScalar> F,
                     const PetscScalar t)
 {
   const PetscInt nx = q.mapping().nx();
-  for (PetscInt j = ind_j[0]; j < ind_j[1]; j++) { 
-    for (PetscInt i = nx-cl_sz; i < nx; i++) {
-      F(j, i, 0) = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-      F(j, i, 1) = -rho_inv(i, j, hi, xl)*D1.apply_y_interior(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-      F(j, i, 2) = -D1.apply_x_right(q, hi[0], i, j, 0) - D1.apply_y_interior(q, hi[1], i, j, 1);
-    }
-  }
+  rhs_patch(wave_eq_rhs<decltype(D1),right,interior>, F, q, {nx-cl_sz, nx}, ind_j, D1, hi, xl, t);
 }
 
 
@@ -254,13 +233,7 @@ void wave_eq_lr(grid::grid_function_2d<PetscScalar> F,
                     const PetscScalar t)
 {
   const PetscInt ny = q.mapping().ny();  
-  for (PetscInt j = ny-cl_sz; j < ny; j++) { 
-    for (PetscInt i = 0; i < cl_sz; i++) { 
-      F(j, i, 0) = -rho_inv(i, j, hi, xl)*D1.apply_x_left(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-      F(j, i, 1) = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-      F(j, i, 2) = -D1.apply_x_left(q, hi[0], i, j, 0) - D1.apply_y_right(q, hi[1], i, j, 1);
-    }
-  }
+  rhs_patch(wave_eq_rhs<decltype(D1),left,right>, F, q, {0, cl_sz}, {ny-cl_sz, ny}, D1, hi, xl, t);
 }
 
 /**
@@ -283,13 +256,7 @@ void wave_eq_ir(grid::grid_function_2d<PetscScalar> F,
                     const PetscScalar t)
 {
   const PetscInt ny = q.mapping().ny();
-  for (PetscInt j = ny-cl_sz; j < ny; j++) { 
-    for (PetscInt i = ind_i[0]; i < ind_i[1]; i++) { 
-      F(j, i, 0) = -rho_inv(i, j, hi, xl)*D1.apply_x_interior(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-      F(j, i, 1) = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-      F(j, i, 2) = -D1.apply_x_interior(q, hi[0], i, j, 0) - D1.apply_y_right(q, hi[1], i, j, 1);
-    }
-  }
+  rhs_patch(wave_eq_rhs<decltype(D1),interior,right>, F, q, ind_i, {ny-cl_sz, ny}, D1, hi, xl, t);
 }
 
 /**
@@ -312,13 +279,7 @@ void wave_eq_rr(grid::grid_function_2d<PetscScalar> F,
 {
   const PetscInt nx = q.mapping().nx();
   const PetscInt ny = q.mapping().ny();
-  for (PetscInt j = ny-cl_sz; j < ny; j++) { 
-    for (PetscInt i = nx-cl_sz; i < nx; i++) { 
-      F(j, i, 0) = -rho_inv(i, j, hi, xl)*D1.apply_x_right(q, hi[0], i, j, 2) + forcing_u(i, j, t, hi, xl);
-      F(j, i, 1) = -rho_inv(i, j, hi, xl)*D1.apply_y_right(q, hi[1], i, j, 2) + forcing_v(i, j, t, hi, xl);
-      F(j, i, 2) = -D1.apply_x_right(q, hi[0], i, j, 0) - D1.apply_y_right(q, hi[1], i, j, 1);
-    }
-  }
+  rhs_patch(wave_eq_rhs<decltype(D1),right,right>, F, q, {nx-cl_sz, nx}, {ny-cl_sz, ny}, D1, hi, xl, t);
 }
 
 template <class SbpDerivative>

@@ -14,7 +14,7 @@ INCLUDES = $(INCLUDE_PATH) $(EXTERNAL_INCLUDE)
 
 IFLAGS			= $(foreach d, $(INCLUDES), -I$d)
 DEBUGFLAGS		= -Wall -g
-COPTFLAGS		= -O3 -march=native -mtune=native -ffast-math
+COPTFLAGS		= -O3 -march=native -mtune=native -ffast-math -Rpass-missed=inline -mllvm -inline-threshold=1000
 CPPFLAGS		= -DVERSION=${PETSC_VERSION_NUM}
 
 ifeq ($(strip $(order)),)
