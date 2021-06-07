@@ -5,12 +5,10 @@ BIN_PATH = bin/
 OBJ_PATH = obj/
 PROF_PATH = profiling/
 INCLUDE_PATH = include/
-EXTERNAL_PATH = external/
 
 # External include paths
-MDSPAN_INCLUDE = $(EXTERNAL_PATH)mdspan/include
 PETSC_INCLUDE = ${PETSC_DIR}/include
-EXTERNAL_INCLUDE = $(MDSPAN_INCLUDE) ${PETSC_INCLUDE}
+EXTERNAL_INCLUDE = ${PETSC_INCLUDE}
 
 INCLUDES = $(INCLUDE_PATH) $(EXTERNAL_INCLUDE)
 
@@ -62,7 +60,7 @@ endif
 acoustic_wave_sim.o: $(SRC_PATH)acoustic_wave_sim/acoustic_wave_sim.cpp $(INCLUDE_PATH)acoustic_wave_eq/wave_eq_rhs.h $(INCLUDE_PATH)$(wildcard sbpops/*.h)
 ifeq (${PROFILING}, true)
 	echo $(ORDER_MSG)
-	-${CXX} ${CXXFLAGS} ${GPROF} -fopt-info-vec-optimized -c $(SRC_PATH)acoustic_wave_sim/acoustic_wave_sim.cpp -DSBP_OPERATOR_ORDER=$(ORDER)
+	-${CXX} ${CXXFLAGS} ${GPROF} -c $(SRC_PATH)acoustic_wave_sim/acoustic_wave_sim.cpp -DSBP_OPERATOR_ORDER=$(ORDER)
 	mv acoustic_wave_sim.o $(OBJ_PATH)acoustic_wave_sim.o
 else
 ifeq (${COVERAGE}, true)
@@ -71,23 +69,8 @@ ifeq (${COVERAGE}, true)
 	mv acoustic_wave_sim.o $(OBJ_PATH)acoustic_wave_sim.o
 else
 	echo $(ORDER_MSG)
-	-${CXX} ${CXXFLAGS} -fopt-info-vec-optimized -c $(SRC_PATH)acoustic_wave_sim/acoustic_wave_sim.cpp -DSBP_OPERATOR_ORDER=$(ORDER)
+	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)acoustic_wave_sim/acoustic_wave_sim.cpp -DSBP_OPERATOR_ORDER=$(ORDER)
 	mv acoustic_wave_sim.o $(OBJ_PATH)acoustic_wave_sim.o
-endif
-endif
-
-
-create_layout.o: $(SRC_PATH)grids/create_layout.cpp  $(INCLUDE_PATH)/grids/create_layout.h $(INCLUDE_PATH)/grids/layout.h
-ifeq (${PROFILING}, true)
-	-${CXX} ${CXXFLAGS} ${GPROF} -c $(SRC_PATH)grids/create_layout.cpp
-	mv create_layout.o $(OBJ_PATH)create_layout.o
-else
-ifeq (${COVERAGE}, true)
-	-${CXX} ${CXXFLAGS} ${GCOV} -c $(SRC_PATH)grids/create_layout.cpp
-	mv create_layout.o $(OBJ_PATH)create_layout.o
-else
-	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)grids/create_layout.cpp
-	mv create_layout.o $(OBJ_PATH)create_layout.o
 endif
 endif
 
@@ -103,21 +86,6 @@ ifeq (${COVERAGE}, true)
 else
 	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)io/IO_utils.cpp
 	mv IO_utils.o $(OBJ_PATH)IO_utils.o
-endif
-endif
-
-
-scatter_ctx.o: $(SRC_PATH)scatter_ctx/scatter_ctx.cpp $(INCLUDE_PATH)/scatter_ctx/scatter_ctx.h
-ifeq (${PROFILING}, true)
-	-${CXX} ${CXXFLAGS} ${GPROF} -c $(SRC_PATH)scatter_ctx/scatter_ctx.cpp
-	mv scatter_ctx.o $(OBJ_PATH)scatter_ctx.o
-else
-ifeq (${COVERAGE}, true)
-	-${CXX} ${CXXFLAGS} $(GCOV) -c $(SRC_PATH)scatter_ctx/scatter_ctx.cpp
-	mv scatter_ctx.o $(OBJ_PATH)scatter_ctx.o
-else
-	-${CXX} ${CXXFLAGS} -c $(SRC_PATH)scatter_ctx/scatter_ctx.cpp
-	mv scatter_ctx.o $(OBJ_PATH)scatter_ctx.o
 endif
 endif
 
@@ -151,6 +119,14 @@ else
 	mv wave_eq_benchmark $(BIN_PATH)
 endif
 endif
+
+test_layout: benchmark/test_layout.cpp benchmark_utils.o
+	-${CXX} ${CXXFLAGS} $(COPTFLAGS) $(DEBUGFLAGS) -o test_layout benchmark/test_layout.cpp $(OBJ_PATH)benchmark_utils.o ${PETSC_SYS_LIB}
+	mv test_layout $(BIN_PATH)
+
+benchmark_utils.o: benchmark/benchmark_utils.cpp benchmark/benchmark_utils.h
+	-${CXX} ${CXXFLAGS} $(COPTFLAGS) $(DEBUGFLAGS) -c benchmark/benchmark_utils.cpp
+	mv benchmark_utils.o $(OBJ_PATH)
 
 
 # # Link object files to create binaries in BIN_PATH/
