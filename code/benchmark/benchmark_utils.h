@@ -1,5 +1,17 @@
 #pragma once
 #include <petsc.h>
+#include <time.h>
+#include <sys/time.h>
+
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+
+double get_wall_seconds();
+
+void current_utc_time(struct timespec *ts);
+
 /**
  * Assigns q_3ptr to the memory of q, q is a flat array holding N*N*dofs elements. The elements are accessed as
  * q_3ptr[j][i][dof]. q_3ptr should be freed after use.

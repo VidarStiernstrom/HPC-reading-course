@@ -25,9 +25,9 @@ VGR				= valgrind --tool=cachegrind
 
 ifeq ($(strip $(ORDER)),)
 ORDER			= 4
-ORDER_MSG		= ORDER not set. Compiling acoustic_wave_sim with $(ORDER)
+ORDER_MSG		= ORDER not set. Compiling acoustic_wave_sim with operator order $(ORDER)
 else
-ORDER_MSG		= Compiling acoustic_wave_sim with $(ORDER)
+ORDER_MSG		= Compiling acoustic_wave_sim with operator order $(ORDER)
 endif
 CXX 			= mpicc 
 CXXFLAGS		= -std=c++17 $(IFLAGS)
@@ -119,6 +119,11 @@ else
 	mv wave_eq_benchmark $(BIN_PATH)
 endif
 endif
+
+benchmark_serial: benchmark/benchmark_serial.cpp benchmark_utils.o $(INCLUDE_PATH)$(wildcard sbpops/*.h)
+	echo $(ORDER_MSG)
+	-${CXX} ${CXXFLAGS} $(COPTFLAGS) $(DEBUGFLAGS) -o benchmark_serial benchmark/benchmark_serial.cpp $(OBJ_PATH)benchmark_utils.o  -DSBP_OPERATOR_ORDER=$(ORDER) ${PETSC_SYS_LIB}
+	mv benchmark_serial $(BIN_PATH)
 
 test_layout: benchmark/test_layout.cpp benchmark_utils.o
 	-${CXX} ${CXXFLAGS} $(COPTFLAGS) $(DEBUGFLAGS) -o test_layout benchmark/test_layout.cpp $(OBJ_PATH)benchmark_utils.o ${PETSC_SYS_LIB}
