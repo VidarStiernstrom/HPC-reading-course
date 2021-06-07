@@ -187,7 +187,6 @@ PetscErrorCode wave_eq_rhs_IL(const PetscScalar t,
                               const std::array<PetscScalar,2>& hi)
 {
   const PetscInt cl_sz = D1.closure_size();
-  PetscInt i,j;
   // Apply rhs of wave equation with forcing in IL block
   for (PetscInt j = 0; j < cl_sz; j++)
   { 
